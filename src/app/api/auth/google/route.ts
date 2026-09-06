@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { buildGoogleAuthUrl, isGoogleConfigured } from "@/lib/auth/google";
 import { getCurrentUser, isStaff } from "@/lib/auth/guards";
 
-export const GOOGLE_STATE_COOKIE = "emvas_google_state";
+const GOOGLE_STATE_COOKIE = "emvas_google_state";
 
 /** Avvia il flusso OAuth Google. mode=login (accesso staff) oppure mode=connect (collega Gmail all'utente corrente). */
 export async function GET(request: NextRequest) {
