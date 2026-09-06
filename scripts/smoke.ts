@@ -55,7 +55,8 @@ async function main() {
       for (const p of STAFF_PAGES) await visit(page, p, label);
       // prima scheda cliente disponibile
       await page.goto(`${BASE}/clienti`);
-      const firstClient = await page.locator('a[href^="/clienti/"]').first().getAttribute("href").catch(() => null);
+      const hrefs = await page.locator('a[href^="/clienti/"]').evaluateAll((els) => els.map((e) => e.getAttribute("href") ?? ""));
+      const firstClient = hrefs.find((h) => /^\/clienti\/(?!nuovo$)[^/?]+$/.test(h)) ?? null;
       if (firstClient && /^\/clienti\/[^/?]+$/.test(firstClient)) {
         for (const tab of ["", "?tab=attivita", "?tab=email", "?tab=chat", "?tab=documenti"]) await visit(page, `${firstClient}${tab}`, label);
       } else {

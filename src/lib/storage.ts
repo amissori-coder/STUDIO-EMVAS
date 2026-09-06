@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { slugifyFilename } from "@/lib/utils";
 
 export function getDataDir() {
-  return path.resolve(process.cwd(), process.env.DATA_DIR ?? "./data");
+  return path.resolve(/*turbopackIgnore: true*/ process.cwd(), process.env.DATA_DIR ?? "./data");
 }
 
 export function getUploadsDir() {
