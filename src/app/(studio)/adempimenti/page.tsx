@@ -157,7 +157,7 @@ export default async function AdempimentiPage(props: PageProps<"/adempimenti">) 
                             <span className="inline-flex items-center gap-1">
                               <BellRing className="h-3.5 w-3.5" /> Preavviso {t.giorniPreavviso} giorni
                             </span>
-                            <Link href={`/attivita?categoria=${t.categoria}&stato=tutte`} className="hover:text-blue-700">
+                            <Link href={`/attivita?template=${t.id}&anno=${anno}&stato=tutte`} className="hover:text-blue-700">
                               {n} attività generate nel {anno}
                             </Link>
                           </div>

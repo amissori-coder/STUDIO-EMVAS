@@ -11,15 +11,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 import { TaskFilters } from "@/modules/attivita/TaskFilters";
 import { TaskRow } from "@/modules/attivita/TaskRow";
-import {
-  buildTaskQuery,
-  ordinaTasks,
-  PAGE_SIZE,
-  parseTaskFilters,
-  raggruppaPerGiorno,
-  TASK_LIST_INCLUDE,
-  type TaskFilters as Filtri,
-} from "@/modules/attivita/lib";
+import { buildTaskQuery, PAGE_SIZE, parseTaskFilters, raggruppaPerGiorno, type TaskFilters as Filtri } from "@/modules/attivita/lib";
+import { caricaPaginaTasks } from "@/modules/attivita/queries";
 
 export const metadata: Metadata = { title: "Attività" };
 
@@ -34,6 +27,8 @@ function buildWhere(f: Filtri, userId: string): Prisma.TaskWhereInput {
 
   if (f.cliente) where.clientId = f.cliente;
   if (f.categoria) where.template = { categoria: f.categoria };
+  if (f.template) where.templateId = f.template;
+  if (f.anno) where.anno = f.anno;
 
   const oggi = startOfDayLocal(new Date());
   if (f.periodo === "scadute") where.scadenza = { lt: oggi };
@@ -54,9 +49,9 @@ export default async function AttivitaPage(props: PageProps<"/attivita">) {
   const where = buildWhere(filtri, user.id);
 
   const oggi = startOfDayLocal(new Date());
-  const [tasks, totale, utenti, clienti, nScadute, nOggi, nSettimana] = await Promise.all([
-    prisma.task.findMany({ where, include: TASK_LIST_INCLUDE, orderBy: { scadenza: "asc" }, take: 2000 }),
-    prisma.task.count({ where }),
+  const [{ tasks: visibili, totale, pagine, pagina }, templateFiltro, utenti, clienti, nScadute, nOggi, nSettimana] = await Promise.all([
+    caricaPaginaTasks(where, filtri.ordina, filtri.pagina),
+    filtri.template ? prisma.adempimentoTemplate.findUnique({ where: { id: filtri.template }, select: { nome: true } }) : null,
     prisma.user.findMany({ where: { ruolo: { in: ["ADMIN", "COLLABORATORE"] }, attivo: true }, select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
     prisma.client.findMany({ where: { OR: [{ attivo: true }, ...(filtri.cliente ? [{ id: filtri.cliente }] : [])] }, select: { id: true, denominazione: true }, orderBy: { denominazione: "asc" } }),
     prisma.task.count({ where: { stato: { in: STATI_TASK_APERTI }, scadenza: { lt: oggi } } }),
@@ -64,11 +59,7 @@ export default async function AttivitaPage(props: PageProps<"/attivita">) {
     prisma.task.count({ where: { stato: { in: STATI_TASK_APERTI }, scadenza: { gte: oggi, lte: endOfDayLocal(addDays(oggi, 7)) } } }),
   ]);
 
-  const ordinati = ordinaTasks(tasks, filtri.ordina);
-  const pagine = Math.max(1, Math.ceil(ordinati.length / PAGE_SIZE));
-  const pagina = Math.min(filtri.pagina, pagine);
   const inizio = (pagina - 1) * PAGE_SIZE;
-  const visibili = ordinati.slice(inizio, inizio + PAGE_SIZE);
   const gruppi = filtri.ordina === "scadenza" ? raggruppaPerGiorno(visibili) : null;
 
   const riepilogo = [
@@ -113,7 +104,7 @@ export default async function AttivitaPage(props: PageProps<"/attivita">) {
         ))}
       </div>
 
-      <TaskFilters filtri={filtri} utenti={utenti} clienti={clienti} userId={user.id} />
+      <TaskFilters filtri={filtri} utenti={utenti} clienti={clienti} userId={user.id} templateNome={filtri.template ? (templateFiltro?.nome ?? "adempimento non trovato") : null} />
 
       <div className="mt-4">
         {visibili.length === 0 ? (
@@ -152,10 +143,10 @@ export default async function AttivitaPage(props: PageProps<"/attivita">) {
           </ul>
         )}
 
-        {ordinati.length > 0 && (
+        {visibili.length > 0 && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
             <p>
-              {inizio + 1}–{Math.min(inizio + PAGE_SIZE, ordinati.length)} di {totale} attività
+              {inizio + 1}–{inizio + visibili.length} di {totale} attività
             </p>
             {pagine > 1 && (
               <div className="flex items-center gap-2">
@@ -169,7 +160,7 @@ export default async function AttivitaPage(props: PageProps<"/attivita">) {
                 </span>
                 {pagina < pagine && (
                   <Button href={`/attivita${buildTaskQuery({ ...filtri, pagina: pagina + 1 })}`} variant="outline" size="sm">
-                    Carica altre
+                    Successive
                   </Button>
                 )}
               </div>

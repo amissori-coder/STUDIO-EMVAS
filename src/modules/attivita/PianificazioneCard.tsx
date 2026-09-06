@@ -175,14 +175,15 @@ export function PianificazioneCard({ clientId, annoIniziale, righeIniziali }: { 
 function OverrideSelect({ value, onChange, disabled, generare }: { value: Override; onChange: (v: Override) => void; disabled: boolean; generare: boolean }) {
   return (
     <div className="flex items-center gap-2">
-      <Select value={value} onChange={(e) => onChange(e.target.value as Override)} disabled={disabled} className="h-10 w-full sm:w-48" aria-label="Attivazione per il cliente">
+      <Select value={value} onChange={(e) => onChange(e.target.value as Override)} disabled={disabled} className="h-10 w-full sm:w-56" aria-label="Attivazione per il cliente">
         <option value="auto">Automatico (da profilo)</option>
         <option value="attiva">Attivato</option>
         <option value="disattiva">Disattivato</option>
       </Select>
-      <Badge color={generare ? "green" : "slate"} className="hidden shrink-0 sm:inline-flex">
-        {generare ? "Genera" : "Non genera"}
-      </Badge>
+      {/* wrapper: la classe base `inline-flex` di Badge prevarrebbe su `hidden` */}
+      <span className="hidden shrink-0 sm:inline-flex">
+        <Badge color={generare ? "green" : "slate"}>{generare ? "Genera" : "Non genera"}</Badge>
+      </span>
     </div>
   );
 }

@@ -19,7 +19,7 @@ export default async function AttivitaClientePage(props: PageProps<"/attivita/cl
     <>
       <PageHeader
         title={client.denominazione}
-        description={`Attività e pianificazione adempimenti${client.attivo ? "" : " · cliente cessato"}`}
+        description={`Attività e pianificazione adempimenti${client.attivo ? "" : " · cliente archiviato"}`}
         backHref="/attivita"
         backLabel="Attività"
         actions={

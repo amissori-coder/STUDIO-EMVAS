@@ -17,20 +17,52 @@ export interface OpzioneCliente {
   denominazione: string;
 }
 
+/** Campo di ricerca: stato locale rimontato (key) quando cambia la ricerca in URL, così non resta testo "fantasma" dopo Azzera filtri o le card di riepilogo. */
+function RicercaForm({ iniziale, onApplica }: { iniziale: string; onApplica: (ricerca: string) => void }) {
+  const [ricerca, setRicerca] = useState(iniziale);
+  return (
+    <form
+      className="relative flex-1"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onApplica(ricerca.trim());
+      }}
+    >
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <Input name="ricerca" value={ricerca} onChange={(e) => setRicerca(e.target.value)} placeholder="Cerca per titolo o cliente…" className="pl-9 pr-9" aria-label="Cerca attività" />
+      {ricerca && (
+        <button
+          type="button"
+          onClick={() => {
+            setRicerca("");
+            onApplica("");
+          }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:text-slate-700"
+          aria-label="Cancella ricerca"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+    </form>
+  );
+}
+
 export function TaskFilters({
   filtri,
   utenti,
   clienti,
   userId,
+  templateNome = null,
 }: {
   filtri: Filtri;
   utenti: OpzioneUtente[];
   clienti: OpzioneCliente[];
   userId: string;
+  /** Nome dell'adempimento quando l'elenco è filtrato per template (link dal catalogo). */
+  templateNome?: string | null;
 }) {
   const router = useRouter();
   const [aperto, setAperto] = useState(false);
-  const [ricerca, setRicerca] = useState(filtri.ricerca);
   const [pending, startTransition] = useTransition();
 
   const attivi = [
@@ -38,6 +70,8 @@ export function TaskFilters({
     !!filtri.assegnatario,
     !!filtri.cliente,
     !!filtri.categoria,
+    !!filtri.template,
+    !!filtri.anno,
     filtri.periodo !== "tutte",
     !!filtri.ricerca,
     filtri.ordina !== "scadenza",
@@ -53,36 +87,7 @@ export function TaskFilters({
   return (
     <div className={cn("rounded-xl border border-slate-200 bg-white shadow-sm", pending && "opacity-70")}>
       <div className="flex items-center gap-2 px-3 py-2 sm:px-4">
-        <form
-          className="relative flex-1"
-          onSubmit={(e) => {
-            e.preventDefault();
-            applica({ ricerca: ricerca.trim() });
-          }}
-        >
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input
-            name="ricerca"
-            value={ricerca}
-            onChange={(e) => setRicerca(e.target.value)}
-            placeholder="Cerca per titolo o cliente…"
-            className="pl-9 pr-9"
-            aria-label="Cerca attività"
-          />
-          {ricerca && (
-            <button
-              type="button"
-              onClick={() => {
-                setRicerca("");
-                applica({ ricerca: "" });
-              }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:text-slate-700"
-              aria-label="Cancella ricerca"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </form>
+        <RicercaForm key={filtri.ricerca} iniziale={filtri.ricerca} onApplica={(ricerca) => applica({ ricerca })} />
         <Button type="button" variant={aperto ? "secondary" : "outline"} onClick={() => setAperto((v) => !v)} className="md:hidden" aria-expanded={aperto}>
           <SlidersHorizontal className="h-4 w-4" />
           Filtri
@@ -159,6 +164,26 @@ export function TaskFilters({
             ))}
           </Select>
         </label>
+        {(filtri.template || filtri.anno) && (
+          <div className="flex flex-wrap items-center gap-2 text-xs sm:col-span-2 lg:col-span-6">
+            {filtri.template && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700 ring-1 ring-inset ring-blue-200">
+                Adempimento: {templateNome ?? "…"}
+                <button type="button" onClick={() => applica({ template: "" })} className="rounded-full p-0.5 hover:bg-blue-100" aria-label="Rimuovi filtro adempimento">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            )}
+            {filtri.anno && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700 ring-1 ring-inset ring-blue-200">
+                Anno: {filtri.anno}
+                <button type="button" onClick={() => applica({ anno: null })} className="rounded-full p-0.5 hover:bg-blue-100" aria-label="Rimuovi filtro anno">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            )}
+          </div>
+        )}
         {attivi > 0 && (
           <div className="sm:col-span-2 lg:col-span-6">
             <Button type="button" variant="ghost" size="sm" onClick={() => startTransition(() => router.push("/attivita"))}>

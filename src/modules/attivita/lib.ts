@@ -34,6 +34,8 @@ export interface TaskFilters {
   assegnatario: string; // userId | "me" | "nessuno" | ""
   cliente: string;
   categoria: string;
+  template: string; // id adempimento (dal catalogo: "N attività generate")
+  anno: number | null; // anno di riferimento (task.anno)
   periodo: Periodo;
   ricerca: string;
   ordina: Ordinamento;
@@ -53,11 +55,14 @@ export function parseTaskFilters(sp: SP): TaskFilters {
   const periodo = str(sp, "periodo");
   const ordina = str(sp, "ordina");
   const pagina = Number.parseInt(str(sp, "pagina"), 10);
+  const anno = Number.parseInt(str(sp, "anno"), 10);
   return {
     stato: stato === "tutte" || stato in STATI_TASK ? (stato as TaskFilters["stato"]) : "aperte",
     assegnatario: str(sp, "assegnatario"),
     cliente: str(sp, "cliente"),
     categoria: str(sp, "categoria"),
+    template: str(sp, "template"),
+    anno: Number.isInteger(anno) && anno >= 2000 && anno <= 2100 ? anno : null,
     periodo: periodo in PERIODI ? (periodo as Periodo) : "tutte",
     ricerca: str(sp, "ricerca").trim().slice(0, 100),
     ordina: ordina in ORDINAMENTI ? (ordina as Ordinamento) : "scadenza",
@@ -72,6 +77,8 @@ export function buildTaskQuery(f: Partial<TaskFilters>) {
   if (f.assegnatario) p.set("assegnatario", f.assegnatario);
   if (f.cliente) p.set("cliente", f.cliente);
   if (f.categoria) p.set("categoria", f.categoria);
+  if (f.template) p.set("template", f.template);
+  if (f.anno) p.set("anno", String(f.anno));
   if (f.periodo && f.periodo !== "tutte") p.set("periodo", f.periodo);
   if (f.ricerca) p.set("ricerca", f.ricerca);
   if (f.ordina && f.ordina !== "scadenza") p.set("ordina", f.ordina);

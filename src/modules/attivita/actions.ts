@@ -171,8 +171,8 @@ export async function aggiornaTask(_prev: ActionResult, formData: FormData): Pro
         giorniPreavviso: parsed.data.giorniPreavviso,
         // se la scadenza cambia anno e l'attività è manuale, aggiorna l'anno di riferimento
         anno: esistente.chiave ? esistente.anno : scadenza.getFullYear(),
-        // se cambia la scadenza, i promemoria ripartono da zero
-        ...(scadenza.getTime() !== esistente.scadenza.getTime() ? { lastReminderKind: null, lastReminderAt: null } : {}),
+        // se cambia la scadenza o l'assegnatario, i promemoria ripartono da zero (come in riassegnaTask)
+        ...(scadenza.getTime() !== esistente.scadenza.getTime() || rif.assigneeId !== esistente.assigneeId ? { lastReminderKind: null, lastReminderAt: null } : {}),
       },
       include: { client: { select: { denominazione: true } } },
     });
