@@ -18,12 +18,21 @@ export function PushManager() {
   const [sub, setSub] = useState<PushSubscription | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  // La chiave pubblica VAPID viene chiesta al server a runtime (vedi /api/push/config): il valore
+  // NEXT_PUBLIC_* incorporato nella build è solo un fallback.
+  const [vapid, setVapid] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const supported = "serviceWorker" in navigator && "PushManager" in window && !!vapid;
+      let key: string | null = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null;
+      try {
+        const res = await fetch("/api/push/config", { cache: "no-store" });
+        if (res.ok) key = ((await res.json()) as { publicKey?: string | null }).publicKey ?? null;
+      } catch {
+        // resta il fallback della build
+      }
+      const supported = "serviceWorker" in navigator && "PushManager" in window && !!key;
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const standalone =
         window.matchMedia("(display-mode: standalone)").matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
@@ -37,6 +46,7 @@ export function PushManager() {
         }
       }
       if (!cancelled) {
+        setVapid(key);
         setEnv({ supported, isIOS, standalone });
         setSub(current);
       }
@@ -44,16 +54,17 @@ export function PushManager() {
     return () => {
       cancelled = true;
     };
-  }, [vapid]);
+  }, []);
 
   async function subscribe() {
     setBusy(true);
     setError(null);
     try {
+      if (!vapid) throw new Error("Le notifiche push non sono configurate sul server.");
       const perm = await Notification.requestPermission();
       if (perm !== "granted") throw new Error("Permesso per le notifiche negato dal browser.");
       const reg = await navigator.serviceWorker.ready;
-      const s = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapid!) });
+      const s = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapid) });
       const res = await fetch("/api/push/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s.toJSON()) });
       if (!res.ok) throw new Error("Registrazione della sottoscrizione fallita.");
       setSub(s);

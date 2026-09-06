@@ -13,7 +13,8 @@ const variants: Record<Variant, string> = {
   danger: "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500 shadow-sm",
 };
 const sizes: Record<Size, string> = {
-  sm: "h-8 px-3 text-sm gap-1.5",
+  // su schermi touch (sotto lg) l'altezza resta 40px per rispettare il target minimo
+  sm: "h-10 lg:h-8 px-3 text-sm gap-1.5",
   md: "h-10 px-4 text-sm gap-2",
   lg: "h-12 px-5 text-base gap-2",
   icon: "h-10 w-10 p-0",

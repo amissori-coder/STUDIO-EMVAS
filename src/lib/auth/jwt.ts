@@ -10,11 +10,16 @@ export interface SessionPayload {
 
 export const SESSION_DAYS = 30;
 
+/** Valori noti (segnaposto di .env.example / documentazione) che non devono mai essere usati come segreto. */
+const SEGRETI_SEGNAPOSTO = new Set(["cambia-questo-segreto-lungo-e-casuale", "dev-only-insecure-secret-0123456789", "changeme", "secret"]);
+const LUNGHEZZA_MINIMA = 32;
+
 function getSecret() {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret || secret.length < 16) {
+  const secret = process.env.SESSION_SECRET?.trim();
+  const valido = !!secret && secret.length >= LUNGHEZZA_MINIMA && !SEGRETI_SEGNAPOSTO.has(secret.toLowerCase());
+  if (!valido) {
     if (process.env.NODE_ENV === "production") {
-      throw new Error("SESSION_SECRET mancante o troppo corto (min 16 caratteri)");
+      throw new Error(`SESSION_SECRET mancante, troppo corto (min ${LUNGHEZZA_MINIMA} caratteri) o uguale al valore di esempio: genera un segreto con "openssl rand -base64 32"`);
     }
     return new TextEncoder().encode("dev-only-insecure-secret-0123456789");
   }

@@ -9,6 +9,10 @@ RUN npm ci --no-audit --no-fund
 FROM node:22-alpine AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+# La chiave pubblica VAPID viene incorporata nel bundle client alla build (NEXT_PUBLIC_*): passala come
+# build arg (docker-compose la legge dal .env). L'app la legge comunque anche a runtime da /api/push/config.
+ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY=
+ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV DATABASE_URL="file:../data/emvas.db"

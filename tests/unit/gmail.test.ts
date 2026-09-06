@@ -12,6 +12,11 @@ describe("gmail parsing", () => {
     assert.deepEqual(parseAddressList("a@x.it, B <b@x.it>,,"), ["a@x.it", "b@x.it"]);
   });
 
+  it("parseAddressList non spezza sulle virgole dentro le virgolette", () => {
+    assert.deepEqual(parseAddressList('"Rossi, Mario" <mario@rossi.it>, "Bianchi, Anna" <anna@bianchi.it>'), ["mario@rossi.it", "anna@bianchi.it"]);
+    assert.deepEqual(parseAddressList("undisclosed-recipients:;"), []);
+  });
+
   it("parseGmailMessage estrae intestazioni, corpo e allegati", () => {
     const parsed = parseGmailMessage({
       id: "m1",
@@ -56,5 +61,29 @@ describe("gmail parsing", () => {
     assert.ok(!out.includes("<iframe"));
     assert.ok(!out.includes("javascript:"));
     assert.ok(!out.includes("<style"));
+  });
+
+  it("sanitizeEmailHtml resiste a tag annidati, attributi senza virgolette e schemi offuscati", () => {
+    assert.equal(sanitizeEmailHtml("<img src=x onerror=alert(1)>"), '<img src="x">');
+    assert.equal(sanitizeEmailHtml("<div onclick=alert(1)>x</div>"), "<div>x</div>");
+    assert.equal(sanitizeEmailHtml('<a href="java&#x73;cript:alert(1)">b</a>'), "<a>b</a>");
+    assert.equal(sanitizeEmailHtml('<a href="java\nscript:alert(1)">b</a>'), "<a>b</a>");
+    assert.ok(!/<script/i.test(sanitizeEmailHtml("<scr<script></script>ipt>alert(1)</script>")));
+    assert.ok(!/<meta/i.test(sanitizeEmailHtml('<me<meta>ta http-equiv=refresh content="0;url=http://evil">')));
+    assert.ok(!/<style/i.test(sanitizeEmailHtml("<sty<style></style>le>body{display:none}</style>")));
+    assert.equal(sanitizeEmailHtml('<img title="x>" onerror=alert(1) src=x>'), '<img title="x>" src="x">');
+    assert.equal(sanitizeEmailHtml('<img alt=a"b onerror=alert(1) src=x>'), '<img alt="a&quot;b" src="x">');
+    assert.equal(sanitizeEmailHtml("<script>unclosed"), "");
+    assert.equal(sanitizeEmailHtml('<form action="http://evil"><input></form>'), "<input>");
+    assert.equal(sanitizeEmailHtml("<svg onload=alert(1)><script>1</script></svg>"), "");
+    assert.equal(sanitizeEmailHtml("<!-- commento --><p>ok</p>"), "<p>ok</p>");
+  });
+
+  it("sanitizeEmailHtml conserva l'HTML normale delle email", () => {
+    const html =
+      '<table><tr><td style="color:red">cell &amp; "quoted"</td></tr></table><a href="https://x.it/a?b=1&amp;c=2" target="_blank">ok</a><img src="data:image/png;base64,AAAA"><br>';
+    assert.equal(sanitizeEmailHtml(html), html);
+    assert.equal(sanitizeEmailHtml('<a href="mailto:a@b.it">m</a>'), '<a href="mailto:a@b.it">m</a>');
+    assert.equal(sanitizeEmailHtml('<img src="data:text/html;base64,AAAA">'), "<img>");
   });
 });

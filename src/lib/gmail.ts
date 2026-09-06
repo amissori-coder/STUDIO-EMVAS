@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { refreshAccessToken } from "@/lib/auth/google";
 import { notify } from "@/lib/notifications";
+import { RUOLI_STAFF } from "@/lib/constants";
 import { normalizeEmail, truncate } from "@/lib/utils";
 import {
   decodeBase64Url,
@@ -60,7 +61,7 @@ async function gmailFetch<T>(account: GoogleAccount, path: string, init?: Reques
 }
 
 /**
- * Trova il cliente associato a un insieme di indirizzi email (email/PEC del cliente o dei suoi contatti).
+ * Trova il cliente (attivo) associato a un insieme di indirizzi email (email/PEC del cliente o dei suoi contatti).
  */
 export async function findClientByEmails(addresses: string[]): Promise<string | null> {
   const list = Array.from(new Set(addresses.map(normalizeEmail).filter(Boolean)));
@@ -70,8 +71,20 @@ export async function findClientByEmails(addresses: string[]): Promise<string | 
     select: { id: true },
   });
   if (client) return client.id;
-  const contact = await prisma.clientContact.findFirst({ where: { email: { in: list } }, select: { clientId: true } });
+  const contact = await prisma.clientContact.findFirst({
+    where: { email: { in: list }, client: { attivo: true } },
+    select: { clientId: true },
+  });
   return contact?.clientId ?? null;
+}
+
+/** Indirizzi dello studio (utenti staff e caselle collegate): non partecipano all'associazione ai clienti. */
+async function loadStudioAddresses(): Promise<Set<string>> {
+  const [users, accounts] = await Promise.all([
+    prisma.user.findMany({ where: { ruolo: { in: [...RUOLI_STAFF] } }, select: { email: true } }),
+    prisma.googleAccount.findMany({ select: { googleEmail: true } }),
+  ]);
+  return new Set([...users.map((u) => normalizeEmail(u.email)), ...accounts.map((a) => normalizeEmail(a.googleEmail))]);
 }
 
 async function listMessageIds(account: GoogleAccount, query: string, max: number): Promise<string[]> {
@@ -109,6 +122,10 @@ export interface SyncResult { imported: number; linked: number; skipped: number;
 /**
  * Sincronizza la casella Gmail di un account: importa i nuovi messaggi, li collega
  * automaticamente ai clienti e notifica il referente del cliente.
+ *
+ * Notifiche: solo nelle sincronizzazioni incrementali (mai al primo collegamento della casella,
+ * che importerebbe settimane di posta già letta) e solo per messaggi in entrata il cui mittente
+ * è un indirizzo del cliente (non per email scritte dallo studio con il cliente in copia).
  */
 export async function syncGoogleAccount(accountId: string): Promise<SyncResult> {
   const account = await prisma.googleAccount.findUnique({ where: { id: accountId }, include: { user: true } });
@@ -117,10 +134,13 @@ export async function syncGoogleAccount(accountId: string): Promise<SyncResult> 
   const max = Number(process.env.GMAIL_SYNC_MAX ?? 300) || 300;
   const days = Number(process.env.GMAIL_SYNC_DAYS ?? 30) || 30;
   const result: SyncResult = { imported: 0, linked: 0, skipped: 0 };
+  const incremental = !!account.historyId;
+  const previousSyncAt = account.lastSyncAt;
 
   try {
     let ids: string[] = [];
     let newHistoryId: string | null = null;
+    let fallback = false;
 
     if (account.historyId) {
       try {
@@ -128,9 +148,11 @@ export async function syncGoogleAccount(accountId: string): Promise<SyncResult> 
         ids = h.ids;
         newHistoryId = h.historyId;
       } catch (e) {
-        // historyId troppo vecchio (404): ricadiamo sulla ricerca degli ultimi giorni
+        // historyId troppo vecchio (404): ricadiamo sulla ricerca dei giorni trascorsi dall'ultimo sync
         if ((e as GmailError).status !== 404) throw e;
-        ids = await listMessageIds(account, `newer_than:7d -in:spam -in:trash`, max);
+        fallback = true;
+        const trascorsi = previousSyncAt ? Math.ceil((Date.now() - previousSyncAt.getTime()) / 86_400_000) + 1 : days;
+        ids = await listMessageIds(account, `newer_than:${Math.max(7, trascorsi)}d -in:spam -in:trash`, max);
       }
     } else {
       ids = await listMessageIds(account, `newer_than:${days}d -in:spam -in:trash`, max);
@@ -142,8 +164,15 @@ export async function syncGoogleAccount(accountId: string): Promise<SyncResult> 
         select: { gmailId: true },
       });
       const known = new Set(existing.map((e) => e.gmailId));
-      const toFetch = ids.filter((id) => !known.has(id)).slice(0, max);
+      const nuovi = ids.filter((id) => !known.has(id));
+      const toFetch = nuovi.slice(0, max);
       result.skipped = ids.length - toFetch.length;
+      // Se nel ramo incrementale restano messaggi oltre il limite, NON avanziamo l'historyId:
+      // verranno ripresi (già noti esclusi) alla prossima sincronizzazione.
+      if (nuovi.length > toFetch.length && newHistoryId) newHistoryId = account.historyId;
+
+      const studioAddresses = await loadStudioAddresses();
+      const selfAddr = normalizeEmail(account.googleEmail);
 
       for (const id of toFetch) {
         let msg: GmailMessage;
@@ -155,7 +184,17 @@ export async function syncGoogleAccount(accountId: string): Promise<SyncResult> 
         }
         if ((msg.labelIds ?? []).some((l) => l === "SPAM" || l === "TRASH" || l === "DRAFT")) continue;
         const parsed = parseGmailMessage(msg);
-        const clientId = await findClientByEmails([parsed.fromAddr, ...parsed.toAddrs, ...parsed.ccAddrs]);
+
+        // Associazione: prima il mittente, poi i destinatari (esclusi gli indirizzi dello studio)
+        const fromIsStudio = studioAddresses.has(parsed.fromAddr) || parsed.fromAddr === selfAddr;
+        const isSent = parsed.labelIds.includes("SENT") || fromIsStudio;
+        let clientId = !fromIsStudio && parsed.fromAddr ? await findClientByEmails([parsed.fromAddr]) : null;
+        const senderIsClient = !!clientId;
+        if (!clientId) {
+          const recipients = [...parsed.toAddrs, ...parsed.ccAddrs].filter((a) => a !== selfAddr && !studioAddresses.has(a));
+          clientId = recipients.length ? await findClientByEmails(recipients) : null;
+        }
+
         const created = await prisma.emailMessage.upsert({
           where: { accountId_gmailId: { accountId, gmailId: parsed.gmailId } },
           create: {
@@ -184,16 +223,18 @@ export async function syncGoogleAccount(accountId: string): Promise<SyncResult> 
         result.imported++;
         if (clientId) {
           result.linked++;
-          const client = await prisma.client.findUnique({ where: { id: clientId }, select: { denominazione: true, referenteId: true } });
-          const isIncoming = parsed.fromAddr !== normalizeEmail(account.googleEmail);
-          if (client?.referenteId && isIncoming) {
-            await notify({
-              userId: client.referenteId,
-              tipo: "EMAIL_CLIENTE",
-              titolo: `Email da ${client.denominazione}`,
-              corpo: truncate(parsed.subject, 120),
-              link: `/email/${created.id}`,
-            });
+          const isNew = incremental && (!fallback || !previousSyncAt || parsed.receivedAt > previousSyncAt);
+          if (isNew && senderIsClient && !isSent) {
+            const client = await prisma.client.findUnique({ where: { id: clientId }, select: { denominazione: true, referenteId: true } });
+            if (client?.referenteId) {
+              await notify({
+                userId: client.referenteId,
+                tipo: "EMAIL_CLIENTE",
+                titolo: `Email da ${client.denominazione}`,
+                corpo: truncate(parsed.subject, 120),
+                link: `/email/${created.id}`,
+              });
+            }
           }
         }
       }
@@ -224,13 +265,36 @@ export async function syncAllGoogleAccounts() {
   return results;
 }
 
-/** Scarica un allegato (bytes) da Gmail. */
-export async function fetchGmailAttachment(accountId: string, gmailMessageId: string, attachmentId: string): Promise<Buffer> {
+export interface AttachmentHint { partId?: string; filename?: string; size?: number }
+
+/**
+ * Scarica un allegato (bytes) da Gmail. Gli attachmentId non sono stabili nel tempo: se Gmail risponde 404,
+ * il messaggio viene riletto e l'allegato ritrovato tramite `hint` (partId, oppure filename+size) o,
+ * se il messaggio ha un solo allegato, preso direttamente.
+ */
+export async function fetchGmailAttachment(accountId: string, gmailMessageId: string, attachmentId: string, hint?: AttachmentHint): Promise<Buffer> {
   const account = await prisma.googleAccount.findUnique({ where: { id: accountId } });
   if (!account) throw new GmailError("Account Gmail non trovato", 404);
-  const res = await gmailFetch<{ data?: string; size?: number }>(account, `/messages/${gmailMessageId}/attachments/${attachmentId}`);
-  if (!res.data) throw new GmailError("Allegato vuoto", 404);
-  return decodeBase64Url(res.data);
+  const download = async (id: string) => {
+    const res = await gmailFetch<{ data?: string; size?: number }>(account, `/messages/${gmailMessageId}/attachments/${id}`);
+    if (!res.data) throw new GmailError("Allegato vuoto", 404);
+    return decodeBase64Url(res.data);
+  };
+  try {
+    return await download(attachmentId);
+  } catch (e) {
+    if ((e as GmailError).status !== 404) throw e;
+    const msg = await gmailFetch<GmailMessage>(account, `/messages/${gmailMessageId}?format=full`);
+    const atts = parseGmailMessage(msg).attachments;
+    const fresh =
+      (hint?.partId && atts.find((a) => a.partId === hint.partId)) ||
+      (hint?.filename && atts.find((a) => a.filename === hint.filename && (hint.size === undefined || a.size === hint.size))) ||
+      (atts.length === 1 ? atts[0] : undefined);
+    if (!fresh || fresh.attachmentId === attachmentId) {
+      throw new GmailError("Allegato non più disponibile su Gmail: aprilo da Gmail e ricaricalo manualmente.", 404);
+    }
+    return download(fresh.attachmentId);
+  }
 }
 
 export function gmailWebUrl(googleEmail: string, gmailId: string) {

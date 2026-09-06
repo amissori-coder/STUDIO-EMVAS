@@ -20,14 +20,15 @@ Piattaforma web privata per lo studio (accessibile anche da telefono, installabi
 ## Avvio rapido (sviluppo)
 
 ```bash
-cp .env.example .env        # poi modifica almeno SESSION_SECRET e ADMIN_PASSWORD
+cp .env.example .env        # poi imposta SESSION_SECRET (openssl rand -base64 32) e ADMIN_PASSWORD
 npm install
 npm run setup               # crea il database SQLite e carica admin + catalogo adempimenti
 npm run db:seed:demo        # (facoltativo) clienti e attività dimostrativi
 npm run dev                 # http://localhost:3000
 ```
 
-Accedi con `ADMIN_EMAIL` / `ADMIN_PASSWORD` del file `.env`.
+Accedi con `ADMIN_EMAIL` / `ADMIN_PASSWORD` del file `.env`. Se `ADMIN_PASSWORD` non è impostata, il seed genera
+una password casuale e la stampa una sola volta a console (non esiste una password predefinita).
 Con i dati demo: collaboratore `collaboratore@studio.local` / `Collaboratore123!`,
 utente portale `cliente@rossi-impianti.it` / `Cliente123!`.
 
@@ -36,13 +37,13 @@ utente portale `cliente@rossi-impianti.it` / `Cliente123!`.
 | Variabile | Descrizione |
 | --- | --- |
 | `APP_URL` | URL pubblico (es. `https://studio.emvas.tax`), usato nei link delle notifiche e nel callback Google |
-| `SESSION_SECRET` | segreto per firmare le sessioni (`openssl rand -base64 32`) |
+| `SESSION_SECRET` | segreto per firmare le sessioni (`openssl rand -base64 32`, almeno 32 caratteri; in produzione il valore di esempio viene rifiutato) |
 | `DATA_DIR`, `DATABASE_URL` | cartella dati (database + documenti caricati) |
 | `GOOGLE_CLIENT_ID/SECRET` | credenziali OAuth per login staff e lettura Gmail (vedi sotto) |
 | `GOOGLE_ALLOWED_DOMAIN` | se impostato, solo account Google di quel dominio possono accedere |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | chiavi per le notifiche push (`npm run vapid`) |
 | `SMTP_*` | server SMTP per le notifiche via email (facoltativo) |
-| `CRON_SECRET` | per invocare i job da un cron esterno (`/api/cron/daily`, `/api/cron/gmail`) |
+| `CRON_SECRET` | per invocare i job da un cron esterno (`/api/cron/daily`, `/api/cron/gmail`), solo via header `Authorization` |
 
 ### Google / Gmail
 1. Su [Google Cloud Console](https://console.cloud.google.com) crea un progetto e abilita la **Gmail API**.
@@ -54,9 +55,14 @@ utente portale `cliente@rossi-impianti.it` / `Cliente123!`.
 
 Le email non vengono mai inviate dall'app: si legge solo la posta (scope `gmail.readonly`).
 
+Nota sulla riservatezza: la posta importata (ultimi `GMAIL_SYNC_DAYS` giorni e poi i nuovi messaggi) forma una
+casella unificata visibile a **tutto lo staff**, comprese le email non associate a clienti. Collega quindi solo
+caselle di lavoro dello studio, non caselle personali. Ogni casella può essere collegata da un solo utente.
+
 ### Notifiche push
-Genera le chiavi con `npm run vapid`, inseriscile nel `.env` e riavvia. Ogni utente attiva le notifiche su ciascun
-dispositivo da **Impostazioni → Notifiche**. Su iPhone/iPad occorre prima aggiungere l'app alla schermata Home.
+Genera le chiavi con `npm run vapid`, inseriscile nel `.env` e riavvia il server (in Docker: `docker compose up -d --build`,
+così la chiave pubblica entra anche nel bundle client). Ogni utente attiva le notifiche su ciascun dispositivo da
+**Impostazioni → Notifiche**. Su iPhone/iPad occorre prima aggiungere l'app alla schermata Home.
 
 ### Job pianificati
 Il server esegue internamente (`node-cron`):
@@ -64,16 +70,19 @@ Il server esegue internamente (`node-cron`):
 - ogni 10 minuti: sincronizzazione Gmail.
 
 In alternativa (`ENABLE_CRON=false`) puoi chiamare `GET /api/cron/daily` e `GET /api/cron/gmail` con header
-`Authorization: Bearer CRON_SECRET` da un cron esterno.
+`Authorization: Bearer CRON_SECRET` da un cron esterno (il segreto non è accettato nella query string).
+Un amministratore autenticato può eseguirli manualmente solo con `POST` (l'esecuzione viene registrata in audit).
 
 ## Produzione con Docker
 
 ```bash
-cp .env.example .env   # compila i valori reali
+cp .env.example .env   # compila i valori reali (SESSION_SECRET obbligatorio in produzione)
 docker compose up -d --build
 ```
 
-L'app ascolta sulla porta 3000; metti davanti un reverse proxy HTTPS (Caddy, Nginx, Traefik).
+L'app ascolta sulla porta 3000; metti davanti un reverse proxy HTTPS (Caddy, Nginx, Traefik) che imposti
+`X-Forwarded-For` (usato per limitare i tentativi di login per IP).
+Il file `.dockerignore` tiene fuori dall'immagine `.env`, `data/` e `node_modules`.
 Il database e i documenti sono nella cartella `./data` (fai il backup di questa cartella).
 
 ## Comandi utili

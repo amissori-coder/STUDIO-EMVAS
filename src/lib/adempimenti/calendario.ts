@@ -57,6 +57,22 @@ export function primoGiornoLavorativo(d: Date): Date {
   return r;
 }
 
+/**
+ * Proroga di Ferragosto (art. 37, c. 11-bis, D.L. 223/2006): versamenti e adempimenti fiscali con scadenza
+ * tra il 1° e il 20 agosto possono essere effettuati entro il 20 agosto.
+ */
+export function prorogaAgosto(d: Date): Date {
+  if (d.getMonth() === 7 && d.getDate() >= 1 && d.getDate() < 20) {
+    return new Date(d.getFullYear(), 7, 20, d.getHours(), d.getMinutes());
+  }
+  return new Date(d);
+}
+
+/** Scadenza effettiva: proroga di Ferragosto e poi slittamento al primo giorno lavorativo. */
+export function scadenzaEffettiva(d: Date): Date {
+  return primoGiornoLavorativo(prorogaAgosto(d));
+}
+
 /** Ultimo giorno del mese (1-12). */
 export function ultimoGiornoMese(anno: number, mese: number) {
   return new Date(anno, mese, 0).getDate();

@@ -18,7 +18,7 @@ export function Tabs({ items, param, defaultKey, className }: { items: TabItem[]
   const sp = useSearchParams();
   const current = param ? (sp.get(param) ?? defaultKey ?? items[0]?.key) : null;
   return (
-    <nav className={cn("-mx-1 flex gap-1 overflow-x-auto border-b border-slate-200 px-1", className)} aria-label="Sezioni">
+    <nav className={cn("-mx-1 flex gap-0.5 overflow-x-auto border-b border-slate-200 px-1 sm:gap-1", className)} aria-label="Sezioni">
       {items.map((it) => {
         const active = param ? it.key === current : pathname === it.href || pathname.startsWith(it.href + "/");
         return (
@@ -26,7 +26,7 @@ export function Tabs({ items, param, defaultKey, className }: { items: TabItem[]
             key={it.href}
             href={it.href}
             className={cn(
-              "-mb-px inline-flex shrink-0 items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors",
+              "-mb-px inline-flex min-h-10 shrink-0 items-center gap-1.5 border-b-2 px-2 py-2 text-[13px] font-medium transition-colors sm:gap-2 sm:px-3 sm:py-2.5 sm:text-sm",
               active ? "border-blue-600 text-blue-700" : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800",
             )}
           >

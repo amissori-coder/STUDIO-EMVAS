@@ -5,7 +5,9 @@
 //  - MENSILE:   [{ giorno: 16, offsetMeseCompetenza: -1 }]  -> una scadenza ogni mese dell'anno;
 //               l'etichetta di periodo è il mese di competenza (mese scadenza + offset).
 //  - ANNUALE / TRIMESTRALE: [{ mese, giorno, etichetta? }] -> una scadenza per ogni voce.
-//    Nelle etichette si possono usare i segnaposto {anno} e {annoPrec}.
+//    Nelle etichette si possono usare i segnaposto {anno}, {annoPrec} (anno-1) e {annoPrec2} (anno-2).
+//  Le date tra il 1° e il 20 agosto vengono prorogate al 20 agosto (proroga di Ferragosto) e tutte le
+//  scadenze slittano al primo giorno lavorativo (vedi calendario.ts).
 //    giorno = 0 significa "ultimo giorno del mese".
 
 import type { CategoriaAdempimento, RegimeFiscale, Ricorrenza, TipoSoggetto } from "@/lib/constants";
@@ -149,10 +151,11 @@ export const CATALOGO_ADEMPIMENTI: TemplateCatalogo[] = [
   {
     codice: "CONSERVAZIONE_FE",
     nome: "Conservazione digitale fatture elettroniche",
-    descrizione: "Verifica della conservazione a norma delle fatture elettroniche dell'anno precedente.",
+    descrizione:
+      "Conservazione a norma delle fatture elettroniche entro tre mesi dal termine di presentazione della dichiarazione dei redditi dell'anno di riferimento (art. 3 D.M. 17/6/2014): le fatture di due anni prima vanno conservate entro il 31 gennaio.",
     categoria: "IVA",
     ricorrenza: "ANNUALE",
-    scadenze: [{ mese: 7, giorno: 31, etichetta: "Fatture {annoPrec}" }],
+    scadenze: [{ mese: 1, giorno: 31, etichetta: "Fatture {annoPrec2}" }],
     soloConIva: true,
     giorniPreavviso: 15,
   },

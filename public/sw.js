@@ -30,13 +30,14 @@ self.addEventListener("notificationclick", (event) => {
   const url = (event.notification.data && event.notification.data.url) || "/";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      for (const client of clients) {
-        if ("focus" in client) {
-          client.navigate(url);
-          return client.focus();
-        }
-      }
-      return self.clients.openWindow(url);
+      // Preferisce una finestra già aperta sull'app: la mette a fuoco e la porta al link della notifica.
+      // navigate() può fallire (finestra non controllata dal service worker): in quel caso apre una nuova finestra.
+      const client = clients.find((c) => "focus" in c && "navigate" in c);
+      if (!client) return self.clients.openWindow(url);
+      return client
+        .focus()
+        .then((c) => (c || client).navigate(url))
+        .catch(() => self.clients.openWindow(url));
     })
   );
 });
