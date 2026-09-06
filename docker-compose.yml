@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    container_name: studio-emvas
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      DATABASE_URL: "file:../data/emvas.db"
+      DATA_DIR: /app/data
+      TZ: Europe/Rome
+    volumes:
+      - ./data:/app/data

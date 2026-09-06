@@ -1,0 +1,406 @@
+// Studio EMVAS - schema dati
+// Database: SQLite (file in DATA_DIR). Gli "enum" sono stringhe: i valori ammessi
+// sono definiti in src/lib/constants.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Utenti (staff dello studio e utenti dei clienti per il portale)
+// ---------------------------------------------------------------------------
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  nome          String
+  passwordHash  String?
+  ruolo         String // ADMIN | COLLABORATORE | CLIENTE
+  attivo        Boolean   @default(true)
+  colore        String    @default("#2563eb")
+  telefono      String?
+  notificaEmail Boolean   @default(true)
+  notificaPush  Boolean   @default(true)
+  inviteToken   String?   @unique
+  inviteExpires DateTime?
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  googleAccount      GoogleAccount?
+  clientiRiferimento Client[]           @relation("ClientReferente")
+  accessiClienti     ClientUser[]
+  taskAssegnati      Task[]             @relation("TaskAssignee")
+  taskCreati         Task[]             @relation("TaskCreator")
+  chatMessages       ChatMessage[]
+  chatReads          ChatRead[]
+  notifiche          Notification[]
+  pushSubscriptions  PushSubscription[]
+  assenze            Absence[]          @relation("AbsenceUser")
+  assenzeApprovate   Absence[]          @relation("AbsenceApprover")
+  documentiCaricati  Document[]
+  emailCollegate     EmailMessage[]     @relation("EmailLinkedBy")
+  auditLogs          AuditLog[]
+}
+
+// Account Google collegato a un utente staff (login + accesso Gmail)
+model GoogleAccount {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  googleEmail  String
+  accessToken  String
+  refreshToken String?
+  expiresAt    DateTime
+  scope        String
+  historyId    String?
+  lastSyncAt   DateTime?
+  syncError    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  emails EmailMessage[]
+}
+
+// ---------------------------------------------------------------------------
+// Clienti
+// ---------------------------------------------------------------------------
+model Client {
+  id             String   @id @default(cuid())
+  denominazione  String
+  tipoSoggetto   String // vedi TIPI_SOGGETTO
+  codiceFiscale  String?
+  partitaIva     String?
+  regimeFiscale  String // vedi REGIMI_FISCALI
+  periodicitaIva String   @default("NESSUNA") // MENSILE | TRIMESTRALE | NESSUNA
+  haDipendenti   Boolean  @default(false)
+  codiceAteco    String?
+  attivita       String?
+  email          String?
+  pec            String?
+  telefono       String?
+  indirizzo      String?
+  cap            String?
+  comune         String?
+  provincia      String?
+  note           String?
+  attivo         Boolean  @default(true)
+  referenteId    String?
+  referente      User?    @relation("ClientReferente", fields: [referenteId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  contatti  ClientContact[]
+  utenti    ClientUser[]
+  tasks     Task[]
+  emails    EmailMessage[]
+  chat      ChatMessage[]
+  chatReads ChatRead[]
+  cartelle  DocumentFolder[]
+  documenti Document[]
+  overrides ClientAdempimentoOverride[]
+
+  @@index([denominazione])
+  @@index([referenteId])
+}
+
+model ClientContact {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  nome      String
+  email     String?
+  telefono  String?
+  ruolo     String?
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+  @@index([email])
+}
+
+// Collegamento utente CLIENTE <-> cliente (accesso al portale)
+model ClientUser {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, clientId])
+  @@index([clientId])
+}
+
+// ---------------------------------------------------------------------------
+// Adempimenti (catalogo) e pianificazione
+// ---------------------------------------------------------------------------
+model AdempimentoTemplate {
+  id                String   @id @default(cuid())
+  codice            String   @unique
+  nome              String
+  descrizione       String?
+  categoria         String // vedi CATEGORIE_ADEMPIMENTO
+  ricorrenza        String // MENSILE | TRIMESTRALE | ANNUALE | UNA_TANTUM
+  // JSON: array di scadenze. MENSILE: [{"giorno":16,"offsetMeseCompetenza":-1}]
+  // Altre: [{"mese":4,"giorno":30,"etichetta":"Anno {annoPrec}"}]
+  scadenze          String   @default("[]")
+  regimi            String   @default("[]") // JSON array di regimi ammessi (vuoto = tutti)
+  tipiSoggetto      String   @default("[]") // JSON array di tipi soggetto ammessi (vuoto = tutti)
+  soloConDipendenti Boolean? // true = solo clienti con dipendenti
+  soloConIva        Boolean? // true = solo clienti con partita IVA
+  periodicitaIva    String? // MENSILE | TRIMESTRALE: solo clienti con quella periodicità
+  soloSuRichiesta   Boolean  @default(false) // generato solo se attivato per il cliente
+  giorniPreavviso   Int      @default(7)
+  attivo            Boolean  @default(true)
+  ordine            Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tasks     Task[]
+  overrides ClientAdempimentoOverride[]
+}
+
+// Attivazione/disattivazione di un adempimento per singolo cliente
+model ClientAdempimentoOverride {
+  id         String              @id @default(cuid())
+  clientId   String
+  client     Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  templateId String
+  template   AdempimentoTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  attivo     Boolean
+
+  @@unique([clientId, templateId])
+}
+
+// Attività / scadenze (sia generate dagli adempimenti che manuali)
+model Task {
+  id               String               @id @default(cuid())
+  titolo           String
+  descrizione      String?
+  clientId         String?
+  client           Client?              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  templateId       String?
+  template         AdempimentoTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  scadenza         DateTime
+  stato            String               @default("DA_FARE") // DA_FARE | IN_CORSO | COMPLETATA | ANNULLATA
+  priorita         String               @default("MEDIA") // BASSA | MEDIA | ALTA
+  assigneeId       String?
+  assignee         User?                @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdById      String?
+  createdBy        User?                @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  completatoAt     DateTime?
+  anno             Int?
+  periodo          String?
+  chiave           String?              @unique // chiave di deduplica per attività generate
+  note             String?
+  giorniPreavviso  Int                  @default(7)
+  lastReminderKind String? // PREAVVISO | DOMANI | OGGI | SCADUTA
+  lastReminderAt   DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  emails    EmailMessage[]
+  documenti Document[]
+
+  @@index([clientId])
+  @@index([assigneeId])
+  @@index([scadenza])
+  @@index([stato])
+}
+
+// ---------------------------------------------------------------------------
+// Email importate da Gmail
+// ---------------------------------------------------------------------------
+model EmailMessage {
+  id             String        @id @default(cuid())
+  accountId      String
+  account        GoogleAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  gmailId        String
+  threadId       String
+  fromAddr       String
+  fromName       String?
+  toAddrs        String // indirizzi separati da virgola
+  ccAddrs        String?
+  subject        String
+  snippet        String?
+  bodyText       String?
+  bodyHtml       String?
+  receivedAt     DateTime
+  hasAttachments Boolean       @default(false)
+  attachments    String? // JSON [{filename,mimeType,size,attachmentId}]
+  labelIds       String?
+  isUnread       Boolean       @default(false)
+  clientId       String?
+  client         Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  taskId         String?
+  task           Task?         @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  linkAuto       Boolean       @default(false)
+  linkedById     String?
+  linkedBy       User?         @relation("EmailLinkedBy", fields: [linkedById], references: [id], onDelete: SetNull)
+  linkedAt       DateTime?
+  archiviata     Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+
+  documenti Document[]
+
+  @@unique([accountId, gmailId])
+  @@index([clientId])
+  @@index([taskId])
+  @@index([receivedAt])
+  @@index([threadId])
+}
+
+// ---------------------------------------------------------------------------
+// Chat interna per cliente
+// ---------------------------------------------------------------------------
+model ChatMessage {
+  id         String    @id @default(cuid())
+  clientId   String
+  client     Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  testo      String
+  documentId String?
+  document   Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  createdAt  DateTime  @default(now())
+  editedAt   DateTime?
+
+  @@index([clientId, createdAt])
+}
+
+model ChatRead {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  lastReadAt DateTime @default(now())
+
+  @@unique([userId, clientId])
+}
+
+// ---------------------------------------------------------------------------
+// Notifiche e push
+// ---------------------------------------------------------------------------
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tipo      String // vedi TIPI_NOTIFICA
+  titolo    String
+  corpo     String?
+  link      String?
+  letta     DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, letta])
+  @@index([userId, createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Assenze / ferie
+// ---------------------------------------------------------------------------
+model Absence {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation("AbsenceUser", fields: [userId], references: [id], onDelete: Cascade)
+  tipo         String // FERIE | MALATTIA | PERMESSO | ALTRO
+  dataInizio   DateTime
+  dataFine     DateTime
+  note         String?
+  stato        String   @default("RICHIESTA") // RICHIESTA | APPROVATA | RIFIUTATA
+  approvedById String?
+  approvedBy   User?    @relation("AbsenceApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([dataInizio, dataFine])
+}
+
+// ---------------------------------------------------------------------------
+// Documenti e cartelle (area clienti)
+// ---------------------------------------------------------------------------
+model DocumentFolder {
+  id                 String           @id @default(cuid())
+  clientId           String
+  client             Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  nome               String
+  descrizione        String?
+  parentId           String?
+  parent             DocumentFolder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children           DocumentFolder[] @relation("FolderTree")
+  visibileCliente    Boolean          @default(true)
+  clientePuoCaricare Boolean          @default(true)
+  ordine             Int              @default(0)
+  createdAt          DateTime         @default(now())
+
+  documenti Document[]
+
+  @@index([clientId])
+}
+
+model Document {
+  id           String          @id @default(cuid())
+  clientId     String
+  client       Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  folderId     String?
+  folder       DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  nome         String
+  mimeType     String
+  size         Int
+  storagePath  String
+  uploadedById String?
+  uploadedBy   User?           @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  daCliente    Boolean         @default(false)
+  note         String?
+  emailId      String?
+  email        EmailMessage?   @relation(fields: [emailId], references: [id], onDelete: SetNull)
+  taskId       String?
+  task         Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  createdAt    DateTime        @default(now())
+
+  chatMessages ChatMessage[]
+
+  @@index([clientId])
+  @@index([folderId])
+}
+
+// ---------------------------------------------------------------------------
+// Varie
+// ---------------------------------------------------------------------------
+model Setting {
+  key   String @id
+  value String
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  azione    String
+  entita    String
+  entitaId  String?
+  dettagli  String?
+  createdAt DateTime @default(now())
+
+  @@index([entita, entitaId])
+  @@index([createdAt])
+}
