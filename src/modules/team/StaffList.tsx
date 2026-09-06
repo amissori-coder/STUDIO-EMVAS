@@ -42,23 +42,48 @@ import {
 // ---------------------------------------------------------------------------
 // Componenti di supporto
 // ---------------------------------------------------------------------------
+/** Copia negli appunti con fallback (execCommand) per i contesti non sicuri, es. http://<ip-lan> dal telefono. */
+async function copiaTesto(text: string): Promise<boolean> {
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // si prova il fallback
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 function CopyButton({ text, label = "Copia" }: { text: string; label?: string }) {
-  const [copied, setCopied] = useState(false);
+  const [stato, setStato] = useState<"idle" | "copiato" | "errore">("idle");
   return (
-    <Button
-      size="sm"
-      variant="outline"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-        } catch {
-          setCopied(false);
-        }
-      }}
-    >
-      <Copy className="h-4 w-4" /> {copied ? "Copiato" : label}
-    </Button>
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-10 sm:h-8"
+        onClick={async () => {
+          setStato((await copiaTesto(text)) ? "copiato" : "errore");
+        }}
+      >
+        <Copy className="h-4 w-4" /> {stato === "copiato" ? "Copiato" : label}
+      </Button>
+      {stato === "errore" && <p className="basis-full text-xs text-red-700">Copia non disponibile su questo browser: seleziona e copia manualmente il testo qui sopra.</p>}
+    </>
   );
 }
 
@@ -83,7 +108,7 @@ function EsitoBox({ esito, onDismiss }: { esito: Esito; onDismiss: () => void })
         <p className="mt-2 break-all rounded-md bg-white/70 px-3 py-2 font-mono text-xs text-slate-900 select-all">{esito.link}</p>
         <div className="mt-2 flex flex-wrap gap-2">
           <CopyButton text={esito.link ?? ""} label="Copia link" />
-          <Button size="sm" variant="ghost" onClick={onDismiss}>
+          <Button size="sm" variant="ghost" className="h-10 sm:h-8" onClick={onDismiss}>
             Chiudi
           </Button>
         </div>
@@ -101,7 +126,7 @@ function EsitoBox({ esito, onDismiss }: { esito: Esito; onDismiss: () => void })
       </dl>
       <div className="mt-2 flex flex-wrap gap-2">
         <CopyButton text={`Accesso Studio EMVAS\nEmail: ${esito.email}\nPassword: ${esito.password}`} label="Copia credenziali" />
-        <Button size="sm" variant="ghost" onClick={onDismiss}>
+        <Button size="sm" variant="ghost" className="h-10 sm:h-8" onClick={onDismiss}>
           Ho preso nota
         </Button>
       </div>
@@ -303,21 +328,22 @@ function StaffCard({
 
       {isAdmin && (
         <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-3">
-          <Button size="sm" variant="outline" onClick={onEdit} disabled={busy}>
+          {/* h-10 su mobile: target touch ≥ 40px (convenzione ARCHITETTURA) */}
+          <Button size="sm" variant="outline" className="h-10 sm:h-8" onClick={onEdit} disabled={busy}>
             <Pencil className="h-4 w-4" /> Modifica
           </Button>
           {u.attivo && (
             <>
-              <Button size="sm" variant="outline" onClick={onPassword} disabled={busy}>
+              <Button size="sm" variant="outline" className="h-10 sm:h-8" onClick={onPassword} disabled={busy}>
                 <KeyRound className="h-4 w-4" /> Password temporanea
               </Button>
-              <Button size="sm" variant="outline" onClick={onResend} disabled={busy}>
+              <Button size="sm" variant="outline" className="h-10 sm:h-8" onClick={onResend} disabled={busy}>
                 <Send className="h-4 w-4" /> {invitoPendente || !u.hasPassword ? "Reinvia invito" : "Invia invito"}
               </Button>
               {!isSelf && (
-                <label className="inline-flex h-8 items-center gap-1.5 text-xs text-slate-600">
+                <label className="inline-flex h-10 items-center gap-1.5 text-xs text-slate-600 sm:h-8">
                   <span className="sr-only sm:not-sr-only">Ruolo</span>
-                  <Select value={u.ruolo} onChange={(e) => onRole(e.target.value)} disabled={busy} className="h-8 w-auto py-0 text-xs" aria-label="Ruolo">
+                  <Select value={u.ruolo} onChange={(e) => onRole(e.target.value)} disabled={busy} className="h-10 w-auto py-0 text-xs sm:h-8" aria-label="Ruolo">
                     <option value="COLLABORATORE">{RUOLI.COLLABORATORE}</option>
                     <option value="ADMIN">{RUOLI.ADMIN}</option>
                   </Select>
@@ -329,7 +355,7 @@ function StaffCard({
             <Button
               size="sm"
               variant="ghost"
-              className={cn("ml-auto", u.attivo ? "text-red-600 hover:bg-red-50" : "text-green-700 hover:bg-green-50")}
+              className={cn("ml-auto h-10 sm:h-8", u.attivo ? "text-red-600 hover:bg-red-50" : "text-green-700 hover:bg-green-50")}
               disabled={busy}
               onClick={() => {
                 if (u.attivo && !window.confirm(`Disattivare ${u.nome}? Non potrà più accedere alla piattaforma.`)) return;

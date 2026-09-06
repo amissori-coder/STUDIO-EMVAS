@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Building2, Check } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge, PRIORITA_COLOR } from "@/components/ui/Badge";
-import { buttonClasses } from "@/components/ui/Button";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 import { PRIORITA_TASK } from "@/lib/constants";
 import { cn, daysUntil, describeDeadline, formatDate } from "@/lib/utils";
 import { completaTaskDashboardAction } from "@/modules/team/actions";
@@ -37,10 +37,10 @@ export function DashTaskRow({ task, showAssignee = false, quickComplete = false 
       {quickComplete && (
         <form action={completaTaskDashboardAction}>
           <input type="hidden" name="id" value={task.id} />
-          <button type="submit" className={buttonClasses({ variant: "outline", size: "sm", className: "h-10 sm:h-8" })} title="Segna come completata">
+          <SubmitButton variant="outline" size="sm" className="h-10 sm:h-8" title="Segna come completata" aria-label="Segna come completata">
             <Check className="h-4 w-4 text-green-600" />
             <span className="hidden sm:inline">Completa</span>
-          </button>
+          </SubmitButton>
         </form>
       )}
     </li>

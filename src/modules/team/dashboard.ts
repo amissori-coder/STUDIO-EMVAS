@@ -44,6 +44,16 @@ export interface DashboardData {
   pianificazioneMancante: boolean;
 }
 
+// `priorita` è una stringa: un orderBy sul DB sarebbe alfabetico (MEDIA > BASSA > ALTA). Si ordina in memoria.
+const PRIORITA_ORDINE: Record<string, number> = { ALTA: 0, MEDIA: 1, BASSA: 2 };
+
+/** Ordina per scadenza crescente e, a parità di giorno, per priorità (ALTA prima); poi taglia a `take`. */
+function ordinaPerScadenzaEPriorita<T extends { scadenza: Date; priorita: string }>(tasks: T[], take: number): T[] {
+  return [...tasks]
+    .sort((a, b) => a.scadenza.getTime() - b.scadenza.getTime() || (PRIORITA_ORDINE[a.priorita] ?? 9) - (PRIORITA_ORDINE[b.priorita] ?? 9))
+    .slice(0, take);
+}
+
 async function chatNonLette(userId: string) {
   const reads = await prisma.chatRead.findMany({ where: { userId }, select: { clientId: true, lastReadAt: true } });
   const groups = await prisma.chatMessage.groupBy({
@@ -96,12 +106,14 @@ export async function loadDashboard(user: CurrentUser): Promise<DashboardData> {
     chatNonLette(user.id),
     prisma.document.count({ where: { daCliente: true, createdAt: { gte: addDays(oggi, -7) } } }),
     isAdmin ? prisma.absence.count({ where: { stato: "RICHIESTA" } }) : Promise.resolve(0),
-    prisma.task.findMany({
-      where: { ...aperte, assigneeId: user.id, scadenza: { lte: fineSettimana } },
-      include: DASH_TASK_INCLUDE,
-      orderBy: [{ scadenza: "asc" }, { priorita: "desc" }],
-      take: 15,
-    }),
+    prisma.task
+      .findMany({
+        where: { ...aperte, assigneeId: user.id, scadenza: { lte: fineSettimana } },
+        include: DASH_TASK_INCLUDE,
+        orderBy: { scadenza: "asc" },
+        take: 200, // margine per riordinare per priorità a parità di scadenza
+      })
+      .then((t) => ordinaPerScadenzaEPriorita(t, 15)),
     prisma.absence.findMany({
       where: { stato: "APPROVATA", dataInizio: { lte: orizzonteAllerta }, dataFine: { gte: oggi }, user: { attivo: true } },
       include: ABSENCE_INCLUDE,
@@ -124,12 +136,14 @@ export async function loadDashboard(user: CurrentUser): Promise<DashboardData> {
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
-    prisma.task.findMany({
-      where: { ...aperte, scadenza: { gte: oggi, lte: fineSettimana } },
-      include: DASH_TASK_INCLUDE,
-      orderBy: [{ scadenza: "asc" }, { priorita: "desc" }],
-      take: 10,
-    }),
+    prisma.task
+      .findMany({
+        where: { ...aperte, scadenza: { gte: oggi, lte: fineSettimana } },
+        include: DASH_TASK_INCLUDE,
+        orderBy: { scadenza: "asc" },
+        take: 200,
+      })
+      .then((t) => ordinaPerScadenzaEPriorita(t, 10)),
     prisma.task.count({ where: { ...aperte, scadenza: { gte: oggi, lte: fineSettimana } } }),
     isAdmin ? prisma.task.count({ where: { templateId: { not: null }, anno } }) : Promise.resolve(1),
   ]);

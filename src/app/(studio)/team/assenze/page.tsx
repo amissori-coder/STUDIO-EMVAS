@@ -14,7 +14,7 @@ import { AbsenceFilters } from "@/modules/team/AbsenceFilters";
 import { labelMese, parseAbsenceFilters, parseMese } from "@/modules/team/absence-filters";
 import { AbsenceRequestButton } from "@/modules/team/AbsenceRequestButton";
 import { TeamTabs } from "@/modules/team/TeamTabs";
-import { countPendingAbsences, getStaffOptions, listAbsencesForMonth, listAbsentToday } from "@/modules/team/queries";
+import { countPendingAbsences, getStaffOptions, listAbsencesForMonth, listAbsentToday, listPendingAbsences } from "@/modules/team/queries";
 
 export const metadata: Metadata = { title: "Assenze" };
 
@@ -25,9 +25,17 @@ export default async function AssenzePage(props: PageProps<"/team/assenze">) {
   const filtri = parseAbsenceFilters(sp);
   const { anno, mese } = parseMese(filtri.mese);
 
-  const [assenze, oggi, utenti, pending] = await Promise.all([listAbsencesForMonth(filtri), listAbsentToday(), getStaffOptions(), countPendingAbsences()]);
-  const inAttesa = assenze.filter((a) => a.stato === "RICHIESTA");
+  // Le richieste in attesa non dipendono dal mese visualizzato: badge, KPI e notifiche contano tutte le
+  // richieste pendenti, quindi devono essere raggiungibili anche se cadono in un altro mese.
+  const [assenze, inAttesa, oggi, utenti, pending] = await Promise.all([
+    listAbsencesForMonth(filtri),
+    listPendingAbsences(filtri),
+    listAbsentToday(),
+    getStaffOptions(),
+    countPendingAbsences(),
+  ]);
   const altre = assenze.filter((a) => a.stato !== "RICHIESTA");
+  const inAttesaFuoriMese = inAttesa.filter((a) => !assenze.some((m) => m.id === a.id)).length;
 
   return (
     <>
@@ -63,7 +71,24 @@ export default async function AssenzePage(props: PageProps<"/team/assenze">) {
       <div className="mt-4 space-y-5">
         {filtri.vista === "calendario" && <AbsenceCalendar anno={anno} mese={mese} assenze={assenze} />}
 
-        {assenze.length === 0 ? (
+        {inAttesa.length > 0 && (
+          <section>
+            <h2 className="mb-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-yellow-800">
+              <Users className="h-4 w-4" /> In attesa di approvazione
+              <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">{inAttesa.length}</span>
+              <span className="text-xs font-normal text-slate-500">
+                tutte le richieste, di qualsiasi mese
+                {inAttesaFuoriMese > 0 ? ` (${inAttesaFuoriMese} fuori da ${labelMese(filtri.mese).toLowerCase()})` : ""}
+              </span>
+            </h2>
+            <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-yellow-200 shadow-sm">
+              {inAttesa.map((a) => (
+                <AbsenceCard key={a.id} a={a} isAdmin={isAdmin} currentUserId={user.id} />
+              ))}
+            </ul>
+          </section>
+        )}
+        {assenze.length === 0 && inAttesa.length === 0 ? (
           filtri.vista === "elenco" && (
             <EmptyState
               icon={<CalendarOff />}
@@ -73,19 +98,6 @@ export default async function AssenzePage(props: PageProps<"/team/assenze">) {
           )
         ) : (
           <>
-            {inAttesa.length > 0 && (
-              <section>
-                <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-yellow-800">
-                  <Users className="h-4 w-4" /> In attesa di approvazione
-                  <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">{inAttesa.length}</span>
-                </h2>
-                <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-yellow-200 shadow-sm">
-                  {inAttesa.map((a) => (
-                    <AbsenceCard key={a.id} a={a} isAdmin={isAdmin} currentUserId={user.id} />
-                  ))}
-                </ul>
-              </section>
-            )}
             {altre.length > 0 && (
               <section>
                 <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700">

@@ -72,7 +72,9 @@ export async function markAllNotificationsReadFormAction(): Promise<void> {
   await markAllNotificationsReadAction();
 }
 
-export async function deleteOldReadNotificationsFormAction(): Promise<void> {
+export async function deleteOldReadNotificationsFormAction(formData: FormData): Promise<void> {
+  // conserva la vista corrente (Non lette / Tutte) nel redirect
+  const vista = formData.get("vista") === "tutte" ? "tutte" : "non-lette";
   const r = await deleteOldReadNotificationsAction();
-  redirect(r.error ? "/notifiche?errore=pulizia" : `/notifiche?messaggio=pulite&n=${r.count ?? 0}`);
+  redirect(r.error ? `/notifiche?vista=${vista}&errore=pulizia` : `/notifiche?vista=${vista}&messaggio=pulite&n=${r.count ?? 0}`);
 }
