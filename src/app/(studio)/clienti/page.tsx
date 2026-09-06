@@ -79,7 +79,8 @@ export default async function ClientiPage(props: PageProps<"/clienti">) {
       )}
 
       <div className="mb-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-        <ClientFilters values={{ ...values, stato }} staff={staff} />
+        {/* key: i campi sono non controllati, il remount li riallinea all'URL (es. dopo «Azzera») */}
+        <ClientFilters key={JSON.stringify({ ...values, stato })} values={{ ...values, stato }} staff={staff} />
       </div>
 
       <p className="mb-3 text-sm text-slate-500" aria-live="polite">
