@@ -46,3 +46,6 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /screenshots/
+
+# stato locale di Claude Code (worktree degli agenti)
+/.claude/

@@ -41,7 +41,8 @@ src/lib/
                        isStaff, isAdmin, canAccessClient, tipo CurrentUser {id,email,nome,ruolo,colore,hasGoogle,clientIds,…}
   auth/password.ts     hashPassword, verifyPassword, validatePasswordStrength
   auth/google.ts       OAuth Google (buildGoogleAuthUrl, exchangeCodeForTokens, refreshAccessToken, isGoogleConfigured)
-  gmail.ts             syncGoogleAccount(accountId), syncAllGoogleAccounts(), fetchGmailAttachment(accountId, gmailId, attachmentId),
+  gmail-parse.ts       parsing puro dei messaggi Gmail (parseAddress, parseGmailMessage, sanitizeEmailHtml) - testabile
+  gmail.ts             (ri-esporta gmail-parse) syncGoogleAccount(accountId), syncAllGoogleAccounts(), fetchGmailAttachment(accountId, gmailId, attachmentId),
                        findClientByEmails(addresses), sanitizeEmailHtml(html), gmailWebUrl(googleEmail, gmailId), parseAddress
   notifications.ts     notify({userId,tipo,titolo,corpo?,link?,push?,email?}), notifyMany(ids, …), notifyAdmins(…, excludeUserId?),
                        sendPushToUser, countUnreadNotifications, isPushConfigured, appUrl
@@ -51,7 +52,8 @@ src/lib/
   audit.ts             audit({userId, azione, entita, entitaId, dettagli})
   adempimenti/catalogo.ts   catalogo predefinito (usato dal seed)
   adempimenti/calendario.ts festività italiane, primoGiornoLavorativo, MESI
-  adempimenti/engine.ts     isApplicabile, deveGenerare, calcolaScadenze(template, anno), anteprimaPianificazione(clientId, anno),
+  adempimenti/regole.ts     regole pure: isApplicabile, deveGenerare, calcolaScadenze(template, anno), chiaveTask
+  adempimenti/engine.ts     (ri-esporta regole) anteprimaPianificazione(clientId, anno),
                             pianificaAnno({clientId, anno, createdById, templateIds?, assigneeId?, saltaPassate?})
   cron/jobs.ts         jobPromemoriaScadenze, jobAllertaAssenze, jobSincronizzaGmail, eseguiJobGiornalieri
 src/components/ui/     kit UI: Button (variant primary|secondary|outline|ghost|danger, size sm|md|lg|icon, prop href → Link),
@@ -97,6 +99,8 @@ npm run setup          # prisma generate + db push + seed
 npm run db:seed:demo   # dati dimostrativi
 npm run dev            # http://localhost:3000
 npm run typecheck && npm run lint && npm run build
+npm run test:unit      # test unitari (node:test via tsx) in tests/unit
+BASE_URL=http://localhost:3000 npm run test:e2e   # smoke test Playwright (server avviato, dati demo)
 ```
 
 ## Regole ESLint da rispettare (eslint-config-next 16 + React Compiler rules)

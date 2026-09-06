@@ -16,7 +16,9 @@
     "test:e2e": "tsx scripts/smoke.ts",
     "vapid": "node scripts/generate-vapid.mjs",
     "icons": "node scripts/make-icons.mjs",
-    "db:seed:demo": "SEED_DEMO=1 tsx prisma/seed.ts"
+    "db:seed:demo": "SEED_DEMO=1 tsx prisma/seed.ts",
+    "test:unit": "tsx --test tests/unit/*.test.ts",
+    "test": "npm run test:unit"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -30,10 +32,12 @@
     "next": "16.3.4",
     "node-cron": "^4.6.0",
     "nodemailer": "^10.0.0",
+    "prisma": "6.19.3",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
     "swr": "^2.5.1",
+    "tsx": "^4.19.0",
     "web-push": "^3.6.7",
     "zod": "^4.5.4"
   },
@@ -47,9 +51,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "playwright": "^1.50.0",
-    "prisma": "6.19.3",
     "tailwindcss": "^4",
-    "tsx": "^4.19.0",
     "typescript": "^5"
   }
 }
