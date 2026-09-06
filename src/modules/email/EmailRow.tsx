@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Paperclip, ListChecks } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
-import { cn, formatRelative, truncate } from "@/lib/utils";
+import { cn, formatDateTime, formatRelative, truncate } from "@/lib/utils";
 import type { EmailListItem } from "./queries";
 
 export function EmailSender({ email, className }: { email: Pick<EmailListItem, "fromAddr" | "fromName">; className?: string }) {
@@ -36,7 +36,7 @@ export function EmailRow({ email, showClient = true, showAccount = false }: { em
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
             <EmailSender email={email} className={cn("truncate text-sm", email.isUnread && "font-semibold")} />
-            <span className="shrink-0 text-xs text-slate-500" title={email.receivedAt.toISOString()}>
+            <span className="shrink-0 text-xs text-slate-500" title={formatDateTime(email.receivedAt)}>
               {formatRelative(email.receivedAt)}
             </span>
           </div>

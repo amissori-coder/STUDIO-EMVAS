@@ -5,7 +5,7 @@ import { Briefcase, ExternalLink, ListChecks, MessagesSquare, Paperclip, Plus } 
 import { requireStaff } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
 import { findClientByEmails, gmailWebUrl, sanitizeEmailHtml } from "@/lib/gmail";
-import { STATI_TASK } from "@/lib/constants";
+import { STATI_TASK, STATI_TASK_APERTI } from "@/lib/constants";
 import { formatDate, formatDateTime, formatRelative, truncate } from "@/lib/utils";
 import { Badge, STATO_TASK_COLOR } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -217,6 +217,15 @@ export default async function EmailDetailPage(props: PageProps<"/email/[id]">) {
                   emailId={email.id}
                   currentClientId={email.clientId}
                   currentTaskId={email.taskId}
+                  currentTask={
+                    email.task
+                      ? {
+                          id: email.task.id,
+                          titolo: email.task.titolo,
+                          scadenzaLabel: `${formatDate(email.task.scadenza)}${(STATI_TASK_APERTI as string[]).includes(email.task.stato) ? "" : ` (${STATI_TASK[email.task.stato as keyof typeof STATI_TASK] ?? email.task.stato})`}`,
+                        }
+                      : null
+                  }
                   clienti={clienti}
                   suggested={suggested}
                 />

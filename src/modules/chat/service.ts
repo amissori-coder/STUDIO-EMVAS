@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { notify, notifyMany } from "@/lib/notifications";
 import { RUOLI_STAFF } from "@/lib/constants";
 import { truncate } from "@/lib/utils";
+import { buildMessageRegex } from "./text";
 
 export const CHAT_MAX_LEN = 4000;
 export const CHAT_INITIAL_LIMIT = 200;
@@ -45,7 +46,13 @@ export async function listStaffUsers(): Promise<StaffUserDto[]> {
   });
 }
 
-export async function getChatMessages(clientId: string, opts: { after?: Date; limit?: number } = {}) {
+/**
+ * Messaggi di una conversazione in ordine cronologico.
+ * - `after`: solo i messaggi successivi (polling);
+ * - `before`: gli ultimi `limit` messaggi precedenti a quella data (caricamento dello storico);
+ * - altrimenti gli ultimi `limit` messaggi.
+ */
+export async function getChatMessages(clientId: string, opts: { after?: Date; before?: Date; limit?: number } = {}) {
   if (opts.after) {
     return prisma.chatMessage.findMany({
       where: { clientId, createdAt: { gt: opts.after } },
@@ -54,14 +61,26 @@ export async function getChatMessages(clientId: string, opts: { after?: Date; li
       take: 500,
     });
   }
-  // Ultimi N messaggi in ordine cronologico
+  // Ultimi N messaggi (eventualmente prima di `before`) in ordine cronologico
   const rows = await prisma.chatMessage.findMany({
-    where: { clientId },
+    where: { clientId, ...(opts.before ? { createdAt: { lt: opts.before } } : {}) },
     select: chatMessageSelect,
     orderBy: { createdAt: "desc" },
     take: opts.limit ?? CHAT_INITIAL_LIMIT,
   });
   return rows.reverse();
+}
+
+/** True se esistono messaggi precedenti a `before` (per mostrare "Carica messaggi precedenti"). */
+export async function hasOlderChatMessages(clientId: string, before: Date | undefined) {
+  if (!before) return false;
+  const older = await prisma.chatMessage.findFirst({ where: { clientId, createdAt: { lt: before } }, select: { id: true } });
+  return !!older;
+}
+
+/** Numero di messaggi con data >= `from`: il client lo confronta con quelli caricati per rilevare le eliminazioni. */
+export async function countChatMessagesSince(clientId: string, from: Date) {
+  return prisma.chatMessage.count({ where: { clientId, createdAt: { gte: from } } });
 }
 
 export async function markChatRead(userId: string, clientId: string) {
@@ -73,10 +92,28 @@ export async function markChatRead(userId: string, clientId: string) {
   });
 }
 
-/** Trova gli utenti staff menzionati con "@Nome Cognome" nel testo (case-insensitive). */
+/**
+ * Trova gli utenti staff menzionati con "@Nome Cognome" nel testo (case-insensitive).
+ * Usa la stessa espressione regolare dell'evidenziazione (text.tsx): il nome più lungo ha la precedenza
+ * e dopo il nome non può seguire una lettera o una cifra, così "@Anna Maria Rossi" o "@Annalisa"
+ * non menzionano anche "Anna".
+ */
 export function findMentionedUsers<T extends { id: string; nome: string }>(testo: string, staff: T[]): T[] {
-  const lower = testo.toLowerCase();
-  return staff.filter((u) => u.nome.trim() && lower.includes(`@${u.nome.trim().toLowerCase()}`));
+  const byName = new Map<string, T[]>();
+  for (const u of staff) {
+    const key = u.nome.trim().toLowerCase();
+    if (!key) continue;
+    byName.set(key, [...(byName.get(key) ?? []), u]);
+  }
+  if (!byName.size || !testo.includes("@")) return [];
+  const regex = buildMessageRegex(staff.map((u) => u.nome));
+  const found = new Set<T>();
+  for (const m of testo.matchAll(regex)) {
+    const mention = m[2];
+    if (!mention) continue;
+    for (const u of byName.get(mention.slice(1).trim().toLowerCase()) ?? []) found.add(u);
+  }
+  return staff.filter((u) => found.has(u));
 }
 
 /**
@@ -136,15 +173,20 @@ export interface ConversationItem {
 
 /** Elenco clienti con anteprima dell'ultimo messaggio e conteggio non letti per l'utente. */
 export async function listConversations(userId: string): Promise<ConversationItem[]> {
-  const [clients, lastMessages, reads] = await Promise.all([
+  const [clients, lastPerClient, reads] = await Promise.all([
     prisma.client.findMany({ select: { id: true, denominazione: true, attivo: true }, orderBy: { denominazione: "asc" } }),
-    prisma.chatMessage.findMany({
-      distinct: ["clientId"],
-      orderBy: { createdAt: "desc" },
-      select: { clientId: true, testo: true, createdAt: true, authorId: true, author: { select: { nome: true } } },
-    }),
+    // Data dell'ultimo messaggio per cliente, aggregata nel DB: `distinct` di Prisma leggerebbe l'intera tabella in memoria
+    prisma.chatMessage.groupBy({ by: ["clientId"], _max: { createdAt: true } }),
     prisma.chatRead.findMany({ where: { userId }, select: { clientId: true, lastReadAt: true } }),
   ]);
+  const lastKeys = lastPerClient.flatMap((g) => (g._max.createdAt ? [{ clientId: g.clientId, createdAt: g._max.createdAt }] : []));
+  const lastMessages = lastKeys.length
+    ? await prisma.chatMessage.findMany({
+        where: { OR: lastKeys },
+        orderBy: { createdAt: "desc" },
+        select: { clientId: true, testo: true, createdAt: true, authorId: true, author: { select: { nome: true } } },
+      })
+    : [];
 
   const withLast = new Set(lastMessages.map((m) => m.clientId));
   const unreadWhere: Prisma.ChatMessageWhereInput = {
@@ -159,7 +201,9 @@ export async function listConversations(userId: string): Promise<ConversationIte
     : [];
   const unreadMap = new Map(unreadGroups.map((g) => [g.clientId, g._count._all]));
 
-  const lastMap = new Map(lastMessages.map((m) => [m.clientId, m]));
+  // Se due messaggi hanno lo stesso istante, tengo il primo (l'elenco è già in ordine decrescente)
+  const lastMap = new Map<string, (typeof lastMessages)[number]>();
+  for (const m of lastMessages) if (!lastMap.has(m.clientId)) lastMap.set(m.clientId, m);
   const items: ConversationItem[] = clients.map((c) => {
     const last = lastMap.get(c.id);
     return {
