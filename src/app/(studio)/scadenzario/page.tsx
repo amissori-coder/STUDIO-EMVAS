@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/auth/guards";
 import { STATI_ASSENZA, TIPI_ASSENZA } from "@/lib/constants";
 import { festivita } from "@/lib/adempimenti/calendario";
-import { addDays, cn, endOfDayLocal, formatDate, formatDateLong, startOfDayLocal } from "@/lib/utils";
+import { addDays, cn, endOfDayLocal, formatDate, formatDateLong, parseDateInput, startOfDayLocal } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Badge, STATO_ASSENZA_COLOR, TIPO_ASSENZA_COLOR } from "@/components/ui/Badge";
@@ -64,7 +64,10 @@ export default async function ScadenzarioPage(props: PageProps<"/scadenzario">) 
   const meseIdx = Math.min(12, Math.max(1, Number(meseStr))) - 1;
   const primo = new Date(anno, meseIdx, 1);
   const ultimo = new Date(anno, meseIdx + 1, 0);
-  const giornoParam = /^\d{4}-\d{2}-\d{2}$/.test(str(sp.giorno)) ? str(sp.giorno) : "";
+  // Giorno selezionato: una data non valida (es. 2026-13-01 o 2026-02-31) equivale a nessuna selezione
+  const giornoInput = parseDateInput(str(sp.giorno));
+  const giornoSel = giornoInput && chiave(giornoInput) === str(sp.giorno).trim() ? giornoInput : null;
+  const giornoParam = giornoSel ? chiave(giornoSel) : "";
   const assegnatario = str(sp.assegnatario);
   const cliente = str(sp.cliente);
 
@@ -134,7 +137,6 @@ export default async function ScadenzarioPage(props: PageProps<"/scadenzario">) 
   const nelMese = tasks.filter((t) => t.scadenza >= primo && t.scadenza <= endOfDayLocal(ultimo));
   const chiaveOggi = chiave(oggi);
 
-  const giornoSel = giornoParam ? new Date(`${giornoParam}T12:00:00`) : null;
   const tasksGiorno = giornoParam ? (perGiorno.get(giornoParam) ?? []) : [];
   const assenzeGiorno = giornoParam ? (assenzePerGiorno.get(giornoParam) ?? []) : [];
 
@@ -269,7 +271,7 @@ export default async function ScadenzarioPage(props: PageProps<"/scadenzario">) 
             return (
               <Link
                 key={k}
-                href={base({ giorno: k })}
+                href={`${base({ giorno: k })}#giorno`}
                 className={cn(
                   "flex h-12 flex-col items-center justify-center gap-1 border-b border-r border-slate-100 text-sm",
                   fuoriMese ? "text-slate-300" : festivo ? "text-rose-600" : "text-slate-800",
@@ -299,7 +301,7 @@ export default async function ScadenzarioPage(props: PageProps<"/scadenzario">) 
 
       {/* Dettaglio giorno selezionato */}
       {giornoSel ? (
-        <section className="mt-5">
+        <section id="giorno" className="mt-5 scroll-mt-16">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-base font-semibold text-slate-900">
               {GIORNI_LUNGHI[(giornoSel.getDay() + 6) % 7]} {formatDate(giornoSel, "d MMMM yyyy")}
@@ -349,7 +351,7 @@ export default async function ScadenzarioPage(props: PageProps<"/scadenzario">) 
             <div className="space-y-4">
               {agenda.map((g) => (
                 <div key={g.k}>
-                  <Link href={base({ giorno: g.k })} className={cn("mb-1 block text-sm font-semibold", g.k === chiaveOggi ? "text-blue-700" : "text-slate-700")}>
+                  <Link href={`${base({ giorno: g.k })}#giorno`} className={cn("mb-1 block text-sm font-semibold", g.k === chiaveOggi ? "text-blue-700" : "text-slate-700")}>
                     {capitalize(formatDateLong(g.d))}
                     {g.k === chiaveOggi && " · oggi"}
                   </Link>

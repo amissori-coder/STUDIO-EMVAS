@@ -98,7 +98,7 @@ export default async function DettaglioAttivitaPage(props: PageProps<"/attivita/
                     <Link href={`/clienti/${task.client.id}`} className="mt-0.5 flex items-center gap-2 text-sm font-semibold text-blue-700 hover:underline">
                       <Building2 className="h-4 w-4" />
                       {task.client.denominazione}
-                      {!task.client.attivo && <Badge color="slate">cessato</Badge>}
+                      {!task.client.attivo && <Badge color="orange">Archiviato</Badge>}
                     </Link>
                   ) : (
                     <p className="mt-0.5 text-sm text-slate-600">Attività interna allo studio</p>
@@ -201,7 +201,15 @@ export default async function DettaglioAttivitaPage(props: PageProps<"/attivita/
             <CardHeader title="Dettagli" />
             <CardBody>
               <dl className="space-y-2 text-sm">
-                <Riga label="Adempimento">{task.template ? <Link href="/adempimenti" className="text-blue-700 hover:underline">{task.template.nome}</Link> : "Attività manuale"}</Riga>
+                <Riga label="Adempimento">
+                  {task.template ? (
+                    <Link href={isAdmin(user) ? `/adempimenti/${task.template.id}` : `/adempimenti#${task.template.categoria}`} className="text-blue-700 hover:underline">
+                      {task.template.nome}
+                    </Link>
+                  ) : (
+                    "Attività manuale"
+                  )}
+                </Riga>
                 {task.template && <Riga label="Categoria">{CATEGORIE_ADEMPIMENTO[task.template.categoria as keyof typeof CATEGORIE_ADEMPIMENTO] ?? task.template.categoria}</Riga>}
                 {task.periodo && <Riga label="Periodo">{task.periodo}</Riga>}
                 {task.anno && <Riga label="Anno">{task.anno}</Riga>}
@@ -233,8 +241,8 @@ export default async function DettaglioAttivitaPage(props: PageProps<"/attivita/
         </div>
       </div>
 
-      {/* Barra azioni fissa su mobile */}
-      <div className="fixed inset-x-0 bottom-14 z-20 border-t border-slate-200 bg-white/95 px-4 py-2 backdrop-blur lg:hidden">
+      {/* Barra azioni fissa su mobile: ancorata sopra la bottom nav (3.5rem + area sicura iPhone/PWA) */}
+      <div className="fixed inset-x-0 z-20 border-t border-slate-200 bg-white/95 px-4 py-2 backdrop-blur lg:hidden" style={{ bottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px))" }}>
         <StatoButtons id={task.id} stato={task.stato} compact />
       </div>
     </div>

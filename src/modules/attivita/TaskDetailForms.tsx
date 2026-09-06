@@ -28,14 +28,15 @@ export function StatoButtons({ id, stato, compact = false, className }: { id: st
             <Check className="h-4 w-4" /> Completa
           </Button>
         )}
-        {aperta && stato !== "DA_FARE" && !compact && (
-          <Button type="submit" name="stato" value="DA_FARE" variant="outline" disabled={pending}>
-            <Circle className="h-4 w-4" /> Da fare
+        {/* In modalità compatta (barra fissa mobile) "Da fare" e "Annulla" restano disponibili come bottoni icona */}
+        {aperta && stato !== "DA_FARE" && (
+          <Button type="submit" name="stato" value="DA_FARE" variant="outline" size={compact ? "icon" : "md"} disabled={pending} title="Riporta a Da fare" aria-label={compact ? "Riporta a Da fare" : undefined}>
+            <Circle className="h-4 w-4" /> {!compact && "Da fare"}
           </Button>
         )}
-        {aperta && !compact && (
-          <Button type="submit" name="stato" value="ANNULLATA" variant="ghost" disabled={pending} className="text-red-600 hover:bg-red-50">
-            <Ban className="h-4 w-4" /> Annulla attività
+        {aperta && (
+          <Button type="submit" name="stato" value="ANNULLATA" variant="ghost" size={compact ? "icon" : "md"} disabled={pending} className="text-red-600 hover:bg-red-50" title="Annulla attività" aria-label={compact ? "Annulla attività" : undefined}>
+            <Ban className="h-4 w-4" /> {!compact && "Annulla attività"}
           </Button>
         )}
         {!aperta && (
@@ -79,7 +80,7 @@ export function NoteForm({ id, note }: { id: string; note: string | null }) {
   return (
     <form action={action} className="space-y-2">
       <input type="hidden" name="id" value={id} />
-      <Textarea name="note" defaultValue={note ?? ""} placeholder="Appunti interni sull'attività (visibili solo allo staff)…" rows={5} />
+      <Textarea name="note" defaultValue={note ?? ""} placeholder="Appunti interni sull'attività (visibili solo allo staff)…" rows={5} aria-label="Note interne" />
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-slate-500">{state.ok ? "Note salvate." : state.error ? <span className="text-red-600">{state.error}</span> : ""}</p>
         <SubmitButton variant="outline" size="sm" pendingText="Salvataggio…">

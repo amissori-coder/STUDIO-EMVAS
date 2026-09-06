@@ -70,7 +70,10 @@ export function TaskRow({
         <Badge color={STATO_TASK_COLOR[task.stato]}>{STATI_TASK[task.stato as keyof typeof STATI_TASK] ?? task.stato}</Badge>
         <Badge color={PRIORITA_COLOR[task.priorita]}>{PRIORITA_TASK[task.priorita as keyof typeof PRIORITA_TASK] ?? task.priorita}</Badge>
         {task.assignee ? (
-          <Avatar nome={task.assignee.nome} colore={task.assignee.colore} size="sm" className="hidden sm:inline-flex" />
+          // wrapper: la classe base `inline-flex` di Avatar prevarrebbe su `hidden`
+          <span className="hidden sm:inline-flex">
+            <Avatar nome={task.assignee.nome} colore={task.assignee.colore} size="sm" />
+          </span>
         ) : (
           <span className="hidden text-xs text-slate-400 sm:inline">Non assegnata</span>
         )}
