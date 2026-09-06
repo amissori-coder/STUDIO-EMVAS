@@ -23,7 +23,9 @@ export function PageHeader({
             <ChevronLeft className="h-4 w-4" /> {backLabel ?? "Indietro"}
           </Link>
         )}
-        <h1 className="truncate text-xl font-semibold text-slate-900 sm:text-2xl">{title}</h1>
+        <h1 className="break-words text-xl font-semibold text-slate-900 sm:text-2xl" title={typeof title === "string" ? title : undefined}>
+          {title}
+        </h1>
         {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

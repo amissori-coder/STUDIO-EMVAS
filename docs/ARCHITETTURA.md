@@ -51,11 +51,13 @@ src/lib/
                        resolveUploadPath, isAllowedFilename, getMaxUploadBytes
   audit.ts             audit({userId, azione, entita, entitaId, dettagli})
   adempimenti/catalogo.ts   catalogo predefinito (usato dal seed)
-  adempimenti/calendario.ts festività italiane, primoGiornoLavorativo, MESI
-  adempimenti/regole.ts     regole pure: isApplicabile, deveGenerare, calcolaScadenze(template, anno), chiaveTask
+  adempimenti/calendario.ts festività italiane, primoGiornoLavorativo, prorogaAgosto (1-20 agosto -> 20), scadenzaEffettiva, MESI
+  adempimenti/regole.ts     regole pure: isApplicabile, deveGenerare, calcolaScadenze(template, anno), chiaveTask, sostituisciAnno
+                            (segnaposto {anno} {annoPrec} {annoPrec2}); idx stabile: mese per le mensili, mese*100+giorno per le voci fisse
   adempimenti/engine.ts     (ri-esporta regole) anteprimaPianificazione(clientId, anno),
                             pianificaAnno({clientId, anno, createdById, templateIds?, assigneeId?, saltaPassate?})
-  cron/jobs.ts         jobPromemoriaScadenze, jobAllertaAssenze, jobSincronizzaGmail, eseguiJobGiornalieri
+  cron/jobs.ts         jobPromemoriaScadenze, jobAllertaAssenze (deduplicata: stessa allerta non ripetuta), jobSincronizzaGmail, eseguiJobGiornalieri
+  cron/auth.ts         authorizeCron(request, job): Bearer CRON_SECRET (solo header) oppure sessione admin solo su POST
 src/components/ui/     kit UI: Button (variant primary|secondary|outline|ghost|danger, size sm|md|lg|icon, prop href → Link),
                        SubmitButton (pending), Input/Textarea/Select/Label/Field/Checkbox, Card/CardHeader/CardBody,
                        Badge (+ STATO_TASK_COLOR, PRIORITA_COLOR, STATO_ASSENZA_COLOR, TIPO_ASSENZA_COLOR, REGIME_COLOR),
@@ -66,7 +68,7 @@ src/modules/<modulo>/  componenti e actions riutilizzabili di ciascun modulo
 src/app/(auth)/login   login (password + Google)
 src/app/(studio)/...   area staff (layout con AppShell, richiede staff)
 src/app/(portale)/portale/...  portale clienti (richiede ruolo CLIENTE)
-src/app/api/...        route handler (auth google, logout, cron, push, notifiche/unread, health)
+src/app/api/...        route handler (auth google, logout [solo POST], cron, push [subscribe, config], notifiche/unread, health)
 ```
 
 ## Contratti tra moduli

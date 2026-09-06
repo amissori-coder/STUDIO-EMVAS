@@ -3,24 +3,36 @@
 // Con SEED_DEMO=1 crea anche dati dimostrativi (clienti, attività, assenze, chat).
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 import { CATALOGO_ADEMPIMENTI } from "../src/lib/adempimenti/catalogo";
 import { CARTELLE_DEFAULT } from "../src/lib/constants";
 
 const prisma = new PrismaClient();
 
+/** Password casuale leggibile (usata quando ADMIN_PASSWORD non è impostata: mai una password nota nel repository). */
+function passwordCasuale() {
+  return randomBytes(12).toString("base64url").replace(/[-_]/g, "x").slice(0, 16) + "!1";
+}
+
 async function seedAdmin() {
   const email = (process.env.ADMIN_EMAIL ?? "admin@studio.local").trim().toLowerCase();
   const nome = process.env.ADMIN_NOME ?? "Amministratore";
-  const password = process.env.ADMIN_PASSWORD ?? "CambiaSubito123!";
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     console.log(`Amministratore già presente: ${email}`);
     return existing;
   }
+  const daEnv = process.env.ADMIN_PASSWORD?.trim();
+  const password = daEnv || passwordCasuale();
   const user = await prisma.user.create({
     data: { email, nome, ruolo: "ADMIN", passwordHash: await bcrypt.hash(password, 10), colore: "#2563eb" },
   });
-  console.log(`Creato amministratore ${email} (password iniziale da ADMIN_PASSWORD)`);
+  if (daEnv) {
+    console.log(`Creato amministratore ${email} (password iniziale da ADMIN_PASSWORD)`);
+  } else {
+    console.log(`Creato amministratore ${email} con password generata (ADMIN_PASSWORD non impostata): ${password}`);
+    console.log("Annotala ora e cambiala al primo accesso: non verrà mostrata di nuovo.");
+  }
   return user;
 }
 

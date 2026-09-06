@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { pasqua, isFestivo, primoGiornoLavorativo, ultimoGiornoMese } from "../../src/lib/adempimenti/calendario";
+import { pasqua, isFestivo, primoGiornoLavorativo, prorogaAgosto, scadenzaEffettiva, ultimoGiornoMese } from "../../src/lib/adempimenti/calendario";
 
 describe("calendario fiscale", () => {
   it("calcola la Pasqua correttamente", () => {
@@ -27,6 +27,20 @@ describe("calendario fiscale", () => {
     assert.equal(primoGiornoLavorativo(new Date(2026, 10, 1, 12)).getDate(), 2);
     // giorno lavorativo resta uguale
     assert.equal(primoGiornoLavorativo(new Date(2026, 8, 16, 12)).getDate(), 16);
+  });
+
+  it("proroga di Ferragosto: scadenze tra 1 e 20 agosto -> 20 agosto (poi primo giorno lavorativo)", () => {
+    assert.equal(prorogaAgosto(new Date(2026, 7, 16, 12)).getDate(), 20);
+    assert.equal(prorogaAgosto(new Date(2026, 7, 1, 12)).getDate(), 20);
+    assert.equal(prorogaAgosto(new Date(2026, 7, 20, 12)).getDate(), 20);
+    assert.equal(prorogaAgosto(new Date(2026, 7, 25, 12)).getDate(), 25);
+    assert.equal(prorogaAgosto(new Date(2026, 6, 16, 12)).getDate(), 16);
+    // 16/08/2026 -> 20/08/2026 (giovedì)
+    assert.equal(scadenzaEffettiva(new Date(2026, 7, 16, 12)).getDate(), 20);
+    // 16/08/2027 -> 20/08/2027 (venerdì)
+    assert.equal(scadenzaEffettiva(new Date(2027, 7, 16, 12)).getDate(), 20);
+    // 20/08/2022 era sabato -> lunedì 22
+    assert.equal(scadenzaEffettiva(new Date(2022, 7, 16, 12)).getDate(), 22);
   });
 
   it("ultimo giorno del mese", () => {

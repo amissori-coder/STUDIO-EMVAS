@@ -2,12 +2,12 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { notify, notifyMany } from "@/lib/notifications";
 import { syncAllGoogleAccounts } from "@/lib/gmail";
-import { STATI_TASK_APERTI } from "@/lib/constants";
+import { RUOLI_STAFF, STATI_TASK_APERTI } from "@/lib/constants";
 import { addDays, daysUntil, endOfDayLocal, formatDate, startOfDayLocal } from "@/lib/utils";
 
 /**
  * Promemoria scadenze: per ogni attività aperta assegnata invia al massimo una notifica
- * per "livello" (preavviso, domani, oggi, scaduta).
+ * per "livello" (preavviso, domani, oggi, scaduta). Con giorniPreavviso = 0 (o 1) non c'è preavviso.
  */
 export async function jobPromemoriaScadenze() {
   const oggi = startOfDayLocal(new Date());
@@ -19,11 +19,12 @@ export async function jobPromemoriaScadenze() {
   let inviate = 0;
   for (const t of tasks) {
     const diff = daysUntil(t.scadenza);
+    const preavviso = t.giorniPreavviso ?? 7;
     let kind: "PREAVVISO" | "DOMANI" | "OGGI" | "SCADUTA" | null = null;
     if (diff < 0) kind = "SCADUTA";
     else if (diff === 0) kind = "OGGI";
     else if (diff === 1) kind = "DOMANI";
-    else if (diff <= (t.giorniPreavviso || 7)) kind = "PREAVVISO";
+    else if (preavviso >= 2 && diff <= preavviso) kind = "PREAVVISO";
     if (!kind || kind === t.lastReminderKind) continue;
 
     const cliente = t.client ? ` · ${t.client.denominazione}` : "";
@@ -48,9 +49,10 @@ export async function jobPromemoriaScadenze() {
 }
 
 /**
- * Allerta assenze: se un collaboratore è assente (assenza approvata) e ha attività in scadenza
- * nel periodo di assenza (o già scadute), avvisa gli amministratori e gli altri collaboratori
- * attivi, così che qualcuno possa riassegnarle.
+ * Allerta assenze: se un collaboratore è assente (assenza approvata, in corso o che inizia entro
+ * `giorniOrizzonte` giorni) e ha attività aperte in scadenza durante l'assenza, avvisa gli amministratori
+ * (o, se non ce ne sono altri, gli altri collaboratori attivi) così che qualcuno possa riassegnarle.
+ * La stessa allerta (stesso elenco di attività) non viene ripetuta: si rinotifica solo se l'elenco cambia.
  */
 export async function jobAllertaAssenze(giorniOrizzonte = 3) {
   const oggi = startOfDayLocal(new Date());
@@ -61,13 +63,14 @@ export async function jobAllertaAssenze(giorniOrizzonte = 3) {
   });
   if (!assenze.length) return { assenze: 0, allerte: 0 };
 
-  const admins = await prisma.user.findMany({ where: { ruolo: "ADMIN", attivo: true }, select: { id: true } });
+  const staff = await prisma.user.findMany({ where: { ruolo: { in: [...RUOLI_STAFF] }, attivo: true }, select: { id: true, ruolo: true } });
   let allerte = 0;
   for (const a of assenze) {
     if (!a.user.attivo) continue;
+    const inizioAssenza = startOfDayLocal(a.dataInizio);
     const finestraFine = endOfDayLocal(a.dataFine < fineOrizzonte ? a.dataFine : fineOrizzonte);
     const tasks = await prisma.task.findMany({
-      where: { assigneeId: a.userId, stato: { in: STATI_TASK_APERTI }, scadenza: { lte: finestraFine } },
+      where: { assigneeId: a.userId, stato: { in: STATI_TASK_APERTI }, scadenza: { gte: inizioAssenza, lte: finestraFine } },
       include: { client: { select: { denominazione: true } } },
       orderBy: { scadenza: "asc" },
       take: 20,
@@ -78,14 +81,24 @@ export async function jobAllertaAssenze(giorniOrizzonte = 3) {
       .map((t) => `• ${formatDate(t.scadenza)} ${t.titolo}${t.client ? ` (${t.client.denominazione})` : ""}`)
       .join("\n");
     const extra = tasks.length > 5 ? `\n…e altre ${tasks.length - 5}` : "";
-    const destinatari = admins.map((x) => x.id).filter((id) => id !== a.userId);
-    await notifyMany(destinatari, {
-      tipo: "ALLERTA_ASSENZA",
-      titolo: `${a.user.nome} è assente e ha ${tasks.length} attività in scadenza`,
-      corpo: `Assenza dal ${formatDate(a.dataInizio)} al ${formatDate(a.dataFine)}.\n${elenco}${extra}`,
-      link: `/attivita?assegnatario=${a.userId}&stato=aperte&ordina=scadenza`,
-      email: true,
+    let destinatari = staff.filter((x) => x.ruolo === "ADMIN" && x.id !== a.userId).map((x) => x.id);
+    if (!destinatari.length) destinatari = staff.filter((x) => x.id !== a.userId).map((x) => x.id);
+    if (!destinatari.length) continue;
+
+    const titolo = `${a.user.nome} è assente e ha ${tasks.length} attività in scadenza`;
+    const corpo = `Assenza dal ${formatDate(a.dataInizio)} al ${formatDate(a.dataFine)}.\n${elenco}${extra}`;
+    const link = `/attivita?assegnatario=${a.userId}&stato=aperte&ordina=scadenza`;
+
+    // Deduplica: se dall'inizio della finestra di allerta è già stata inviata la stessa identica notifica
+    // (stesso elenco di attività) a tutti i destinatari, non la ripetiamo.
+    const giaInviata = await prisma.notification.findMany({
+      where: { userId: { in: destinatari }, tipo: "ALLERTA_ASSENZA", titolo, corpo, link, createdAt: { gte: addDays(inizioAssenza, -giorniOrizzonte) } },
+      select: { userId: true },
     });
+    const daAvvisare = destinatari.filter((id) => !giaInviata.some((n) => n.userId === id));
+    if (!daAvvisare.length) continue;
+
+    await notifyMany(daAvvisare, { tipo: "ALLERTA_ASSENZA", titolo, corpo, link, email: true });
     allerte++;
   }
   return { assenze: assenze.length, allerte };

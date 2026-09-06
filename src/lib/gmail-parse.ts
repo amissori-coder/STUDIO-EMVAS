@@ -1,5 +1,6 @@
 // Parsing puro dei messaggi Gmail (nessun accesso al DB): utilizzabile anche nei test.
 import { normalizeEmail } from "@/lib/utils";
+import { sanitizeHtml } from "@/lib/html-sanitize";
 
 // ---- Tipi minimi della Gmail API ----
 export interface GmailHeader { name: string; value: string }
@@ -28,7 +29,15 @@ export interface GmailHistoryResponse {
 }
 export interface GmailProfile { emailAddress: string; historyId: string; messagesTotal?: number }
 
-export interface ParsedAttachment { filename: string; mimeType: string; size: number; attachmentId: string }
+export interface ParsedAttachment {
+  filename: string;
+  mimeType: string;
+  size: number;
+  /** Id dell'allegato restituito da Gmail: NON è stabile nel tempo (vedi fetchGmailAttachment). */
+  attachmentId: string;
+  /** Id della parte MIME (stabile per il messaggio), utile per ritrovare l'allegato. */
+  partId?: string;
+}
 
 export function decodeBase64Url(data: string) {
   return Buffer.from(data.replace(/-/g, "+").replace(/_/g, "/"), "base64");
@@ -45,12 +54,35 @@ export function parseAddress(raw: string): { name: string | null; email: string 
   return { name: null, email: normalizeEmail(raw) };
 }
 
+/**
+ * Divide un header di indirizzi sulle virgole, ignorando quelle dentro le virgolette
+ * (es. `"Rossi, Mario" <mario@rossi.it>`) e dentro le parentesi angolari.
+ */
+export function splitAddressHeader(raw: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  let inAngle = false;
+  for (const ch of raw) {
+    if (ch === '"' && !inAngle) inQuotes = !inQuotes;
+    else if (ch === "<" && !inQuotes) inAngle = true;
+    else if (ch === ">" && !inQuotes) inAngle = false;
+    if (ch === "," && !inQuotes && !inAngle) {
+      out.push(cur);
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  out.push(cur);
+  return out.map((s) => s.trim()).filter(Boolean);
+}
+
 export function parseAddressList(raw: string): string[] {
   if (!raw) return [];
-  return raw
-    .split(",")
+  return splitAddressHeader(raw)
     .map((s) => parseAddress(s).email)
-    .filter(Boolean);
+    .filter((e) => e.includes("@"));
 }
 
 function walkParts(part: GmailPart | undefined, acc: { text: string[]; html: string[]; attachments: ParsedAttachment[] }) {
@@ -62,6 +94,7 @@ function walkParts(part: GmailPart | undefined, acc: { text: string[]; html: str
       mimeType: mime || "application/octet-stream",
       size: part.body.size ?? 0,
       attachmentId: part.body.attachmentId,
+      ...(part.partId ? { partId: part.partId } : {}),
     });
   } else if (mime === "text/plain" && part.body?.data) {
     acc.text.push(decodeBase64Url(part.body.data).toString("utf8"));
@@ -71,15 +104,9 @@ function walkParts(part: GmailPart | undefined, acc: { text: string[]; html: str
   part.parts?.forEach((p) => walkParts(p, acc));
 }
 
-/** Rimuove script/style e tag pericolosi da un HTML di email prima di mostrarlo. */
+/** Rimuove script/style, tag pericolosi, handler di eventi e URL con schemi non consentiti da un HTML di email. */
 export function sanitizeEmailHtml(html: string) {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<(iframe|object|embed|form|meta|link)[\s\S]*?>/gi, "")
-    .replace(/\son\w+="[^"]*"/gi, "")
-    .replace(/\son\w+='[^']*'/gi, "")
-    .replace(/javascript:/gi, "");
+  return sanitizeHtml(html);
 }
 
 function htmlToText(html: string) {
@@ -140,4 +167,3 @@ export function parseGmailMessage(msg: GmailMessage): ParsedEmail {
     isUnread: (msg.labelIds ?? []).includes("UNREAD"),
   };
 }
-

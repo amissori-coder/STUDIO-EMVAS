@@ -89,7 +89,7 @@ describe("calcolo scadenze", () => {
     // maggio 2026: 16 è sabato -> 18
     assert.equal(s[4].scadenza.getDate(), 18);
     assert.equal(s[4].periodo, "Aprile 2026");
-    assert.equal(s[7].scadenza.getDate(), 17); // 16 agosto domenica -> 17
+    assert.equal(s[7].scadenza.getDate(), 20); // 16 agosto -> proroga di Ferragosto al 20
     assert.ok(s[0].titolo.includes("Dicembre 2025"));
   });
 
@@ -117,6 +117,29 @@ describe("calcolo scadenze", () => {
 
   it("una tantum non genera scadenze", () => {
     assert.equal(calcolaScadenze(template({ codice: "ROTTAMAZIONE" }), 2026).length, 0);
+  });
+
+  it("indice stabile per le voci fisse: non dipende dalla posizione della riga", () => {
+    const due = template({ codice: "X", ricorrenza: "ANNUALE", scadenze: JSON.stringify([{ mese: 2, giorno: 16 }, { mese: 12, giorno: 16 }]) });
+    const solaDicembre = template({ codice: "X", ricorrenza: "ANNUALE", scadenze: JSON.stringify([{ mese: 12, giorno: 16 }]) });
+    const a = calcolaScadenze(due, 2026);
+    const b = calcolaScadenze(solaDicembre, 2026);
+    assert.equal(a[0].idx, 216);
+    assert.equal(a[1].idx, 1216);
+    assert.equal(b[0].idx, 1216);
+    // giorno 0 (ultimo del mese) e voci duplicate restano univoche
+    const dup = template({ codice: "Y", ricorrenza: "ANNUALE", scadenze: JSON.stringify([{ mese: 2, giorno: 0 }, { mese: 2, giorno: 0 }]) });
+    const d = calcolaScadenze(dup, 2026).map((x) => x.idx);
+    assert.equal(new Set(d).size, 2);
+  });
+
+  it("segnaposto {annoPrec2}: conservazione fatture al 31 gennaio di due anni dopo", () => {
+    const s = calcolaScadenze(template({ codice: "CONSERVAZIONE_FE" }), 2026);
+    assert.equal(s.length, 1);
+    assert.equal(s[0].periodo, "Fatture 2024");
+    // 31/01/2026 è sabato -> lunedì 2 febbraio
+    assert.equal(s[0].scadenza.getMonth(), 1);
+    assert.equal(s[0].scadenza.getDate(), 2);
   });
 
   it("indici univoci per la chiave di deduplica", () => {

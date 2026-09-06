@@ -1,7 +1,7 @@
 // Regole pure (senza accesso al DB) per applicabilità e calcolo delle scadenze degli adempimenti.
 import type { AdempimentoTemplate, Client } from "@prisma/client";
 import { safeJsonParse } from "@/lib/utils";
-import { MESI, primoGiornoLavorativo, ultimoGiornoMese } from "@/lib/adempimenti/calendario";
+import { MESI, scadenzaEffettiva, ultimoGiornoMese } from "@/lib/adempimenti/calendario";
 import type { ScadenzaFissa, ScadenzaMensile, ScadenzaRegola } from "@/lib/adempimenti/catalogo";
 
 export type ClientProfilo = Pick<
@@ -16,8 +16,12 @@ export interface ScadenzaCalcolata {
   titolo: string;
 }
 
-function sostituisci(s: string, anno: number) {
-  return s.replace(/\{anno\}/g, String(anno)).replace(/\{annoPrec\}/g, String(anno - 1));
+/** Sostituisce i segnaposto {anno}, {annoPrec} (anno-1) e {annoPrec2} (anno-2). */
+export function sostituisciAnno(s: string, anno: number) {
+  return s
+    .replace(/\{anno\}/g, String(anno))
+    .replace(/\{annoPrec2\}/g, String(anno - 2))
+    .replace(/\{annoPrec\}/g, String(anno - 1));
 }
 
 function capitalize(s: string) {
@@ -53,7 +57,12 @@ export function deveGenerare(t: AdempimentoTemplate, c: ClientProfilo, override?
   return isApplicabile(t, c);
 }
 
-/** Calcola le scadenze di un adempimento per un anno (date già spostate al primo giorno lavorativo). */
+/**
+ * Calcola le scadenze di un adempimento per un anno (date già prorogate a Ferragosto e spostate al primo
+ * giorno lavorativo). L'indice `idx` è stabile rispetto alle modifiche del template: per le ricorrenze
+ * mensili è il mese (1-12), per le voci fisse è mese*100+giorno (es. 16 febbraio -> 216), così la chiave
+ * di deduplica non dipende dalla posizione della riga.
+ */
 export function calcolaScadenze(t: AdempimentoTemplate, anno: number): ScadenzaCalcolata[] {
   const regole = safeJsonParse<ScadenzaRegola[]>(t.scadenze, []);
   const out: ScadenzaCalcolata[] = [];
@@ -63,7 +72,7 @@ export function calcolaScadenze(t: AdempimentoTemplate, anno: number): ScadenzaC
     const offset = regola.offsetMeseCompetenza ?? -1;
     for (let mese = 1; mese <= 12; mese++) {
       const giorno = regola.giorno === 0 ? ultimoGiornoMese(anno, mese) : Math.min(regola.giorno, ultimoGiornoMese(anno, mese));
-      const data = primoGiornoLavorativo(new Date(anno, mese - 1, giorno, 12));
+      const data = scadenzaEffettiva(new Date(anno, mese - 1, giorno, 12));
       let mc = mese + offset;
       let annoComp = anno;
       if (mc < 1) { mc += 12; annoComp -= 1; }
@@ -76,13 +85,17 @@ export function calcolaScadenze(t: AdempimentoTemplate, anno: number): ScadenzaC
 
   if (t.ricorrenza === "UNA_TANTUM") return out;
 
-  regole.forEach((r, i) => {
+  const usati = new Set<number>();
+  regole.forEach((r) => {
     const f = r as ScadenzaFissa;
     if (!f.mese) return;
     const giorno = f.giorno === 0 ? ultimoGiornoMese(anno, f.mese) : Math.min(f.giorno, ultimoGiornoMese(anno, f.mese));
-    const data = primoGiornoLavorativo(new Date(anno, f.mese - 1, giorno, 12));
-    const periodo = f.etichetta ? sostituisci(f.etichetta, anno) : `${anno}`;
-    out.push({ idx: i + 1, scadenza: data, periodo, titolo: f.etichetta ? `${t.nome} – ${periodo}` : t.nome });
+    const data = scadenzaEffettiva(new Date(anno, f.mese - 1, giorno, 12));
+    const periodo = f.etichetta ? sostituisciAnno(f.etichetta, anno) : `${anno}`;
+    let idx = f.mese * 100 + (f.giorno ?? 0);
+    while (usati.has(idx)) idx += 10_000; // due voci nello stesso giorno (raro): indice comunque univoco
+    usati.add(idx);
+    out.push({ idx, scadenza: data, periodo, titolo: f.etichetta ? `${t.nome} – ${periodo}` : t.nome });
   });
   return out.sort((a, b) => a.scadenza.getTime() - b.scadenza.getTime());
 }
