@@ -25,21 +25,30 @@ export default async function EmailPage(props: PageProps<"/email">) {
   const accounts = await listGoogleAccounts();
   if (accounts.length === 0) {
     const configured = isGoogleConfigured();
+    const isAdmin = user.ruolo === "ADMIN";
+    let description: string;
+    if (configured) {
+      description =
+        "Per vedere qui le email dello studio, collega il tuo account Gmail dalla pagina Impostazioni: le email verranno importate e associate automaticamente ai clienti in base agli indirizzi.";
+    } else if (isAdmin) {
+      description =
+        "L'integrazione Google non è configurata su questo server (mancano GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET nel file .env). Una volta configurata, ogni collaboratore potrà collegare la propria casella Gmail dalle Impostazioni.";
+    } else {
+      description = "L'integrazione Gmail non è ancora attiva per lo studio: contatta l'amministratore.";
+    }
     return (
       <>
         <PageHeader title="Email" description="Casella unificata delle email Gmail dello studio" />
         <EmptyState
           icon={<MailX />}
           title="Nessuna casella Gmail collegata"
-          description={
-            configured
-              ? "Per vedere qui le email dello studio, collega il tuo account Gmail dalla pagina Impostazioni: le email verranno importate e associate automaticamente ai clienti in base agli indirizzi."
-              : "L'integrazione Google non è configurata su questo server (mancano GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET). Una volta configurata, ogni collaboratore potrà collegare la propria casella Gmail dalle Impostazioni."
-          }
+          description={description}
           action={
-            <Button href="/impostazioni" variant="primary">
-              <Settings className="h-4 w-4" /> Vai alle Impostazioni
-            </Button>
+            configured ? (
+              <Button href="/impostazioni" variant="primary">
+                <Settings className="h-4 w-4" /> Vai alle Impostazioni
+              </Button>
+            ) : undefined
           }
         />
       </>

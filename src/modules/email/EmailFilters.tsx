@@ -19,6 +19,9 @@ export function EmailFilters({ vista, cliente, casella, q, clienti, caselle }: E
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const hasFilters = !!(cliente || casella || q);
+  // Gli input sono non controllati (defaultValue): la key rimonta il form quando cambiano i filtri
+  // nell'URL (Azzera, cambio tab, Indietro), altrimenti resterebbero i valori precedenti.
+  const formKey = [vista, cliente ?? "", casella ?? "", q ?? ""].join("|");
 
   function submit() {
     const form = formRef.current;
@@ -34,6 +37,7 @@ export function EmailFilters({ vista, cliente, casella, q, clienti, caselle }: E
 
   return (
     <form
+      key={formKey}
       ref={formRef}
       className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto_auto]"
       onSubmit={(e) => {

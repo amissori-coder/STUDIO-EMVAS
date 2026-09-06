@@ -18,12 +18,15 @@ export function AssociationForm({
   emailId,
   currentClientId,
   currentTaskId,
+  currentTask = null,
   clienti,
   suggested,
 }: {
   emailId: string;
   currentClientId: string | null;
   currentTaskId: string | null;
+  /** attività attualmente collegata (anche se chiusa): resta selezionabile per non perdere il collegamento al salvataggio */
+  currentTask?: TaskOption | null;
   clienti: { id: string; denominazione: string }[];
   suggested: { id: string; denominazione: string } | null;
 }) {
@@ -53,7 +56,11 @@ export function AssociationForm({
   }, [clientId]);
 
   const loadingTasks = !!clientId && tasksFor?.clientId !== clientId;
-  const tasks = tasksFor?.clientId === clientId ? tasksFor.tasks : [];
+  const openTasks = tasksFor?.clientId === clientId ? tasksFor.tasks : [];
+  // L'API restituisce solo le attività aperte: se quella collegata è ormai chiusa la aggiungo comunque,
+  // altrimenti il select controllato ricadrebbe su "Nessuna attività" e il salvataggio la scollegherebbe.
+  const keepCurrent = !!taskId && clientId === currentClientId && taskId === currentTaskId && !openTasks.some((t) => t.id === taskId);
+  const tasks = keepCurrent ? [{ id: taskId, titolo: currentTask?.titolo ?? "Attività collegata", scadenzaLabel: currentTask?.scadenzaLabel ?? "chiusa" }, ...openTasks] : openTasks;
 
   const f = filter.trim().toLowerCase();
   const visibili = f ? clienti.filter((c) => c.denominazione.toLowerCase().includes(f)) : clienti;
@@ -124,7 +131,7 @@ export function AssociationForm({
         {unlinkState.error && <Alert kind="error">{unlinkState.error}</Alert>}
         {unlinkState.ok && unlinkState.message && <Alert kind="success">{unlinkState.message}</Alert>}
         <div className="flex flex-wrap gap-2">
-          <SubmitButton pendingText="Salvataggio…" disabled={!clientId}>
+          <SubmitButton pendingText="Salvataggio…" disabled={!clientId || loadingTasks}>
             <Link2 className="h-4 w-4" /> Salva associazione
           </SubmitButton>
           {currentClientId && (
