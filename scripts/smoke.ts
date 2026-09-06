@@ -10,7 +10,7 @@ const CLIENTE = { email: "cliente@rossi-impianti.it", password: "Cliente123!" };
 const OUT = process.env.SCREENSHOT_DIR ?? "screenshots";
 const exePath = process.env.CHROMIUM_PATH ?? (fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined);
 
-const STAFF_PAGES = ["/dashboard", "/clienti", "/attivita", "/scadenzario", "/email", "/chat", "/team", "/adempimenti", "/notifiche", "/impostazioni"];
+const STAFF_PAGES = ["/dashboard", "/clienti", "/clienti/nuovo", "/attivita", "/attivita/nuova", "/scadenzario", "/scadenzario?mese=2026-10", "/email", "/chat", "/team", "/team/assenze", "/adempimenti", "/notifiche", "/notifiche?vista=tutte", "/impostazioni"];
 const PORTAL_PAGES = ["/portale"];
 
 let failures = 0;
@@ -70,6 +70,9 @@ async function main() {
         await login(page2, CLIENTE.email, CLIENTE.password);
         console.log(`[${label}] login cliente -> ${page2.url()}`);
         for (const p of PORTAL_PAGES) await visit(page2, p, `${label}-portale`);
+        const folderHrefs = await page2.locator('a[href^="/portale/cartelle/"]').evaluateAll((els) => els.map((e) => e.getAttribute("href") ?? ""));
+        if (folderHrefs[0]) await visit(page2, folderHrefs[0], `${label}-portale`);
+        else console.log(`[${label}] nessuna cartella nel portale`);
         // lo staff non deve entrare nel portale e il cliente non nello studio
         const r = await page2.goto(`${BASE}/dashboard`);
         console.log(`[${label}] cliente su /dashboard -> ${r?.url()} (atteso /portale)`);
