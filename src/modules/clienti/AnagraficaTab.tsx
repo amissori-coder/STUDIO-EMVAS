@@ -8,6 +8,7 @@ import { Badge, PRIORITA_COLOR, STATO_TASK_COLOR } from "@/components/ui/Badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { ContactsCard } from "./ContactsCard";
+import { canManagePortalAccess } from "./permessi";
 import { PortalAccessCard } from "./PortalAccessCard";
 import { getClientSummary, type ClientWithReferente } from "./queries";
 
@@ -28,7 +29,7 @@ export async function AnagraficaTab({ client, user }: { client: ClientWithRefere
     .join(", ")
     .replace(", (", " (");
   const haIva = !!client.partitaIva && client.regimeFiscale !== "NON_TITOLARE";
-  const canResetPassword = user.ruolo === "ADMIN" || (client.referenteId !== null && client.referenteId === user.id);
+  const canManagePortal = canManagePortalAccess(user, client);
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -86,7 +87,7 @@ export async function AnagraficaTab({ client, user }: { client: ClientWithRefere
             colore: cu.user.colore,
             ultimoAccesso: cu.user.lastLoginAt ? formatDateTime(cu.user.lastLoginAt) : null,
           }))}
-          canResetPassword={canResetPassword}
+          canManage={canManagePortal}
         />
       </div>
 

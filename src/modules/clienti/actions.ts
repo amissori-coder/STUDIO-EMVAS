@@ -4,11 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { promises as fs } from "node:fs";
 import { AuthError, isAdmin, requireAdminAction, requireStaffAction, type CurrentUser } from "@/lib/auth/guards";
 import { hashPassword, validatePasswordStrength } from "@/lib/auth/password";
 import { audit } from "@/lib/audit";
 import { CARTELLE_DEFAULT, RUOLI_STAFF } from "@/lib/constants";
+import { deleteUpload, resolveUploadPath } from "@/lib/storage";
 import { normalizeEmail } from "@/lib/utils";
+import { canChangeReferente, canManagePortalAccess } from "./permessi";
 import { contactSchema, parseClientForm, portalUserSchema, type ClientFieldErrors, type ClientFormValues } from "./validation";
 
 // ---------------------------------------------------------------------------
@@ -112,12 +115,26 @@ export async function updateClientAction(clientId: string, _prev: ClientFormStat
   const { data, fieldErrors, values } = parseClientForm(formData);
   if (!data) return { error: "Controlla i campi evidenziati.", fieldErrors, values };
 
-  const referenteId = await validateReferente(data.referenteId);
-  if (referenteId === undefined) return { error: "Referente non valido.", fieldErrors: { referenteId: "Seleziona un collaboratore attivo." }, values };
-
   try {
-    const existing = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true, attivo: true } });
+    const existing = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true, attivo: true, referenteId: true } });
     if (!existing) return { error: "Cliente non trovato.", values };
+
+    // Referente: se non cambia lo si conserva così com'è (anche se nel frattempo è stato disattivato);
+    // se cambia serve l'autorizzazione (admin, referente attuale o cliente senza referente) e un collaboratore attivo.
+    let referenteId: string | null = existing.referenteId;
+    if (data.referenteId !== existing.referenteId) {
+      if (!canChangeReferente(user, existing)) {
+        return {
+          error: "Solo un amministratore o il referente attuale può cambiare il referente del cliente.",
+          fieldErrors: { referenteId: "Modifica non consentita." },
+          values,
+        };
+      }
+      const validato = await validateReferente(data.referenteId);
+      if (validato === undefined) return { error: "Referente non valido.", fieldErrors: { referenteId: "Seleziona un collaboratore attivo." }, values };
+      referenteId = validato;
+    }
+
     // Solo gli amministratori possono cambiare lo stato attivo/archiviato
     const attivo = isAdmin(user) ? data.attivo : existing.attivo;
     await prisma.client.update({ where: { id: clientId }, data: { ...data, referenteId, attivo } });
@@ -147,10 +164,32 @@ export async function setClientArchivedAction(clientId: string, archivia: boolea
 
 export async function deleteClientAction(clientId: string) {
   const user = await requireAdminAction();
-  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true, denominazione: true } });
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { id: true, denominazione: true, documenti: { select: { storagePath: true } } },
+  });
   if (!client) return;
   await prisma.client.delete({ where: { id: clientId } });
-  await audit({ userId: user.id, azione: "CLIENTE_ELIMINATO", entita: "Client", entitaId: clientId, dettagli: { denominazione: client.denominazione } });
+  await audit({
+    userId: user.id,
+    azione: "CLIENTE_ELIMINATO",
+    entita: "Client",
+    entitaId: clientId,
+    dettagli: { denominazione: client.denominazione, documenti: client.documenti.length },
+  });
+  // Rimuove i file dei documenti (le righe Document sono già cancellate in cascata) e la cartella uploads/<clientId>.
+  for (const d of client.documenti) {
+    try {
+      await deleteUpload(d.storagePath);
+    } catch (e) {
+      console.error(`[clienti] impossibile eliminare il file ${d.storagePath}:`, e);
+    }
+  }
+  try {
+    await fs.rm(resolveUploadPath(client.id), { recursive: true, force: true });
+  } catch (e) {
+    console.error(`[clienti] impossibile eliminare la cartella uploads/${client.id}:`, e);
+  }
   revalidatePath("/clienti");
   redirect("/clienti?messaggio=eliminato");
 }
@@ -219,9 +258,17 @@ async function requireClientForPortal(clientId: string) {
   return client;
 }
 
-/** Admin oppure referente del cliente. */
-function canManagePasswords(user: CurrentUser, client: { referenteId: string | null }) {
-  return isAdmin(user) || (client.referenteId !== null && client.referenteId === user.id);
+/**
+ * Carica il cliente e verifica che l'utente possa gestirne gli accessi al portale (admin o referente).
+ * Un tentativo non autorizzato viene registrato in audit e rifiutato.
+ */
+async function requirePortalManager(user: CurrentUser, clientId: string, operazione: string) {
+  const client = await requireClientForPortal(clientId);
+  if (!canManagePortalAccess(user, client)) {
+    await audit({ userId: user.id, azione: "ACCESSO_PORTALE_NEGATO", entita: "Client", entitaId: clientId, dettagli: { operazione } });
+    throw new AuthError("Solo un amministratore o il referente del cliente può gestire gli accessi al portale.", 403);
+  }
+  return client;
 }
 
 export async function createPortalUserAction(clientId: string, _prev: SimpleState, formData: FormData): Promise<SimpleState> {
@@ -242,7 +289,7 @@ export async function createPortalUserAction(clientId: string, _prev: SimpleStat
   if (weak) return { error: weak, fieldErrors: { password: weak } };
 
   try {
-    const client = await requireClientForPortal(clientId);
+    const client = await requirePortalManager(user, clientId, "creazione");
     const existing = await prisma.user.findUnique({ where: { email: parsed.data.email }, select: { id: true, ruolo: true } });
     if (existing) {
       return {
@@ -288,7 +335,7 @@ export async function linkPortalUserAction(clientId: string, _prev: SimpleState,
   const email = normalizeEmail(String(formData.get("email") ?? ""));
   if (!email) return { error: "Inserisci l'email dell'utente da collegare.", fieldErrors: { email: "Campo obbligatorio." } };
   try {
-    const client = await requireClientForPortal(clientId);
+    const client = await requirePortalManager(user, clientId, "collegamento");
     const target = await prisma.user.findUnique({ where: { email }, select: { id: true, ruolo: true, nome: true } });
     if (!target || target.ruolo !== "CLIENTE") return { error: "Nessun utente del portale con questa email.", fieldErrors: { email: "Utente non trovato." } };
     const already = await prisma.clientUser.findUnique({ where: { userId_clientId: { userId: target.id, clientId } } });
@@ -320,8 +367,7 @@ export async function resetPortalPasswordAction(clientId: string, userId: string
   const weak = validatePasswordStrength(password);
   if (weak) return { error: weak, fieldErrors: { password: weak } };
   try {
-    const client = await requireClientForPortal(clientId);
-    if (!canManagePasswords(user, client)) return { error: "Solo un amministratore o il referente del cliente può reimpostare la password." };
+    await requirePortalManager(user, clientId, "reset-password");
     const link = await prisma.clientUser.findUnique({ where: { userId_clientId: { userId, clientId } }, include: { user: { select: { ruolo: true } } } });
     if (!link || link.user.ruolo !== "CLIENTE") return { error: "Utente non collegato a questo cliente." };
     await prisma.user.update({ where: { id: userId }, data: { passwordHash: await hashPassword(password) } });
@@ -341,7 +387,7 @@ export async function setPortalUserActiveAction(clientId: string, userId: string
     return { error: errorMessage(e, "Operazione non consentita.") };
   }
   try {
-    await requireClientForPortal(clientId);
+    await requirePortalManager(user, clientId, attivo ? "attivazione" : "disattivazione");
     const link = await prisma.clientUser.findUnique({ where: { userId_clientId: { userId, clientId } }, include: { user: { select: { ruolo: true } } } });
     if (!link || link.user.ruolo !== "CLIENTE") return { error: "Utente non collegato a questo cliente." };
     await prisma.user.update({ where: { id: userId }, data: { attivo } });
@@ -361,7 +407,7 @@ export async function unlinkPortalUserAction(clientId: string, userId: string): 
     return { error: errorMessage(e, "Operazione non consentita.") };
   }
   try {
-    await requireClientForPortal(clientId);
+    await requirePortalManager(user, clientId, "scollegamento");
     const link = await prisma.clientUser.findUnique({ where: { userId_clientId: { userId, clientId } } });
     if (!link) return { error: "Utente non collegato a questo cliente." };
     await prisma.clientUser.delete({ where: { id: link.id } });

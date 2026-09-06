@@ -3,6 +3,12 @@ import { PERIODICITA_IVA, REGIMI_FISCALI, TIPI_SOGGETTO, type PeriodicitaIva, ty
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+/**
+ * Codice fiscale di persona fisica. Nelle posizioni numeriche sono ammesse anche le lettere di omocodia
+ * (L M N P Q R S T U V, che sostituiscono le cifre 0-9); il mese è una delle lettere A B C D E H L M P R S T.
+ */
+export const CF_PERSONA_FISICA_RE = /^[A-Z]{6}[0-9LMNPQRSTUV]{2}[ABCDEHLMPRST][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]$/;
+
 /** Stringa opzionale: spazi rimossi, vuoto -> null */
 const opt = (max: number) =>
   z
@@ -28,7 +34,7 @@ export const clientSchema = z.object({
     .string()
     .trim()
     .transform((v) => v.replace(/\s+/g, "").toUpperCase())
-    .refine((v) => v === "" || /^[A-Z0-9]{11}$/.test(v) || /^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$/.test(v), "Codice fiscale non valido (16 caratteri o 11 cifre).")
+    .refine((v) => v === "" || /^[A-Z0-9]{11}$/.test(v) || CF_PERSONA_FISICA_RE.test(v), "Codice fiscale non valido (16 caratteri o 11 cifre).")
     .transform((v) => (v ? v : null)),
   partitaIva: z
     .string()

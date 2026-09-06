@@ -13,6 +13,8 @@ export interface StaffOption {
   id: string;
   nome: string;
   ruolo: string;
+  /** false se l'utente è disattivato (compare solo se è il referente attuale del cliente) */
+  attivo?: boolean;
 }
 
 export function ClientForm({
@@ -21,6 +23,7 @@ export function ClientForm({
   staff,
   mode,
   canToggleActive,
+  canChangeReferente = true,
   cancelHref,
 }: {
   action: (prev: ClientFormState, formData: FormData) => Promise<ClientFormState>;
@@ -28,6 +31,8 @@ export function ClientForm({
   staff: StaffOption[];
   mode: "create" | "edit";
   canToggleActive: boolean;
+  /** false: il referente viene mostrato ma non è modificabile (solo admin o referente attuale possono cambiarlo) */
+  canChangeReferente?: boolean;
   cancelHref: string;
 }) {
   const [state, formAction] = useActionState<ClientFormState, FormData>(action, {});
@@ -39,6 +44,13 @@ export function ClientForm({
     if (raw === undefined) return fallback;
     return raw === "on" || raw === "true";
   };
+  const referenteAttuale = staff.find((s) => s.id === v("referenteId"));
+  const referenteDisattivato = !!referenteAttuale && referenteAttuale.attivo === false;
+  const referenteHint = !canChangeReferente
+    ? "Solo un amministratore o il referente attuale può cambiare il referente."
+    : referenteDisattivato
+      ? "Il referente attuale è stato disattivato: non riceve più notifiche. Scegli un altro collaboratore."
+      : "Riceve le notifiche relative al cliente.";
 
   return (
     <form action={formAction} className="space-y-5">
@@ -97,12 +109,15 @@ export function ClientForm({
           <Field label="Descrizione attività" htmlFor="attivita" error={errors.attivita}>
             <Input id="attivita" name="attivita" defaultValue={v("attivita")} maxLength={300} placeholder="Es. Installazione impianti idraulici" />
           </Field>
-          <Field label="Referente dello studio" htmlFor="referenteId" error={errors.referenteId} hint="Riceve le notifiche relative al cliente.">
-            <Select id="referenteId" name="referenteId" defaultValue={v("referenteId")}>
+          <Field label="Referente dello studio" htmlFor="referenteId" error={errors.referenteId} hint={referenteHint}>
+            {/* Un select disabilitato non viene inviato: il valore attuale viaggia nell'input nascosto */}
+            {!canChangeReferente && <input type="hidden" name="referenteId" value={v("referenteId")} />}
+            <Select id="referenteId" name={canChangeReferente ? "referenteId" : undefined} defaultValue={v("referenteId")} disabled={!canChangeReferente}>
               <option value="">— Nessun referente —</option>
               {staff.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.nome}
+                  {s.attivo === false ? " (disattivato)" : ""}
                 </option>
               ))}
             </Select>

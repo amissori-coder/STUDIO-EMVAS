@@ -17,11 +17,14 @@ export async function getClientOrNotFound(id: string): Promise<ClientWithReferen
   return client;
 }
 
-/** Utenti staff attivi (per la scelta del referente). */
-export async function getStaffUsers() {
+/**
+ * Utenti staff attivi (per la scelta del referente). Con `includiId` include anche quell'utente se disattivato,
+ * così il referente attuale di un cliente resta visibile e selezionato nel form di modifica.
+ */
+export async function getStaffUsers(includiId?: string | null) {
   return prisma.user.findMany({
-    where: { ruolo: { in: RUOLI_STAFF }, attivo: true },
-    select: { id: true, nome: true, colore: true, ruolo: true },
+    where: { ruolo: { in: RUOLI_STAFF }, OR: [{ attivo: true }, ...(includiId ? [{ id: includiId }] : [])] },
+    select: { id: true, nome: true, colore: true, ruolo: true, attivo: true },
     orderBy: { nome: "asc" },
   });
 }

@@ -158,7 +158,8 @@ function ResetPasswordForm({
 
 type ModalState = { kind: "none" } | { kind: "new" } | { kind: "link" } | { kind: "reset"; utente: PortalUserRow };
 
-export function PortalAccessCard({ clientId, utenti, canResetPassword }: { clientId: string; utenti: PortalUserRow[]; canResetPassword: boolean }) {
+/** `canManage`: admin o referente del cliente; gli altri collaboratori vedono solo l'elenco. */
+export function PortalAccessCard({ clientId, utenti, canManage }: { clientId: string; utenti: PortalUserRow[]; canManage: boolean }) {
   const [modal, setModal] = useState<ModalState>({ kind: "none" });
   const [cred, setCred] = useState<Credenziali | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -178,19 +179,22 @@ export function PortalAccessCard({ clientId, utenti, canResetPassword }: { clien
         title="Accesso al portale clienti"
         description="Utenti che possono accedere all'area riservata per caricare e consultare documenti."
         actions={
-          <>
-            <Button size="sm" variant="outline" onClick={() => setModal({ kind: "link" })}>
-              <Link2 className="h-4 w-4" /> Collega esistente
-            </Button>
-            <Button size="sm" onClick={() => setModal({ kind: "new" })}>
-              <Plus className="h-4 w-4" /> Nuovo utente
-            </Button>
-          </>
+          canManage ? (
+            <>
+              <Button size="sm" variant="outline" onClick={() => setModal({ kind: "link" })}>
+                <Link2 className="h-4 w-4" /> Collega esistente
+              </Button>
+              <Button size="sm" onClick={() => setModal({ kind: "new" })}>
+                <Plus className="h-4 w-4" /> Nuovo utente
+              </Button>
+            </>
+          ) : undefined
         }
       />
       <CardBody className="space-y-3">
         {cred && <CredentialsBox cred={cred} onDismiss={() => setCred(null)} />}
         {error && <Alert kind="error">{error}</Alert>}
+        {!canManage && <p className="text-xs text-slate-500">Gli accessi al portale possono essere gestiti solo da un amministratore o dal referente del cliente.</p>}
         {utenti.length === 0 ? (
           <EmptyState
             icon={<UserRoundPlus />}
@@ -213,29 +217,29 @@ export function PortalAccessCard({ clientId, utenti, canResetPassword }: { clien
                     <p className="text-xs text-slate-400">{u.ultimoAccesso ? `Ultimo accesso: ${u.ultimoAccesso}` : "Non ha ancora effettuato l'accesso"}</p>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
-                  {canResetPassword && (
+                {canManage && (
+                  <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
                     <Button size="sm" variant="outline" onClick={() => setModal({ kind: "reset", utente: u })}>
                       <KeyRound className="h-4 w-4" /> Password
                     </Button>
-                  )}
-                  <form action={() => run(() => setPortalUserActiveAction(clientId, u.id, !u.attivo))}>
-                    <Button type="submit" size="sm" variant="outline" title={u.attivo ? "Disattiva l'accesso" : "Riattiva l'accesso"}>
-                      {u.attivo ? <ShieldOff className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
-                      {u.attivo ? "Disattiva" : "Attiva"}
-                    </Button>
-                  </form>
-                  <form action={() => run(() => unlinkPortalUserAction(clientId, u.id))}>
-                    <ConfirmButton
-                      message={`Scollegare ${u.nome} da questo cliente? L'utente non potrà più vedere i documenti di questo cliente.`}
-                      size="sm"
-                      variant="ghost"
-                      className="text-red-600 hover:bg-red-50"
-                    >
-                      <Unlink className="h-4 w-4" /> Scollega
-                    </ConfirmButton>
-                  </form>
-                </div>
+                    <form action={() => run(() => setPortalUserActiveAction(clientId, u.id, !u.attivo))}>
+                      <Button type="submit" size="sm" variant="outline" title={u.attivo ? "Disattiva l'accesso" : "Riattiva l'accesso"}>
+                        {u.attivo ? <ShieldOff className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+                        {u.attivo ? "Disattiva" : "Attiva"}
+                      </Button>
+                    </form>
+                    <form action={() => run(() => unlinkPortalUserAction(clientId, u.id))}>
+                      <ConfirmButton
+                        message={`Scollegare ${u.nome} da questo cliente? L'utente non potrà più vedere i documenti di questo cliente.`}
+                        size="sm"
+                        variant="ghost"
+                        className="text-red-600 hover:bg-red-50"
+                      >
+                        <Unlink className="h-4 w-4" /> Scollega
+                      </ConfirmButton>
+                    </form>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
