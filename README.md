@@ -91,7 +91,9 @@ Il database e i documenti sono nella cartella `./data` (fai il backup di questa 
 npm run typecheck   # controllo tipi
 npm run lint        # eslint
 npm run build       # build di produzione
-npm run test:e2e    # smoke test con browser (richiede server avviato, BASE_URL)
+npm run test:unit   # test unitari (calendario fiscale, regole adempimenti, parsing Gmail, sicurezza)
+npm run test:e2e    # smoke test con browser su tutte le pagine (richiede server avviato e dati demo, BASE_URL)
+npm run test:e2e:flussi  # flussi chiave: filtri scadenze, invalidazione sessioni, upload/download dal portale
 npm run db:studio   # Prisma Studio per ispezionare i dati
 ```
 

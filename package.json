@@ -18,7 +18,8 @@
     "icons": "node scripts/make-icons.mjs",
     "db:seed:demo": "SEED_DEMO=1 tsx prisma/seed.ts",
     "test:unit": "tsx --test tests/unit/*.test.ts",
-    "test": "npm run test:unit"
+    "test": "npm run test:unit",
+    "test:e2e:flussi": "tsx scripts/e2e-flussi.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
