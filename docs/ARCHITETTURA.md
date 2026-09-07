@@ -40,6 +40,11 @@ src/lib/
                        requireStaffAction/requireAdminAction/requireUserAction/requireClientAccessAction (actions: throw AuthError),
                        isStaff, isAdmin, canAccessClient, tipo CurrentUser {id,email,nome,ruolo,colore,hasGoogle,clientIds,…}
   auth/password.ts     hashPassword, verifyPassword, validatePasswordStrength
+  auth/jwt.ts          signSession/verifySessionToken (claim `sv` = User.sessionVersion: incrementalo al reset password per
+                       invalidare le sessioni esistenti; getCurrentUser rifiuta i token con versione diversa)
+  auth/redirect.ts     isSafeInternalPath/safeInternalPath: validazione del parametro `next` (niente //host, backslash, schemi)
+  auth/rate-limit.ts   checkRateLimit/recordAttempt/resetRateLimit (login: 10 tentativi per email, 50 per IP ogni 15 minuti)
+  html-sanitize.ts     sanitizeHtml a tokenizer (allowlist tag/attributi/schemi) usato per l'HTML delle email
   auth/google.ts       OAuth Google (buildGoogleAuthUrl, exchangeCodeForTokens, refreshAccessToken, isGoogleConfigured)
   gmail-parse.ts       parsing puro dei messaggi Gmail (parseAddress, parseGmailMessage, sanitizeEmailHtml) - testabile
   gmail.ts             (ri-esporta gmail-parse) syncGoogleAccount(accountId), syncAllGoogleAccounts(), fetchGmailAttachment(accountId, gmailId, attachmentId),
@@ -64,11 +69,33 @@ src/components/ui/     kit UI: Button (variant primary|secondary|outline|ghost|d
                        PageHeader, EmptyState, Alert, Avatar, Modal (client), Tabs (client, link-based), ConfirmButton, Spinner
 src/components/layout/ AppShell, Sidebar, MobileNav, TopBar, NotificationBell, nav.ts (NAV_ITEMS)
 src/components/push/PushManager.tsx   bottone attiva/disattiva push (da usare in Impostazioni)
-src/modules/<modulo>/  componenti e actions riutilizzabili di ciascun modulo
+src/modules/<modulo>/  componenti e actions riutilizzabili di ciascun modulo:
+  clienti/       ClientForm, AnagraficaTab, ContactsCard, PortalAccessCard, actions (crea/modifica/archivia/elimina, contatti,
+                 utenti portale: solo admin o referente, vedi permessi.ts), queries (getClientOrNotFound, listClients), validation
+  attivita/      TaskForm, TaskRow, TaskFilters, TaskEditModal, ClientTasksTab (+ PianificazioneCard), CalendarioFiltri,
+                 actions (crea/aggiorna/stato/riassegna/elimina con notifiche), queries (elenco paginato), pianificazione
+  adempimenti/   TemplateForm (editor scadenze), PianificazioneMassivaForm, ClientePicker, descrivi (scadenze in forma leggibile), actions
+  email/         EmailRow, EmailFilters, EmailBody (iframe sandbox), AssociationForm, AttachmentSaveForm, SyncButton, ClientEmailsTab,
+                 actions (associa/scollega/archivia/salva allegato/sync), queries
+  chat/          ChatLayout, ConversationList, ChatConversation (polling SWR), ClientChatPanel, service (non letti, menzioni), actions, text
+  team/          StaffList, TeamTabs, InviteForm, assenze (AbsenceCard/Calendar/Filters/RequestButton/Actions), dashboard.ts (loadDashboard),
+                 queries, actions (collaboratori, inviti, password temporanee, assenze con notifiche)
+  notifiche/     NotificationIcon, actions (segna letta/tutte, pulizia)
+  impostazioni/  ProfileForm, PasswordForm, NotificationPrefsForm, GmailCard, SystemCard, actions
+  documenti/     ClientDocumentsTab (lato studio), DocumentsManager, UploadDropzone, FolderFormModal, DocumentRow, service (albero cartelle), actions
+  portale/       service (cliente corrente, cartelle visibili) e componenti del portale clienti
 src/app/(auth)/login   login (password + Google)
 src/app/(studio)/...   area staff (layout con AppShell, richiede staff)
 src/app/(portale)/portale/...  portale clienti (richiede ruolo CLIENTE)
-src/app/api/...        route handler (auth google, logout [solo POST], cron, push [subscribe, config], notifiche/unread, health)
+src/app/api/...        route handler:
+  auth/google, auth/google/callback, auth/logout [solo POST]     accesso Google e uscita
+  cron/daily, cron/gmail                                        job (Bearer CRON_SECRET o admin via POST)
+  push/subscribe, push/config                                   sottoscrizioni push e chiave VAPID
+  notifiche, notifiche/unread, notifiche/[id]/apri              elenco/contatore/apertura notifiche (solo proprie)
+  chat/[clientId]/messages                                      polling e invio messaggi (staff)
+  email/tasks                                                   attività aperte di un cliente per il form di associazione (staff)
+  documenti/upload, documenti/[id]                              caricamento (multipart) e download/eliminazione con controllo accessi
+  health                                                        stato del server
 ```
 
 ## Contratti tra moduli
@@ -79,8 +106,9 @@ server async con firma `({ clientId, user }: { clientId: string; user: CurrentUs
 - `@/modules/chat/ClientChatPanel` (export `ClientChatPanel`)
 - `@/modules/documenti/ClientDocumentsTab` (export `ClientDocumentsTab`)
 
-Link canonici: `/clienti/[id]`, `/clienti/[id]?tab=attivita|email|chat|documenti`, `/attivita/[id]`, `/email/[id]`,
-`/chat/[clientId]`, `/team`, `/team/assenze`, `/adempimenti`, `/notifiche`, `/impostazioni`, `/portale`, `/portale/cartelle/[id]`.
+Link canonici: `/clienti/[id]`, `/clienti/[id]?tab=attivita|email|chat|documenti`, `/attivita/[id]`, `/attivita/nuova?cliente=&titolo=`,
+`/email/[id]`, `/chat/[clientId]`, `/team`, `/team/assenze`, `/adempimenti`, `/adempimenti/[id]`, `/notifiche`, `/impostazioni`,
+`/invito/[token]` (pubblico), `/portale`, `/portale/cartelle/[id]`.
 Le notifiche create dai job usano questi link (`/attivita/[id]`, `/email/[id]`, `/attivita?assegnatario=…&stato=aperte`).
 
 ## Convenzioni
