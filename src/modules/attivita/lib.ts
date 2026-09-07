@@ -37,12 +37,19 @@ export interface TaskFilters {
   template: string; // id adempimento (dal catalogo: "N attività generate")
   anno: number | null; // anno di riferimento (task.anno)
   periodo: Periodo;
+  /** intervallo di scadenza esplicito (yyyy-MM-dd), es. link "riassegna" delle assenze */
+  da: string;
+  a: string;
   ricerca: string;
   ordina: Ordinamento;
   pagina: number;
 }
 
 type SP = Record<string, string | string[] | undefined>;
+
+function isoDay(v: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : "";
+}
 
 function str(sp: SP, key: string) {
   const v = sp[key];
@@ -64,6 +71,8 @@ export function parseTaskFilters(sp: SP): TaskFilters {
     template: str(sp, "template"),
     anno: Number.isInteger(anno) && anno >= 2000 && anno <= 2100 ? anno : null,
     periodo: periodo in PERIODI ? (periodo as Periodo) : "tutte",
+    da: isoDay(str(sp, "da")),
+    a: isoDay(str(sp, "a")),
     ricerca: str(sp, "ricerca").trim().slice(0, 100),
     ordina: ordina in ORDINAMENTI ? (ordina as Ordinamento) : "scadenza",
     pagina: Number.isFinite(pagina) && pagina > 0 ? pagina : 1,
@@ -80,6 +89,8 @@ export function buildTaskQuery(f: Partial<TaskFilters>) {
   if (f.template) p.set("template", f.template);
   if (f.anno) p.set("anno", String(f.anno));
   if (f.periodo && f.periodo !== "tutte") p.set("periodo", f.periodo);
+  if (f.da) p.set("da", f.da);
+  if (f.a) p.set("a", f.a);
   if (f.ricerca) p.set("ricerca", f.ricerca);
   if (f.ordina && f.ordina !== "scadenza") p.set("ordina", f.ordina);
   if (f.pagina && f.pagina > 1) p.set("pagina", String(f.pagina));

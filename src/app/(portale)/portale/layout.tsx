@@ -45,7 +45,7 @@ export default async function PortaleLayout({ children }: { children: ReactNode 
           <p className="flex items-center gap-1">
             Hai bisogno di aiuto? Contatta lo studio
             {contatto && (
-              <a href={`mailto:${contatto}`} className="inline-flex items-center gap-1 font-medium text-blue-700 hover:underline">
+              <a href={`mailto:${contatto}`} className="inline-flex min-h-10 items-center gap-1 font-medium text-blue-700 hover:underline sm:min-h-0">
                 <Mail className="h-3.5 w-3.5" /> {contatto}
               </a>
             )}

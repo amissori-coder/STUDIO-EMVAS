@@ -184,7 +184,7 @@ export async function setTempPasswordAction(userId: string, _prev: TeamActionSta
     if (!password) password = generatePassword();
     const weak = validatePasswordStrength(password);
     if (weak) return { error: weak, fieldErrors: { password: weak } };
-    await prisma.user.update({ where: { id }, data: { passwordHash: await hashPassword(password), inviteToken: null, inviteExpires: null } });
+    await prisma.user.update({ where: { id }, data: { passwordHash: await hashPassword(password), inviteToken: null, inviteExpires: null, sessionVersion: { increment: 1 } } });
     await audit({ userId: admin.id, azione: "PASSWORD_TEMPORANEA", entita: "User", entitaId: id, dettagli: { email: user.email, sostituita: !!user.passwordHash } });
     // L'interessato viene sempre avvisato (in-app + email) che le sue credenziali sono state cambiate da un amministratore
     await notificaCredenziali(
@@ -302,9 +302,10 @@ export async function acceptInviteAction(token: string, _prev: InviteState, form
   }
   await prisma.user.update({
     where: { id: user.id },
-    data: { passwordHash: await hashPassword(parsed.data.password), inviteToken: null, inviteExpires: null, lastLoginAt: new Date() },
+    data: { passwordHash: await hashPassword(parsed.data.password), inviteToken: null, inviteExpires: null, lastLoginAt: new Date(), sessionVersion: { increment: 1 } },
   });
-  await createSession({ sub: user.id, email: user.email, nome: user.nome, ruolo: user.ruolo as Ruolo });
+  const aggiornato = await prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { sessionVersion: true } });
+  await createSession({ sub: user.id, email: user.email, nome: user.nome, ruolo: user.ruolo as Ruolo, sv: aggiornato.sessionVersion });
   await audit({ userId: user.id, azione: "INVITO_ACCETTATO", entita: "User", entitaId: user.id });
   redirect(user.ruolo === "CLIENTE" ? "/portale" : "/dashboard");
 }

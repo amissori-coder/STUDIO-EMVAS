@@ -33,6 +33,11 @@ export async function proxy(request: NextRequest) {
   const isApi = pathname.startsWith("/api/");
 
   if (!session) {
+    // Le Server Action (header Next-Action) non possono seguire un redirect: le lasciamo passare,
+    // i guard (requireXAction) rispondono con "Sessione scaduta" mostrato nel form.
+    if (request.method === "POST" && request.headers.get("next-action")) {
+      return NextResponse.next();
+    }
     if (isApi) {
       return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
     }

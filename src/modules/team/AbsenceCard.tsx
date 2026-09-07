@@ -3,7 +3,7 @@ import { AlertTriangle, ArrowRight, CalendarRange } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge, STATO_ASSENZA_COLOR, TIPO_ASSENZA_COLOR } from "@/components/ui/Badge";
 import { STATI_ASSENZA, TIPI_ASSENZA } from "@/lib/constants";
-import { cn, formatDate, formatRelative } from "@/lib/utils";
+import { cn, formatDate, formatRelative, toDateInputValue } from "@/lib/utils";
 import { differenceInCalendarDays } from "date-fns";
 import { AbsenceActions } from "./AbsenceActions";
 import type { AbsenceItem } from "./queries";
@@ -48,7 +48,7 @@ export function AbsenceCard({ a, isAdmin, currentUserId }: { a: AbsenceItem; isA
           </p>
           {a.taskARischio > 0 && a.stato !== "RIFIUTATA" && (
             <Link
-              href={`/attivita?assegnatario=${a.userId}&stato=aperte&ordina=scadenza`}
+              href={`/attivita?assegnatario=${a.userId}&stato=aperte&ordina=scadenza&a=${toDateInputValue(a.dataFine)}`}
               className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-xs font-medium text-orange-800 hover:bg-orange-100"
             >
               <AlertTriangle className="h-3.5 w-3.5" />

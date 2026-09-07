@@ -5,7 +5,7 @@ import { Search, SlidersHorizontal, X } from "lucide-react";
 import { Input, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { CATEGORIE_ADEMPIMENTO, STATI_TASK } from "@/lib/constants";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { buildTaskQuery, ORDINAMENTI, PERIODI, type TaskFilters as Filtri } from "@/modules/attivita/lib";
 
 export interface OpzioneUtente {
@@ -73,6 +73,7 @@ export function TaskFilters({
     !!filtri.template,
     !!filtri.anno,
     filtri.periodo !== "tutte",
+    !!filtri.da || !!filtri.a,
     !!filtri.ricerca,
     filtri.ordina !== "scadenza",
   ].filter(Boolean).length;
@@ -164,8 +165,17 @@ export function TaskFilters({
             ))}
           </Select>
         </label>
-        {(filtri.template || filtri.anno) && (
+        {(filtri.template || filtri.anno || filtri.da || filtri.a) && (
           <div className="flex flex-wrap items-center gap-2 text-xs sm:col-span-2 lg:col-span-6">
+            {(filtri.da || filtri.a) && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2.5 py-1 font-medium text-orange-800 ring-1 ring-inset ring-orange-200">
+                Scadenza {filtri.da ? `dal ${formatDate(filtri.da)}` : ""} {filtri.a ? `entro il ${formatDate(filtri.a)}` : ""}
+                {!filtri.da && filtri.a ? " (incluse le scadute)" : ""}
+                <button type="button" onClick={() => applica({ da: "", a: "" })} className="rounded-full p-0.5 hover:bg-orange-100" aria-label="Rimuovi intervallo di scadenza">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            )}
             {filtri.template && (
               <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700 ring-1 ring-inset ring-blue-200">
                 Adempimento: {templateNome ?? "…"}

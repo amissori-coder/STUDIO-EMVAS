@@ -34,7 +34,7 @@ export const UPLOAD_ACCEPT = [
 ].join(",");
 
 /** Limite predefinito dei file per singolo caricamento. */
-export const MAX_FILES_PER_UPLOAD = 20;
+export const MAX_FILES_PER_UPLOAD = 10; // allineato a experimental.proxyClientMaxBodySize in next.config.ts
 
 /** Estensioni con MIME noto: usata quando il browser non fornisce un tipo affidabile. */
 const MIME_BY_EXT: Record<string, string> = {

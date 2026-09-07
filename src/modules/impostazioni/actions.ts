@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { AuthError, requireAdminAction, requireStaffAction } from "@/lib/auth/guards";
 import { hashPassword, validatePasswordStrength, verifyPassword } from "@/lib/auth/password";
 import { audit } from "@/lib/audit";
+import { createSession } from "@/lib/auth/session";
 import { syncGoogleAccount } from "@/lib/gmail";
 import { eseguiJobGiornalieri } from "@/lib/cron/jobs";
 import { isPushConfigured, notify, sendPushToUser } from "@/lib/notifications";
@@ -86,7 +87,13 @@ export async function changePasswordAction(_prev: ImpostazioniState, formData: F
     if (weak) return { error: weak, fieldErrors: { nuova: weak } };
     if (nuova !== conferma) return { error: "Le due password non coincidono.", fieldErrors: { conferma: "Non coincide con la nuova password." } };
     if (db.passwordHash && (await verifyPassword(nuova, db.passwordHash))) return { error: "La nuova password deve essere diversa da quella attuale.", fieldErrors: { nuova: "Uguale alla password attuale." } };
-    await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(nuova), inviteToken: null, inviteExpires: null } });
+    const aggiornato = await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: await hashPassword(nuova), inviteToken: null, inviteExpires: null, sessionVersion: { increment: 1 } },
+      select: { sessionVersion: true },
+    });
+    // le sessioni aperte su altri dispositivi non sono più valide; questa viene rinnovata
+    await createSession({ sub: user.id, email: user.email, nome: user.nome, ruolo: user.ruolo, sv: aggiornato.sessionVersion });
     await audit({ userId: user.id, azione: "PASSWORD_CAMBIATA", entita: "User", entitaId: user.id });
     // rigenera la pagina: dopo la prima password il form deve mostrare il campo "Password attuale"
     revalidateImpostazioni();

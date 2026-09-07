@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { requireStaff } from "@/lib/auth/guards";
 import { TIPI_ASSENZA } from "@/lib/constants";
-import { cn, formatDate, formatDateLong, formatRelative } from "@/lib/utils";
+import { cn, formatDate, formatDateLong, formatRelative, toDateInputValue } from "@/lib/utils";
 import { Alert } from "@/components/ui/Alert";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge, TIPO_ASSENZA_COLOR } from "@/components/ui/Badge";
@@ -237,7 +237,7 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
                       {totale > tasks.length && <li className="text-slate-400">…e altre {totale - tasks.length}</li>}
                     </ul>
                     <Link
-                      href={`/attivita?assegnatario=${assenza.userId}&stato=aperte&ordina=scadenza`}
+                      href={`/attivita?assegnatario=${assenza.userId}&stato=aperte&ordina=scadenza&a=${toDateInputValue(assenza.dataFine)}`}
                       className="mt-2 inline-flex min-h-10 items-center gap-1 text-xs font-medium text-orange-800 hover:underline sm:min-h-0"
                     >
                       Riassegna le attività <ArrowRight className="h-3.5 w-3.5" />

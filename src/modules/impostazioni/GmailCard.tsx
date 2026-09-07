@@ -24,6 +24,8 @@ const ERRORI: Record<string, string> = {
   "google-dominio": "L'account Google scelto non appartiene al dominio dello studio.",
   "google-errore": "Errore durante il collegamento con Google.",
   "google-negato": "Collegamento con Google annullato.",
+  "google-scope": "Devi consentire l'accesso in sola lettura a Gmail nella schermata di consenso Google.",
+  "google-casella-usata": "Questa casella Gmail è già collegata da un altro utente dello studio.",
 };
 
 export function GmailCard({ status, messaggio, errore }: { status: GmailStatus | null; messaggio?: string; errore?: string }) {

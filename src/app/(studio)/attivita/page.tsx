@@ -5,7 +5,7 @@ import { AlertTriangle, CalendarDays, CalendarRange, ListChecks, Plus, Sun } fro
 import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/auth/guards";
 import { STATI_TASK_APERTI } from "@/lib/constants";
-import { addDays, cn, endOfDayLocal, startOfDayLocal } from "@/lib/utils";
+import { addDays, cn, endOfDayLocal, parseDateInput, startOfDayLocal } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
@@ -35,6 +35,16 @@ function buildWhere(f: Filtri, userId: string): Prisma.TaskWhereInput {
   else if (f.periodo === "oggi") where.scadenza = { gte: oggi, lte: endOfDayLocal(oggi) };
   else if (f.periodo === "settimana") where.scadenza = { gte: oggi, lte: endOfDayLocal(addDays(oggi, 7)) };
   else if (f.periodo === "mese") where.scadenza = { gte: oggi, lte: endOfDayLocal(addDays(oggi, 30)) };
+
+  // intervallo esplicito (?da=&a=): si combina con il periodo; "a" da solo include anche le scadute
+  const da = parseDateInput(f.da);
+  const a = parseDateInput(f.a);
+  if (da || a) {
+    const range: Prisma.DateTimeFilter<"Task"> = typeof where.scadenza === "object" && !(where.scadenza instanceof Date) ? { ...where.scadenza } : {};
+    if (da) range.gte = startOfDayLocal(da);
+    if (a) range.lte = endOfDayLocal(a);
+    where.scadenza = range;
+  }
 
   if (f.ricerca) {
     where.OR = [{ titolo: { contains: f.ricerca } }, { client: { denominazione: { contains: f.ricerca } } }, { descrizione: { contains: f.ricerca } }];
