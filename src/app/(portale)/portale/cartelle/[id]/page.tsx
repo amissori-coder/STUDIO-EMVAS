@@ -7,10 +7,11 @@ import { getMaxUploadBytes } from "@/lib/storage";
 import { Alert } from "@/components/ui/Alert";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { LinkPending } from "@/modules/portale/LinkPending";
 import { PortalDocumentList } from "@/modules/portale/PortalDocumentList";
 import { PortalFolderCard } from "@/modules/portale/PortalFolderCard";
 import { PortalUpload } from "@/modules/portale/PortalUpload";
-import { getPortalFolder, getPortalFolderDocuments } from "@/modules/portale/service";
+import { getPortalFolder, getPortalFolderDocuments, PORTAL_ERROR_MESSAGES } from "@/modules/portale/service";
 
 export async function generateMetadata(props: PageProps<"/portale/cartelle/[id]">): Promise<Metadata> {
   const user = await requireClientUser();
@@ -28,14 +29,18 @@ export default async function PortaleCartellaPage(props: PageProps<"/portale/car
   const { folder, chain, clientId } = res;
   const documents = await getPortalFolderDocuments(folder.id);
   const messaggio = sp.messaggio === "eliminato" ? "Documento eliminato." : null;
-  const errore = typeof sp.errore === "string" ? sp.errore : null;
+  // solo codici noti: il testo non arriva mai dalla query string
+  const errore = typeof sp.errore === "string" ? (PORTAL_ERROR_MESSAGES[sp.errore] ?? null) : null;
   const parents = chain.slice(0, -1);
 
   return (
     <div className="space-y-5">
       <nav aria-label="Percorso" className="flex flex-wrap items-center gap-1 text-sm text-slate-500">
         <Link href={`/portale?cliente=${encodeURIComponent(clientId)}`} className="inline-flex min-h-8 items-center gap-1 rounded-md px-1 hover:text-blue-700">
-          <Home className="h-4 w-4" /> Home
+          <LinkPending className="h-4 w-4">
+            <Home className="h-4 w-4" />
+          </LinkPending>{" "}
+          Home
         </Link>
         {parents.map((p) => (
           <span key={p.id} className="inline-flex items-center gap-1">

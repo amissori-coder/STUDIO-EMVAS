@@ -7,6 +7,33 @@ import { buildFolderTree, type DocumentDto, type FolderNode } from "@/modules/do
 
 export const PORTAL_CLIENT_COOKIE = "emvas_portale_cliente";
 
+/** Opzioni del cookie che ricorda il cliente selezionato nel portale (allineate a quelle della sessione). */
+export function portalClientCookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production" && (process.env.APP_URL ?? "").startsWith("https"),
+    path: "/portale",
+    maxAge: 365 * 24 * 60 * 60,
+  };
+}
+
+/** Id del cliente memorizzato nel cookie del portale (non verificato). */
+export async function getPortalCookieClientId(): Promise<string | null> {
+  const store = await cookies();
+  return store.get(PORTAL_CLIENT_COOKIE)?.value ?? null;
+}
+
+/**
+ * Mappa cartella → cliente per tutte le cartelle visibili dei clienti indicati: serve al selettore
+ * dell'intestazione per capire, dal percorso `/portale/cartelle/[id]`, quale cliente è mostrato.
+ */
+export async function getPortalFolderClientMap(clientIds: string[]): Promise<Record<string, string>> {
+  if (clientIds.length === 0) return {};
+  const folders = await prisma.documentFolder.findMany({ where: { clientId: { in: clientIds }, visibileCliente: true }, select: { id: true, clientId: true } });
+  return Object.fromEntries(folders.map((f) => [f.id, f.clientId]));
+}
+
 export interface PortalClient {
   id: string;
   denominazione: string;
@@ -30,8 +57,7 @@ export async function resolvePortalClient(clients: PortalClient[], requestedId?:
     const c = clients.find((x) => x.id === requestedId);
     if (c) return c;
   }
-  const store = await cookies();
-  const fromCookie = store.get(PORTAL_CLIENT_COOKIE)?.value;
+  const fromCookie = await getPortalCookieClientId();
   if (fromCookie) {
     const c = clients.find((x) => x.id === fromCookie);
     if (c) return c;
@@ -48,9 +74,14 @@ export interface PortalFolder {
   clientePuoCaricare: boolean;
   /** documenti direttamente nella cartella */
   count: number;
-  /** data dell'ultimo caricamento nella cartella */
+  /** data dell'ultimo caricamento nella cartella o in una sua sottocartella (ISO) */
   ultimoCaricamento: string | null;
   children: PortalFolder[];
+}
+
+/** Numero totale di documenti nella cartella e in tutte le sottocartelle. */
+export function portalCountDeep(node: PortalFolder): number {
+  return node.count + node.children.reduce((s, c) => s + portalCountDeep(c), 0);
 }
 
 /**
@@ -81,17 +112,25 @@ export async function getPortalFolderTree(clientId: string): Promise<PortalFolde
   );
   // buildFolderTree considera "radice" anche chi ha un padre non presente (perché nascosto): scartiamo quei rami.
   const last = new Map(folders.map((f) => [f.id, f.documenti[0]?.createdAt.toISOString() ?? null]));
-  const convert = (n: FolderNode): PortalFolder => ({
-    id: n.id,
-    clientId: n.clientId,
-    nome: n.nome,
-    descrizione: n.descrizione,
-    parentId: n.parentId,
-    clientePuoCaricare: n.clientePuoCaricare,
-    count: n.count,
-    ultimoCaricamento: last.get(n.id) ?? null,
-    children: n.children.map(convert),
-  });
+  const convert = (n: FolderNode): PortalFolder => {
+    const children = n.children.map(convert);
+    // ultimo caricamento considerando anche le sottocartelle (le date ISO si confrontano come stringhe)
+    const ultimoCaricamento = [last.get(n.id) ?? null, ...children.map((c) => c.ultimoCaricamento)].reduce<string | null>(
+      (max, d) => (d && (!max || d > max) ? d : max),
+      null,
+    );
+    return {
+      id: n.id,
+      clientId: n.clientId,
+      nome: n.nome,
+      descrizione: n.descrizione,
+      parentId: n.parentId,
+      clientePuoCaricare: n.clientePuoCaricare,
+      count: n.count,
+      ultimoCaricamento,
+      children,
+    };
+  };
   return nodes.filter((n) => !n.parentId).map(convert);
 }
 
@@ -145,6 +184,20 @@ export async function getPortalRecentDocuments(user: CurrentUser, clientId: stri
     take: limit,
   });
   return docs.map(toDocumentDto);
+}
+
+/** Messaggi mostrati nella pagina cartella per i codici `?errore=` (i valori sconosciuti vengono ignorati). */
+export const PORTAL_ERROR_MESSAGES: Record<string, string> = {
+  "non-trovato": "Il documento non è stato trovato: forse è già stato eliminato.",
+  "non-consentito": "Puoi eliminare solo i documenti che hai caricato tu. Per gli altri contatta lo studio.",
+  eliminazione: "Non è stato possibile eliminare il documento. Riprova o contatta lo studio.",
+};
+
+/** Codice `?errore=` corrispondente al messaggio restituito da deleteDocumentAction. */
+export function portalErrorCode(error: string): keyof typeof PORTAL_ERROR_MESSAGES {
+  if (error.startsWith("Documento non trovato")) return "non-trovato";
+  if (error.startsWith("Non puoi eliminare")) return "non-consentito";
+  return "eliminazione";
 }
 
 /** Indirizzo email dello studio da mostrare nel footer del portale (da SMTP_FROM o VAPID_SUBJECT). */

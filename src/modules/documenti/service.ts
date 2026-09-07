@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { canAccessClient, isStaff, type CurrentUser } from "@/lib/auth/guards";
 import { audit } from "@/lib/audit";
 import { deleteUpload } from "@/lib/storage";
+import { formatDateTime } from "@/lib/utils";
 import { buildFolderTree, type DocumentDto, type FolderDto, type FolderNode } from "./shared";
 
 export const DOCUMENT_INCLUDE = {
@@ -25,6 +26,7 @@ export function toDocumentDto(d: DocumentWithRefs): DocumentDto {
     daCliente: d.daCliente,
     note: d.note,
     createdAt: d.createdAt.toISOString(),
+    createdAtLabel: formatDateTime(d.createdAt),
     uploadedBy: d.uploadedBy ? { id: d.uploadedBy.id, nome: d.uploadedBy.nome } : null,
     email: d.email ? { id: d.email.id, subject: d.email.subject } : null,
     task: d.task ? { id: d.task.id, titolo: d.task.titolo } : null,
@@ -84,18 +86,29 @@ export async function isFolderVisibleToClient(folderId: string): Promise<boolean
   return true;
 }
 
+/**
+ * Un utente CLIENTE può operare sui documenti di un cliente solo se vi ha accesso e il cliente è ancora attivo
+ * (il portale nasconde i clienti archiviati: le API devono comportarsi allo stesso modo).
+ */
+export async function canClientUserAccess(user: CurrentUser, clientId: string) {
+  if (!canAccessClient(user, clientId)) return false;
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { attivo: true } });
+  return !!client?.attivo;
+}
+
 /** Chi ha caricato il documento può vederlo anche se è senza cartella (es. cartella eliminata). */
 export async function canUserViewDocument(user: CurrentUser, doc: { clientId: string; folderId: string | null; daCliente: boolean; uploadedById: string | null }) {
   if (isStaff(user)) return true;
-  if (!canAccessClient(user, doc.clientId)) return false;
+  if (!(await canClientUserAccess(user, doc.clientId))) return false;
   if (doc.daCliente && doc.uploadedById === user.id) return true;
   if (!doc.folderId) return false;
   return isFolderVisibleToClient(doc.folderId);
 }
 
-export function canUserDeleteDocument(user: CurrentUser, doc: { clientId: string; daCliente: boolean; uploadedById: string | null }) {
+export async function canUserDeleteDocument(user: CurrentUser, doc: { clientId: string; daCliente: boolean; uploadedById: string | null }) {
   if (isStaff(user)) return true;
-  return canAccessClient(user, doc.clientId) && doc.daCliente && doc.uploadedById === user.id;
+  if (!doc.daCliente || doc.uploadedById !== user.id) return false;
+  return canClientUserAccess(user, doc.clientId);
 }
 
 /** Elimina file e riga del documento, registrando l'audit. Non verifica i permessi. */

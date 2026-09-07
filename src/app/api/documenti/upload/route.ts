@@ -4,13 +4,16 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { AuthError, canAccessClient, isStaff, requireUserAction } from "@/lib/auth/guards";
 import { audit } from "@/lib/audit";
-import { notify } from "@/lib/notifications";
-import { getMaxUploadBytes, isAllowedFilename, saveUpload } from "@/lib/storage";
+import { notify, notifyAdmins } from "@/lib/notifications";
+import { deleteUpload, getMaxUploadBytes, isAllowedFilename, saveUpload } from "@/lib/storage";
 import { formatBytes } from "@/lib/utils";
-import { DOCUMENT_INCLUDE, isFolderVisibleToClient, toDocumentDto } from "@/modules/documenti/service";
+import { DOCUMENT_INCLUDE, isFolderVisibleToClient, toDocumentDto, type DocumentWithRefs } from "@/modules/documenti/service";
 import { guessMimeType, MAX_FILES_PER_UPLOAD, type UploadResponse } from "@/modules/documenti/shared";
 
 export const runtime = "nodejs";
+
+/** Margine per campi e intestazioni multipart oltre al contenuto dei file. */
+const MULTIPART_OVERHEAD = 1024 * 1024;
 
 function json(body: UploadResponse, status = 200) {
   return NextResponse.json(body, { status });
@@ -35,6 +38,14 @@ export async function POST(request: NextRequest) {
     return json({ error: (e as Error).message }, e instanceof AuthError ? e.status : 401);
   }
 
+  // request.formData() materializza l'intero corpo in memoria: rifiuta subito le richieste dichiaratamente
+  // troppo grandi invece di allocarle e poi rispondere 413 file per file.
+  const max = getMaxUploadBytes();
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_FILES_PER_UPLOAD * max + MULTIPART_OVERHEAD) {
+    return json({ error: `Caricamento troppo grande: al massimo ${MAX_FILES_PER_UPLOAD} file da ${formatBytes(max)} ciascuno.` }, 413);
+  }
+
   let formData: FormData;
   try {
     formData = await request.formData();
@@ -57,6 +68,8 @@ export async function POST(request: NextRequest) {
   if (!client) return json({ error: "Cliente non trovato." }, 404);
 
   const staff = isStaff(user);
+  // Il portale nasconde i clienti archiviati: l'API deve fare altrettanto.
+  if (!staff && !client.attivo) return json({ error: "Cliente non trovato." }, 404);
   if (!staff && !folderId) return json({ error: "Scegli una cartella in cui caricare i documenti." }, 400);
 
   if (folderId) {
@@ -72,7 +85,6 @@ export async function POST(request: NextRequest) {
   if (files.length === 0) return json({ error: "Nessun file selezionato." }, 400);
   if (files.length > MAX_FILES_PER_UPLOAD) return json({ error: `Puoi caricare al massimo ${MAX_FILES_PER_UPLOAD} file per volta.` }, 400);
 
-  const max = getMaxUploadBytes();
   for (const f of files) {
     if (f.size <= 0) return json({ error: `Il file "${f.name}" è vuoto.` }, 400);
     if (f.size > max) return json({ error: `Il file "${f.name}" supera la dimensione massima di ${formatBytes(max)}.` }, 413);
@@ -80,11 +92,14 @@ export async function POST(request: NextRequest) {
   }
 
   const daCliente = user.ruolo === "CLIENTE";
-  const created = [];
-  try {
-    for (const f of files) {
+  const created: DocumentWithRefs[] = [];
+  const falliti: string[] = [];
+  // Ogni file viene salvato indipendentemente: un errore su uno non blocca gli altri e non lascia file orfani su disco.
+  for (const f of files) {
+    let storagePath: string | null = null;
+    try {
       const data = Buffer.from(await f.arrayBuffer());
-      const storagePath = await saveUpload({ clientId, originalName: f.name, data });
+      storagePath = await saveUpload({ clientId, originalName: f.name, data });
       const doc = await prisma.document.create({
         data: {
           clientId,
@@ -100,11 +115,13 @@ export async function POST(request: NextRequest) {
         include: DOCUMENT_INCLUDE,
       });
       created.push(doc);
+    } catch (e) {
+      console.error(`[documenti/upload] salvataggio di "${f.name}" fallito:`, e);
+      falliti.push(f.name);
+      if (storagePath) await deleteUpload(storagePath).catch((err) => console.error("[documenti/upload] pulizia file orfano fallita:", err));
     }
-  } catch (e) {
-    console.error("[documenti/upload]", e);
-    if (created.length === 0) return json({ error: "Errore durante il salvataggio dei file. Riprova." }, 500);
   }
+  if (created.length === 0) return json({ error: "Errore durante il salvataggio dei file. Riprova.", falliti }, 500);
 
   await audit({
     userId: user.id,
@@ -114,22 +131,26 @@ export async function POST(request: NextRequest) {
     dettagli: { clientId, folderId, files: created.map((d) => ({ id: d.id, nome: d.nome, size: d.size })), note },
   });
 
-  if (daCliente && client.referenteId) {
+  if (daCliente) {
     const nomi = created.map((d) => d.nome);
     const elenco = nomi.slice(0, 5).join(", ") + (nomi.length > 5 ? ` e altri ${nomi.length - 5}` : "");
-    await notify({
-      userId: client.referenteId,
+    const avviso = {
       tipo: "DOCUMENTO_CARICATO",
       titolo: created.length === 1 ? `Nuovo documento da ${client.denominazione}` : `${created.length} nuovi documenti da ${client.denominazione}`,
       corpo: `${user.nome} ha caricato: ${elenco}${note ? ` — «${note}»` : ""}`,
       link: `/clienti/${clientId}?tab=documenti`,
-    });
+    } as const;
+    // Senza referente l'avviso va agli amministratori: il portale promette che lo studio viene sempre avvisato.
+    if (client.referenteId) await notify({ userId: client.referenteId, ...avviso });
+    else await notifyAdmins(avviso);
   }
 
   revalidatePath(`/clienti/${clientId}`);
   revalidatePath("/portale");
   if (folderId) revalidatePath(`/portale/cartelle/${folderId}`);
 
-  const status = created.length < files.length ? 207 : 201;
-  return json({ ok: true, documenti: created.map(toDocumentDto), ...(created.length < files.length ? { error: "Alcuni file non sono stati salvati." } : {}) }, status);
+  if (falliti.length > 0) {
+    return json({ ok: true, documenti: created.map(toDocumentDto), falliti, error: `Non è stato possibile salvare: ${falliti.join(", ")}.` }, 207);
+  }
+  return json({ ok: true, documenti: created.map(toDocumentDto) }, 201);
 }

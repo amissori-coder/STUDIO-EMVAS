@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { AuthError, requireUserAction, type CurrentUser } from "@/lib/auth/guards";
 import { readUpload, streamUpload, uploadExists } from "@/lib/storage";
 import { canUserDeleteDocument, canUserViewDocument, contentDisposition, removeDocument } from "@/modules/documenti/service";
-import { isInlineMime } from "@/modules/documenti/shared";
+import { isInlineMime, safeMimeType } from "@/modules/documenti/shared";
 
 export const runtime = "nodejs";
 
@@ -38,13 +38,19 @@ export async function GET(_request: NextRequest, ctx: RouteContext<"/api/documen
     return NextResponse.json({ error: "File non presente nell'archivio" }, { status: 404 });
   }
 
-  const inline = isInlineMime(doc.mimeType);
+  // Solo PDF e immagini raster vengono aperti nel browser; SVG/HTML/XML ecc. sono sempre scaricati come allegato
+  // (un file caricato dal cliente non deve mai poter eseguire script nell'origine dell'applicazione).
+  const mime = safeMimeType(doc.mimeType);
+  const inline = isInlineMime(mime);
   const headers = new Headers({
-    "Content-Type": doc.mimeType || "application/octet-stream",
+    "Content-Type": mime,
     "Content-Disposition": contentDisposition(doc.nome, inline),
     "Cache-Control": "private, no-store",
     "X-Content-Type-Options": "nosniff",
   });
+  // Difesa in profondità: contenuto isolato dall'origine e senza script (il visualizzatore PDF di Chrome
+  // non funziona con `sandbox`, quindi per i PDF si omette).
+  if (mime !== "application/pdf") headers.set("Content-Security-Policy", "default-src 'none'; sandbox");
 
   try {
     if (doc.size <= READ_IN_MEMORY_MAX) {
@@ -72,7 +78,7 @@ export async function DELETE(_request: NextRequest, ctx: RouteContext<"/api/docu
   });
   if (!doc) return NextResponse.json({ error: "Documento non trovato" }, { status: 404 });
   if (!(await canUserViewDocument(g.user, doc))) return NextResponse.json({ error: "Documento non trovato" }, { status: 404 });
-  if (!canUserDeleteDocument(g.user, doc)) return NextResponse.json({ error: "Non puoi eliminare questo documento" }, { status: 403 });
+  if (!(await canUserDeleteDocument(g.user, doc))) return NextResponse.json({ error: "Non puoi eliminare questo documento" }, { status: 403 });
   await removeDocument(g.user, doc);
   revalidatePath(`/clienti/${doc.clientId}`);
   revalidatePath("/portale");

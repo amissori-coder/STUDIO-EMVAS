@@ -1,6 +1,6 @@
 import { Download, Trash2 } from "lucide-react";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
-import { formatBytes, formatDateTime } from "@/lib/utils";
+import { formatBytes } from "@/lib/utils";
 import { FileIcon } from "@/modules/documenti/FileIcon";
 import type { DocumentDto } from "@/modules/documenti/shared";
 import { deletePortalDocumentAction } from "./actions";
@@ -33,7 +33,9 @@ export function PortalDocumentList({
               </a>
               <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-slate-500">
                 <span>{formatBytes(d.size)}</span>
-                <span>· {formatDateTime(d.createdAt)}</span>
+                <span>
+                  · <time dateTime={d.createdAt}>{d.createdAtLabel}</time>
+                </span>
                 <span>· {mio ? "caricato da te" : d.daCliente ? "caricato dalla tua azienda" : "dallo studio"}</span>
                 {cartella && <span className="text-slate-400">· {cartella}</span>}
               </p>

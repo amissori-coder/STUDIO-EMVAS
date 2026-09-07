@@ -92,9 +92,13 @@ export function DocumentsManager({
     startTransition(async () => {
       let r = await deleteFolderAction(folder.id, false);
       if (r.needsConfirm) {
-        const ok = window.confirm(
-          `La cartella «${folder.nome}» (con le eventuali sottocartelle) contiene ${r.count} document${r.count === 1 ? "o" : "i"}. Verranno spostati in «Senza cartella» e non andranno persi. Continuare?`,
-        );
+        const count = r.count ?? 0;
+        const sub = r.sottocartelle ?? 0;
+        const parti = [
+          sub > 0 ? `${sub} sottocartell${sub === 1 ? "a, che verrà eliminata" : "e, che verranno eliminate"}` : null,
+          count > 0 ? `${count} document${count === 1 ? "o, che verrà spostato" : "i, che verranno spostati"} in «Senza cartella» (non andranno persi)` : null,
+        ].filter(Boolean);
+        const ok = window.confirm(`La cartella «${folder.nome}» contiene ${parti.join(" e ")}. Continuare?`);
         if (!ok) return;
         r = await deleteFolderAction(folder.id, true);
       }
@@ -262,8 +266,9 @@ export function DocumentsManager({
                   <span className="ml-auto hidden text-xs text-slate-400 group-open:inline">nascondi</span>
                 </summary>
                 <div className="mt-3">
+                  {/* nessuna `key` sulla cartella: cambiare selezione non deve azzerare i file già scelti e la nota
+                      (la destinazione viene letta da `folderId` al momento del caricamento) */}
                   <UploadDropzone
-                    key={effective}
                     clientId={clientId}
                     folderId={selectedFolder?.id ?? null}
                     maxBytes={maxBytes}

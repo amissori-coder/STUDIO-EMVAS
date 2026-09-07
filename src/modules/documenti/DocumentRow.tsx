@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { Download, FolderInput, ListChecks, Mail, StickyNote, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
-import { formatBytes, formatDateTime } from "@/lib/utils";
+import { formatBytes } from "@/lib/utils";
 import { FileIcon } from "./FileIcon";
 import type { DocumentDto } from "./shared";
 
@@ -44,7 +44,8 @@ export function DocumentRow({
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
           <span>{formatBytes(doc.size)}</span>
-          <span>{formatDateTime(doc.createdAt)}</span>
+          {/* etichetta calcolata sul server: formattarla qui col fuso del browser causerebbe un hydration mismatch */}
+          <time dateTime={doc.createdAt}>{doc.createdAtLabel}</time>
           <span>{doc.uploadedBy?.id === currentUserId ? "caricato da te" : `da ${uploaderLabel(doc, currentUserId)}`}</span>
           {folderName !== undefined && <span className="text-slate-400">{folderName ?? "Senza cartella"}</span>}
           {doc.daCliente && <Badge color="blue">Dal cliente</Badge>}
