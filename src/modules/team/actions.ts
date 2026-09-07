@@ -80,12 +80,25 @@ function generatePassword() {
 // ---------------------------------------------------------------------------
 // Collaboratori
 // ---------------------------------------------------------------------------
+// Solo la palette COLORI_UTENTE: avatar ed etichette del calendario usano testo bianco sul colore scelto
+const coloreSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .refine((c) => COLORI_UTENTE.includes(c), "Colore non valido.");
+
 const staffSchema = z.object({
   nome: z.string().trim().min(2, "Inserisci il nome.").max(120, "Nome troppo lungo."),
   email: z.string().trim().min(1, "Inserisci l'email.").max(200).pipe(z.email("Email non valida.")),
   ruolo: z.enum(["ADMIN", "COLLABORATORE"], { message: "Ruolo non valido." }),
-  colore: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, "Colore non valido."),
+  colore: coloreSchema,
 });
+
+/** Avvisa l'interessato (in-app + email) quando un amministratore rigenera le sue credenziali. */
+async function notificaCredenziali(target: { id: string }, admin: CurrentUser, titolo: string, corpo: string) {
+  if (target.id === admin.id) return;
+  await notify({ userId: target.id, tipo: "SISTEMA", titolo, corpo, link: "/impostazioni", email: true });
+}
 
 export async function createCollaboratorAction(_prev: TeamActionState, formData: FormData): Promise<TeamActionState> {
   let admin: CurrentUser;
@@ -136,7 +149,7 @@ export async function resendInviteAction(userId: string): Promise<TeamActionStat
   try {
     const admin = await requireAdminAction();
     const id = z.string().min(1).parse(userId);
-    const user = await prisma.user.findFirst({ where: { id, ruolo: { in: RUOLI_STAFF } }, select: { id: true, email: true, nome: true, attivo: true } });
+    const user = await prisma.user.findFirst({ where: { id, ruolo: { in: RUOLI_STAFF } }, select: { id: true, email: true, nome: true, attivo: true, passwordHash: true } });
     if (!user) return { error: "Collaboratore non trovato." };
     if (!user.attivo) return { error: "Riattiva il collaboratore prima di inviare un nuovo invito." };
     const invito = nuovoInvito();
@@ -144,6 +157,15 @@ export async function resendInviteAction(userId: string): Promise<TeamActionStat
     const link = appUrl(`/invito/${invito.inviteToken}`);
     const emailSent = await inviaEmailInvito({ to: user.email, nome: user.nome, link, invitante: admin.nome });
     await audit({ userId: admin.id, azione: "INVITO_REINVIATO", entita: "User", entitaId: id, dettagli: { email: user.email, invitoEmail: emailSent } });
+    // Un utente che ha già una password viene avvisato: il link permette di reimpostarla e accedere
+    if (user.passwordHash) {
+      await notificaCredenziali(
+        user,
+        admin,
+        "Nuovo link di accesso generato per il tuo account",
+        `${admin.nome} ha generato un nuovo link di invito per il tuo account (valido ${INVITE_DAYS} giorni): chi lo apre può impostare una nuova password. Se non lo hai richiesto, contatta subito lo studio.`,
+      );
+    }
     revalidateTeam();
     return { ok: true, inviteLink: link, emailSent, nonce: Date.now() };
   } catch (e) {
@@ -155,14 +177,22 @@ export async function setTempPasswordAction(userId: string, _prev: TeamActionSta
   try {
     const admin = await requireAdminAction();
     const id = z.string().min(1).parse(userId);
-    const user = await prisma.user.findFirst({ where: { id, ruolo: { in: RUOLI_STAFF } }, select: { id: true, email: true } });
+    const user = await prisma.user.findFirst({ where: { id, ruolo: { in: RUOLI_STAFF } }, select: { id: true, email: true, attivo: true, passwordHash: true } });
     if (!user) return { error: "Collaboratore non trovato." };
+    if (!user.attivo) return { error: "Riattiva il collaboratore prima di impostare una password." };
     let password = String(formData.get("password") ?? "").trim();
     if (!password) password = generatePassword();
     const weak = validatePasswordStrength(password);
     if (weak) return { error: weak, fieldErrors: { password: weak } };
     await prisma.user.update({ where: { id }, data: { passwordHash: await hashPassword(password), inviteToken: null, inviteExpires: null } });
-    await audit({ userId: admin.id, azione: "PASSWORD_TEMPORANEA", entita: "User", entitaId: id, dettagli: { email: user.email } });
+    await audit({ userId: admin.id, azione: "PASSWORD_TEMPORANEA", entita: "User", entitaId: id, dettagli: { email: user.email, sostituita: !!user.passwordHash } });
+    // L'interessato viene sempre avvisato (in-app + email) che le sue credenziali sono state cambiate da un amministratore
+    await notificaCredenziali(
+      user,
+      admin,
+      user.passwordHash ? "La tua password è stata sostituita da un amministratore" : "Password temporanea impostata per il tuo account",
+      `${admin.nome} ha impostato una password temporanea per il tuo account. Cambiala al primo accesso da Impostazioni. Se non lo hai richiesto, contatta subito lo studio.`,
+    );
     revalidateTeam();
     return { ok: true, password, nonce: Date.now() };
   } catch (e) {
@@ -173,7 +203,7 @@ export async function setTempPasswordAction(userId: string, _prev: TeamActionSta
 const updateStaffSchema = z.object({
   nome: z.string().trim().min(2, "Inserisci il nome.").max(120, "Nome troppo lungo."),
   telefono: z.string().trim().max(40, "Telefono troppo lungo.").optional().or(z.literal("")),
-  colore: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, "Colore non valido."),
+  colore: coloreSchema,
 });
 
 export async function updateStaffAction(userId: string, _prev: TeamActionState, formData: FormData): Promise<TeamActionState> {
@@ -190,6 +220,8 @@ export async function updateStaffAction(userId: string, _prev: TeamActionState, 
     });
     await audit({ userId: admin.id, azione: "COLLABORATORE_MODIFICATO", entita: "User", entitaId: id, dettagli: parsed.data });
     revalidateTeam();
+    // se l'admin modifica se stesso, nome e colore compaiono anche in sidebar/top bar (layout)
+    if (id === admin.id) revalidatePath("/", "layout");
     return { ok: true, nonce: Date.now() };
   } catch (e) {
     return { error: errorMessage(e, "Errore durante il salvataggio.") };
@@ -442,13 +474,19 @@ export async function deleteAbsenceAction(absenceId: string): Promise<TeamAction
       entitaId: id,
       dettagli: { userId: a.userId, tipo: a.tipo, dataInizio: a.dataInizio, dataFine: a.dataFine, stato: a.stato },
     });
-    if (!propria && a.stato !== "RICHIESTA") {
+    // Il proprietario viene avvisato anche quando l'admin elimina una sua richiesta ancora in attesa
+    // (altrimenti resterebbe ad aspettare un esito che non arriverà mai)
+    if (!propria) {
+      const pendente = a.stato === "RICHIESTA";
       await notify({
         userId: a.userId,
         tipo: "SISTEMA",
-        titolo: `Assenza eliminata: ${formatDate(a.dataInizio)} – ${formatDate(a.dataFine)}`,
-        corpo: `${user.nome} ha eliminato la tua assenza (${STATI_ASSENZA[a.stato as keyof typeof STATI_ASSENZA] ?? a.stato}).`,
+        titolo: `${pendente ? "Richiesta di assenza eliminata" : "Assenza eliminata"}: ${formatDate(a.dataInizio)} – ${formatDate(a.dataFine)}`,
+        corpo: pendente
+          ? `${user.nome} ha eliminato la tua richiesta di assenza senza approvarla. Se serve, presenta una nuova richiesta.`
+          : `${user.nome} ha eliminato la tua assenza (${STATI_ASSENZA[a.stato as keyof typeof STATI_ASSENZA] ?? a.stato}).`,
         link: "/team/assenze",
+        email: pendente,
       });
     }
     revalidateTeam();
@@ -462,8 +500,17 @@ export async function deleteAbsenceAction(absenceId: string): Promise<TeamAction
 // Dashboard: completamento rapido di un'attività
 // ---------------------------------------------------------------------------
 export async function completaTaskDashboardAction(formData: FormData): Promise<void> {
-  const user = await requireStaffAction();
-  const id = z.string().min(1).parse(formData.get("id"));
+  // Usata come <form action>: una sessione scaduta non deve produrre la pagina di errore ma il login
+  let user: CurrentUser | null = null;
+  try {
+    user = await requireStaffAction();
+  } catch (e) {
+    if (!(e instanceof AuthError)) throw e;
+  }
+  if (!user) redirect("/login?next=/dashboard");
+  const parsedId = z.string().min(1).safeParse(formData.get("id"));
+  if (!parsedId.success) return;
+  const id = parsedId.data;
   const task = await prisma.task.findUnique({ where: { id }, select: { id: true, stato: true, titolo: true } });
   if (!task || !["DA_FARE", "IN_CORSO"].includes(task.stato)) return;
   await prisma.task.update({ where: { id }, data: { stato: "COMPLETATA", completatoAt: new Date() } });

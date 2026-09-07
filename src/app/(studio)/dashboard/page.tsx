@@ -115,7 +115,7 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
       {d.pianificazioneMancante && (
         <Alert kind="info" className="mb-4" title={`Nessun adempimento pianificato per il ${d.oggi.getFullYear()}`}>
           <p>Genera le scadenze fiscali dell&apos;anno per tutti i clienti con la pianificazione massiva.</p>
-          <Link href="/adempimenti" className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline">
+          <Link href="/adempimenti" className="mt-1 inline-flex min-h-10 items-center gap-1 text-sm font-medium text-blue-700 hover:underline sm:min-h-0">
             Vai agli adempimenti <ArrowRight className="h-4 w-4" />
           </Link>
         </Alert>
@@ -148,7 +148,7 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
               title="Le mie attività"
               description="Scadute e in scadenza nei prossimi 7 giorni."
               actions={
-                <Button href="/attivita?assegnatario=me&stato=aperte&ordina=scadenza" variant="ghost" size="sm">
+                <Button href="/attivita?assegnatario=me&stato=aperte&ordina=scadenza" variant="ghost" size="sm" className="h-10 sm:h-8">
                   Tutte <ArrowRight className="h-4 w-4" />
                 </Button>
               }
@@ -173,7 +173,7 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
               title="Prossime scadenze dello studio"
               description={`${d.prossimeScadenzeTotale} ${d.prossimeScadenzeTotale === 1 ? "attività aperta" : "attività aperte"} nei prossimi 7 giorni.`}
               actions={
-                <Button href="/attivita?stato=aperte&periodo=settimana&ordina=scadenza" variant="ghost" size="sm">
+                <Button href="/attivita?stato=aperte&periodo=settimana&ordina=scadenza" variant="ghost" size="sm" className="h-10 sm:h-8">
                   Tutte <ArrowRight className="h-4 w-4" />
                 </Button>
               }
@@ -238,7 +238,7 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
                     </ul>
                     <Link
                       href={`/attivita?assegnatario=${assenza.userId}&stato=aperte&ordina=scadenza`}
-                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-orange-800 hover:underline"
+                      className="mt-2 inline-flex min-h-10 items-center gap-1 text-xs font-medium text-orange-800 hover:underline sm:min-h-0"
                     >
                       Riassegna le attività <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
@@ -252,7 +252,7 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
             <CardHeader
               title="Chi è assente questa settimana"
               actions={
-                <Button href="/team/assenze" variant="ghost" size="sm">
+                <Button href="/team/assenze" variant="ghost" size="sm" className="h-10 sm:h-8">
                   Assenze <ArrowRight className="h-4 w-4" />
                 </Button>
               }
@@ -283,7 +283,7 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
             <CardHeader
               title="Ultime email da clienti"
               actions={
-                <Button href="/email" variant="ghost" size="sm">
+                <Button href="/email" variant="ghost" size="sm" className="h-10 sm:h-8">
                   Email <ArrowRight className="h-4 w-4" />
                 </Button>
               }

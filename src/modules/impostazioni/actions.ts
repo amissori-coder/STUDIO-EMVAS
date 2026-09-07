@@ -7,7 +7,8 @@ import { hashPassword, validatePasswordStrength, verifyPassword } from "@/lib/au
 import { audit } from "@/lib/audit";
 import { syncGoogleAccount } from "@/lib/gmail";
 import { eseguiJobGiornalieri } from "@/lib/cron/jobs";
-import { isPushConfigured, notify } from "@/lib/notifications";
+import { isPushConfigured, notify, sendPushToUser } from "@/lib/notifications";
+import { COLORI_UTENTE } from "@/lib/constants";
 
 export interface ImpostazioniState {
   error?: string;
@@ -43,7 +44,12 @@ function revalidateImpostazioni() {
 const profiloSchema = z.object({
   nome: z.string().trim().min(2, "Inserisci il nome.").max(120, "Nome troppo lungo."),
   telefono: z.string().trim().max(40, "Telefono troppo lungo.").optional().or(z.literal("")),
-  colore: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, "Colore non valido."),
+  // solo la palette COLORI_UTENTE: avatar ed etichette usano testo bianco sul colore scelto
+  colore: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .refine((c) => COLORI_UTENTE.includes(c), "Colore non valido."),
 });
 
 export async function updateProfileAction(_prev: ImpostazioniState, formData: FormData): Promise<ImpostazioniState> {
@@ -82,6 +88,8 @@ export async function changePasswordAction(_prev: ImpostazioniState, formData: F
     if (db.passwordHash && (await verifyPassword(nuova, db.passwordHash))) return { error: "La nuova password deve essere diversa da quella attuale.", fieldErrors: { nuova: "Uguale alla password attuale." } };
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(nuova), inviteToken: null, inviteExpires: null } });
     await audit({ userId: user.id, azione: "PASSWORD_CAMBIATA", entita: "User", entitaId: user.id });
+    // rigenera la pagina: dopo la prima password il form deve mostrare il campo "Password attuale"
+    revalidateImpostazioni();
     return { ok: true, message: "Password aggiornata.", nonce: Date.now() };
   } catch (e) {
     return { error: errorMessage(e, "Errore durante il cambio password.") };
@@ -164,16 +172,23 @@ export async function sendTestNotificationAction(): Promise<ImpostazioniState> {
   try {
     const admin = await requireAdminAction();
     const subs = await prisma.pushSubscription.count({ where: { userId: admin.id } });
-    await notify({
-      userId: admin.id,
-      tipo: "SISTEMA",
-      titolo: "Notifica di prova",
-      corpo: `Inviata da Impostazioni alle ${new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}. Se la vedi anche come push, tutto funziona.`,
-      link: "/impostazioni",
-      push: true,
-    });
+    const titolo = "Notifica di prova";
+    const corpo = `Inviata da Impostazioni alle ${new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}. Se la vedi anche come push, tutto funziona.`;
+    // il push viene inviato esplicitamente per conoscerne l'esito reale (notify() non lo restituisce)
+    const n = await notify({ userId: admin.id, tipo: "SISTEMA", titolo, corpo, link: "/impostazioni", push: false });
+    let push: string;
+    if (!isPushConfigured()) push = "Push non configurato sul server.";
+    else if (subs === 0) push = "Nessun dispositivo registrato per il push: attivalo qui sotto.";
+    else if (!admin.notificaPush) push = "Push non inviato: le notifiche push sono disattivate nelle tue preferenze qui sotto.";
+    else {
+      const inviati = await sendPushToUser(admin.id, { title: titolo, body: corpo, url: "/impostazioni", tag: n?.id });
+      push =
+        inviati === 0
+          ? `Push non consegnato a nessuno dei ${subs} ${subs === 1 ? "dispositivo registrato" : "dispositivi registrati"} (sottoscrizione scaduta o errore del servizio push): riattiva il push qui sotto.`
+          : `Push inviato a ${inviati} ${inviati === 1 ? "dispositivo" : "dispositivi"}${inviati < subs ? ` su ${subs}` : ""}.`;
+    }
     revalidatePath("/notifiche");
-    const push = !isPushConfigured() ? "Push non configurato sul server." : subs === 0 ? "Nessun dispositivo registrato per il push: attivalo qui sotto." : `Push inviato a ${subs} ${subs === 1 ? "dispositivo" : "dispositivi"}.`;
+    revalidatePath("/impostazioni");
     return { ok: true, message: `Notifica creata (la trovi in Notifiche). ${push}`, nonce: Date.now() };
   } catch (e) {
     return { error: errorMessage(e, "Errore durante l'invio della notifica di prova.") };

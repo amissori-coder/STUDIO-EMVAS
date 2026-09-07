@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Tabs } from "@/components/ui/Tabs";
 import { NotificationIcon } from "@/modules/notifiche/NotificationIcon";
+import { isInternalLink } from "@/modules/notifiche/link";
 import { deleteOldReadNotificationsFormAction, markAllNotificationsReadFormAction, markNotificationReadFormAction } from "@/modules/notifiche/actions";
 
 export const metadata: Metadata = { title: "Notifiche" };
@@ -20,10 +21,6 @@ const PAGE_SIZE = 50;
 
 function str(v: string | string[] | undefined) {
   return typeof v === "string" ? v : "";
-}
-
-function isInternalLink(link: string | null) {
-  return !!link && link.startsWith("/") && !link.startsWith("//");
 }
 
 export default async function NotifichePage(props: PageProps<"/notifiche">) {
@@ -59,6 +56,7 @@ export default async function NotifichePage(props: PageProps<"/notifiche">) {
               </form>
             )}
             <form action={deleteOldReadNotificationsFormAction}>
+              <input type="hidden" name="vista" value={vista} />
               <ConfirmButton message="Eliminare le notifiche già lette più vecchie di 30 giorni?" variant="ghost">
                 <Trash2 className="h-4 w-4" /> Pulisci vecchie
               </ConfirmButton>
@@ -129,7 +127,7 @@ export default async function NotifichePage(props: PageProps<"/notifiche">) {
                       {formatRelative(nt.createdAt)}
                     </time>
                     {apri && (
-                      <a href={apri} className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 hover:underline">
+                      <a href={apri} className="inline-flex min-h-10 items-center gap-1 text-xs font-medium text-blue-700 hover:underline sm:min-h-0">
                         <ExternalLink className="h-3.5 w-3.5" /> Apri
                       </a>
                     )}

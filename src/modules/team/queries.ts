@@ -98,28 +98,41 @@ export const ABSENCE_INCLUDE = {
 export type AbsenceRecord = Prisma.AbsenceGetPayload<{ include: typeof ABSENCE_INCLUDE }>;
 
 export type AbsenceItem = AbsenceRecord & {
-  /** attività aperte assegnate all'utente in scadenza durante l'assenza (o già scadute) */
+  /**
+   * Attività aperte dell'utente da riassegnare: in scadenza durante l'assenza oppure già scadute
+   * (solo per assenze in corso o future; per quelle concluse vale sempre 0).
+   */
   taskARischio: number;
 };
 
-/** Conta, per ogni assenza, le attività aperte dell'utente in scadenza nel periodo (o già scadute). */
+/**
+ * Conta, per ogni assenza, le attività aperte dell'utente in scadenza nel periodo dell'assenza; per le
+ * assenze in corso o future include anche quelle già scadute (vanno comunque riassegnate). Le assenze già
+ * concluse non producono alcun conteggio: non c'è più nulla da riassegnare "durante l'assenza".
+ */
 export async function conteggioTaskARischio<T extends { id: string; userId: string; dataInizio: Date; dataFine: Date }>(assenze: T[]) {
   const out = new Map<string, number>();
-  const userIds = Array.from(new Set(assenze.map((a) => a.userId)));
+  const oggi = startOfDayLocal(new Date());
+  const attuali = assenze.filter((a) => endOfDayLocal(a.dataFine) >= oggi);
+  const userIds = Array.from(new Set(attuali.map((a) => a.userId)));
   if (!userIds.length) return out;
-  const maxFine = assenze.reduce((max, a) => (a.dataFine > max ? a.dataFine : max), assenze[0]!.dataFine);
+  const maxFine = attuali.reduce((max, a) => (a.dataFine > max ? a.dataFine : max), attuali[0]!.dataFine);
   const tasks = await prisma.task.findMany({
     where: { assigneeId: { in: userIds }, stato: { in: STATI_TASK_APERTI }, scadenza: { lte: endOfDayLocal(maxFine) } },
     select: { assigneeId: true, scadenza: true },
   });
-  const oggi = startOfDayLocal(new Date());
-  for (const a of assenze) {
+  for (const a of attuali) {
     const inizio = startOfDayLocal(a.dataInizio);
     const fine = endOfDayLocal(a.dataFine);
     const n = tasks.filter((t) => t.assigneeId === a.userId && t.scadenza <= fine && (t.scadenza >= inizio || t.scadenza < oggi)).length;
     out.set(a.id, n);
   }
   return out;
+}
+
+async function withTaskARischio(assenze: AbsenceRecord[]): Promise<AbsenceItem[]> {
+  const rischio = await conteggioTaskARischio(assenze);
+  return assenze.map((a) => ({ ...a, taskARischio: rischio.get(a.id) ?? 0 }));
 }
 
 /** Assenze che intersecano il mese indicato (con filtri). */
@@ -131,8 +144,20 @@ export async function listAbsencesForMonth(f: AbsenceFilters): Promise<AbsenceIt
   if (f.utente) where.userId = f.utente;
   if (f.stato) where.stato = f.stato;
   const assenze = await prisma.absence.findMany({ where, include: ABSENCE_INCLUDE, orderBy: [{ dataInizio: "asc" }, { createdAt: "asc" }] });
-  const rischio = await conteggioTaskARischio(assenze);
-  return assenze.map((a) => ({ ...a, taskARischio: rischio.get(a.id) ?? 0 }));
+  return withTaskARischio(assenze);
+}
+
+/**
+ * Richieste in attesa di approvazione, senza vincolo di mese (una richiesta per dicembre deve essere
+ * visibile anche a settembre: badge, KPI e notifiche contano tutte le richieste pendenti).
+ * Rispetta il filtro collaboratore; con un filtro stato diverso da RICHIESTA restituisce [].
+ */
+export async function listPendingAbsences(f: Pick<AbsenceFilters, "utente" | "stato">): Promise<AbsenceItem[]> {
+  if (f.stato && f.stato !== "RICHIESTA") return [];
+  const where: Prisma.AbsenceWhereInput = { stato: "RICHIESTA" };
+  if (f.utente) where.userId = f.utente;
+  const assenze = await prisma.absence.findMany({ where, include: ABSENCE_INCLUDE, orderBy: [{ dataInizio: "asc" }, { createdAt: "asc" }] });
+  return withTaskARischio(assenze);
 }
 
 /** Assenze approvate che coprono oggi. */

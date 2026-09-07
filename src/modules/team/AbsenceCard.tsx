@@ -52,7 +52,7 @@ export function AbsenceCard({ a, isAdmin, currentUserId }: { a: AbsenceItem; isA
               className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-xs font-medium text-orange-800 hover:bg-orange-100"
             >
               <AlertTriangle className="h-3.5 w-3.5" />
-              {a.taskARischio} {a.taskARischio === 1 ? "attività in scadenza" : "attività in scadenza"} durante l&apos;assenza
+              {a.taskARischio} {a.taskARischio === 1 ? "attività scaduta o in scadenza" : "attività scadute o in scadenza"} durante l&apos;assenza
               <ArrowRight className="h-3.5 w-3.5" /> riassegna
             </Link>
           )}

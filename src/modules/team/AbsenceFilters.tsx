@@ -29,7 +29,7 @@ export function AbsenceFilters({ filtri, utenti }: { filtri: Filtri; utenti: { i
           <div className="text-center">
             <p className="text-base font-semibold text-slate-900">{labelMese(filtri.mese)}</p>
             {filtri.mese !== meseCorrente && (
-              <button type="button" onClick={() => applica({ mese: meseCorrente })} className="text-xs text-blue-700 hover:underline">
+              <button type="button" onClick={() => applica({ mese: meseCorrente })} className="inline-flex min-h-10 items-center px-2 text-xs text-blue-700 hover:underline sm:min-h-0 sm:px-0">
                 Torna a oggi
               </button>
             )}
@@ -44,7 +44,7 @@ export function AbsenceFilters({ filtri, utenti }: { filtri: Filtri; utenti: { i
             role="tab"
             aria-selected={filtri.vista === "elenco"}
             onClick={() => applica({ vista: "elenco" })}
-            className={cn("inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium", filtri.vista === "elenco" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100")}
+            className={cn("inline-flex h-10 items-center gap-1.5 rounded-md px-3 text-sm font-medium sm:h-9", filtri.vista === "elenco" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100")}
           >
             <List className="h-4 w-4" /> Elenco
           </button>
@@ -53,7 +53,7 @@ export function AbsenceFilters({ filtri, utenti }: { filtri: Filtri; utenti: { i
             role="tab"
             aria-selected={filtri.vista === "calendario"}
             onClick={() => applica({ vista: "calendario" })}
-            className={cn("inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium", filtri.vista === "calendario" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100")}
+            className={cn("inline-flex h-10 items-center gap-1.5 rounded-md px-3 text-sm font-medium sm:h-9", filtri.vista === "calendario" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100")}
           >
             <CalendarDays className="h-4 w-4" /> Calendario
           </button>

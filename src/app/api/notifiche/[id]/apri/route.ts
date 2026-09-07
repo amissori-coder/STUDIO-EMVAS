@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { AuthError, requireUserAction } from "@/lib/auth/guards";
+import { resolveInternalLink } from "@/modules/notifiche/link";
 
 /**
  * Apre una notifica: la segna come letta e reindirizza al link salvato.
- * Solo notifiche dell'utente corrente e solo link interni (che iniziano con "/").
+ * Solo notifiche dell'utente corrente e solo link interni (percorsi assoluti della stessa origine).
  */
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/notifiche/[id]/apri">) {
   let userId: string;
@@ -23,6 +24,5 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/notifich
   if (!n) return NextResponse.redirect(fallback);
   if (!n.letta) await prisma.notification.update({ where: { id: n.id }, data: { letta: new Date() } });
 
-  const link = n.link && n.link.startsWith("/") && !n.link.startsWith("//") ? n.link : null;
-  return NextResponse.redirect(link ? new URL(link, request.url) : fallback);
+  return NextResponse.redirect(resolveInternalLink(n.link, request.url) ?? fallback);
 }
