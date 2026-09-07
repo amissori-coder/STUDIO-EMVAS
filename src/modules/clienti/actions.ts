@@ -370,7 +370,7 @@ export async function resetPortalPasswordAction(clientId: string, userId: string
     await requirePortalManager(user, clientId, "reset-password");
     const link = await prisma.clientUser.findUnique({ where: { userId_clientId: { userId, clientId } }, include: { user: { select: { ruolo: true } } } });
     if (!link || link.user.ruolo !== "CLIENTE") return { error: "Utente non collegato a questo cliente." };
-    await prisma.user.update({ where: { id: userId }, data: { passwordHash: await hashPassword(password) } });
+    await prisma.user.update({ where: { id: userId }, data: { passwordHash: await hashPassword(password), sessionVersion: { increment: 1 } } });
     await audit({ userId: user.id, azione: "UTENTE_PORTALE_PASSWORD_RESET", entita: "User", entitaId: userId, dettagli: { clientId } });
   } catch (e) {
     return { error: errorMessage(e, "Errore durante la reimpostazione della password.") };

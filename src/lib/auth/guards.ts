@@ -28,6 +28,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     include: { googleAccount: { select: { id: true } }, accessiClienti: { select: { clientId: true } } },
   });
   if (!user || !user.attivo) return null;
+  // sessione emessa prima di un reset password: non più valida
+  if ((session.sv ?? 0) !== user.sessionVersion) return null;
   return {
     id: user.id,
     email: user.email,

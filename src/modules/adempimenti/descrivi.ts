@@ -1,4 +1,5 @@
 // Descrizioni leggibili delle regole di un adempimento (scadenze e applicabilità). Solo funzioni pure.
+import { sostituisciAnno } from "@/lib/adempimenti/regole";
 import { PERIODICITA_IVA, REGIMI_FISCALI, type TipoSoggetto } from "@/lib/constants";
 import { safeJsonParse } from "@/lib/utils";
 import type { ScadenzaFissa, ScadenzaMensile, ScadenzaRegola } from "@/lib/adempimenti/catalogo";
@@ -60,7 +61,7 @@ export function descriviScadenze(t: { ricorrenza: string; scadenze: string }, an
       const g = r.giorno === 0 ? `fine ${MESI_BREVI[r.mese - 1]}` : `${pad(r.giorno)}/${pad(r.mese)}`;
       const etichetta = r.etichetta
         ? anno
-          ? r.etichetta.replace(/\{anno\}/g, String(anno)).replace(/\{annoPrec\}/g, String(anno - 1))
+          ? sostituisciAnno(r.etichetta, anno)
           : r.etichetta
         : "";
       return etichetta ? `${g} – ${etichetta}` : g;

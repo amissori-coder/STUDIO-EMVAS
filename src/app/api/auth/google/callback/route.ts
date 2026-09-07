@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
     if (allowedDomain && !googleEmail.endsWith(`@${allowedDomain}`)) return fail("google-dominio", state.mode);
 
     let user;
+    let sessionVersion = 0;
     if (state.mode === "connect") {
       user = await getCurrentUser();
       if (!user || !isStaff(user)) return fail("google-utente", "connect");
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest) {
       const found = await prisma.user.findUnique({ where: { email: googleEmail } });
       if (!found || !found.attivo || !["ADMIN", "COLLABORATORE"].includes(found.ruolo)) return fail("google-utente");
       user = { id: found.id, email: found.email, nome: found.nome, ruolo: found.ruolo as Ruolo };
+      sessionVersion = found.sessionVersion;
     }
 
     // Il permesso Gmail può essere deselezionato nella schermata di consenso: senza quello scope
@@ -105,7 +107,7 @@ export async function GET(request: NextRequest) {
 
     if (state.mode === "login") {
       await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-      await createSession({ sub: user.id, email: user.email, nome: user.nome, ruolo: user.ruolo });
+      await createSession({ sub: user.id, email: user.email, nome: user.nome, ruolo: user.ruolo, sv: sessionVersion });
       await audit({ userId: user.id, azione: "LOGIN_GOOGLE", entita: "User", entitaId: user.id });
     } else {
       await audit({ userId: user.id, azione: "GMAIL_COLLEGATO", entita: "GoogleAccount", entitaId: user.id, dettagli: { googleEmail } });

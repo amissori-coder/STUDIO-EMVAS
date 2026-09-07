@@ -201,7 +201,7 @@ export async function saveAttachmentAction(_prev: ActionResult, formData: FormDa
         (await prisma.documentFolder.findFirst({ where: { clientId: email.clientId }, orderBy: { ordine: "asc" }, select: { id: true } }));
     }
 
-    const data = await fetchGmailAttachment(email.accountId, email.gmailId, attachmentId);
+    const data = await fetchGmailAttachment(email.accountId, email.gmailId, attachmentId, { partId: att.partId, filename: att.filename, size: att.size });
     if (data.length > max) return { error: `Allegato troppo grande (massimo ${formatBytes(max)}).` };
     const storagePath = await saveUpload({ clientId: email.clientId, originalName: att.filename, data });
     const doc = await prisma.document.create({

@@ -28,6 +28,7 @@ model User {
   inviteToken   String?   @unique
   inviteExpires DateTime?
   lastLoginAt   DateTime?
+  sessionVersion Int      @default(0) // incrementato al reset password: invalida le sessioni esistenti
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

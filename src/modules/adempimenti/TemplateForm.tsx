@@ -163,7 +163,7 @@ export function TemplateForm({ valori }: { valori: TemplateFormValues }) {
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="mb-3 text-sm text-slate-600">
               Una riga per ogni scadenza dell&apos;anno. Giorno 0 = ultimo giorno del mese. Nell&apos;etichetta puoi usare <code className="rounded bg-white px-1">{"{anno}"}</code> e{" "}
-              <code className="rounded bg-white px-1">{"{annoPrec}"}</code>.
+              <code className="rounded bg-white px-1">{"{annoPrec}"}</code> e <code className="rounded bg-white px-1">{"{annoPrec2}"}</code> (due anni prima).
             </p>
             <div className="space-y-2">
               {fisse.map((r, i) => (

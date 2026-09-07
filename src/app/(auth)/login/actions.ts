@@ -65,7 +65,7 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
 
   resetRateLimit(keyEmail);
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-  await createSession({ sub: user.id, email: user.email, nome: user.nome, ruolo: user.ruolo as Ruolo });
+  await createSession({ sub: user.id, email: user.email, nome: user.nome, ruolo: user.ruolo as Ruolo, sv: user.sessionVersion });
   await audit({ userId: user.id, azione: "LOGIN", entita: "User", entitaId: user.id });
   redirect(safeNext(next, user.ruolo as Ruolo));
 }

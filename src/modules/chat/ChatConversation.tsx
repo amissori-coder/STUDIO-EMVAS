@@ -320,7 +320,7 @@ export function ChatConversation({ clientId, currentUser, staff, initialMessages
                     const canDelete = own || currentUser.ruolo === "ADMIN";
                     return (
                       <li key={m.id} className={cn("group flex items-end gap-2", own ? "flex-row-reverse" : "flex-row")}>
-                        <Avatar nome={m.author.nome} colore={m.author.colore} size="sm" className="mb-0.5 hidden sm:inline-flex" />
+                        <span className="mb-0.5 hidden sm:inline-flex"><Avatar nome={m.author.nome} colore={m.author.colore} size="sm" /></span>
                         <div className={cn("flex max-w-[85%] flex-col sm:max-w-[75%]", own ? "items-end" : "items-start")}>
                           <div className={cn("mb-0.5 flex items-baseline gap-2 px-1 text-[11px] text-slate-500", own && "flex-row-reverse")}>
                             <span className="font-medium text-slate-700">{own ? "Tu" : m.author.nome}</span>

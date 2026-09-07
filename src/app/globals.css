@@ -42,3 +42,8 @@ body {
   color: #1d4ed8;
   text-decoration: underline;
 }
+
+/* Barra azioni ancorata sopra la navigazione mobile (56px) rispettando la safe-area */
+.bottom-nav-safe {
+  bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+}

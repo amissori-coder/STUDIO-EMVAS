@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, MouseEventHandler, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline";
@@ -39,8 +39,21 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export function Button({ variant, size, className, href, children, type, ...rest }: ButtonProps) {
   const classes = buttonClasses({ variant, size, className });
   if (href) {
+    // Inoltra al Link gli attributi utili (title, id, tabIndex, onClick, aria-*, data-*)
+    const { title, id, tabIndex, onClick, ...others } = rest;
+    const extra = Object.fromEntries(
+      Object.entries(others).filter(([k]) => k.startsWith("aria-") || k.startsWith("data-")),
+    ) as Record<string, string | undefined>;
     return (
-      <Link href={href} className={classes}>
+      <Link
+        href={href}
+        className={classes}
+        title={title}
+        id={id}
+        tabIndex={tabIndex}
+        onClick={onClick as unknown as MouseEventHandler<HTMLAnchorElement> | undefined}
+        {...extra}
+      >
         {children}
       </Link>
     );

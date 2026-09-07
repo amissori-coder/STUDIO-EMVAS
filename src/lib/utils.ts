@@ -1,8 +1,10 @@
 import { format, formatDistanceToNowStrict, isToday, isTomorrow, isYesterday, differenceInCalendarDays } from "date-fns";
 import { it } from "date-fns/locale";
+import { twMerge } from "tailwind-merge";
 
+/** Unisce classi Tailwind risolvendo i conflitti (l'ultima vince, es. "inline-flex" + "hidden" -> "hidden"). */
 export function cn(...classes: (string | false | null | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
+  return twMerge(classes.filter(Boolean).join(" "));
 }
 
 export function formatDate(d: Date | string | null | undefined, pattern = "dd/MM/yyyy") {

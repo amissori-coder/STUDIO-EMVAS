@@ -131,6 +131,7 @@ export function parseAttachments(raw: string | null | undefined): ParsedAttachme
       mimeType: String(a.mimeType ?? "application/octet-stream"),
       size: Number(a.size ?? 0) || 0,
       attachmentId: a.attachmentId,
+      ...(typeof a.partId === "string" ? { partId: a.partId } : {}),
     }));
 }
 

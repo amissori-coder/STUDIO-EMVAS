@@ -6,6 +6,8 @@ export interface SessionPayload {
   email: string;
   nome: string;
   ruolo: Ruolo;
+  /** versione della sessione (User.sessionVersion): se cambia, il token non è più valido */
+  sv?: number;
 }
 
 export const SESSION_DAYS = 30;
@@ -27,7 +29,7 @@ function getSecret() {
 }
 
 export async function signSession(payload: SessionPayload) {
-  return new SignJWT({ email: payload.email, nome: payload.nome, ruolo: payload.ruolo })
+  return new SignJWT({ email: payload.email, nome: payload.nome, ruolo: payload.ruolo, sv: payload.sv ?? 0 })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(payload.sub)
     .setIssuedAt()
@@ -45,6 +47,7 @@ export async function verifySessionToken(token: string | undefined | null): Prom
       email: String(payload.email ?? ""),
       nome: String(payload.nome ?? ""),
       ruolo: payload.ruolo as Ruolo,
+      sv: typeof payload.sv === "number" ? payload.sv : 0,
     };
   } catch {
     return null;
