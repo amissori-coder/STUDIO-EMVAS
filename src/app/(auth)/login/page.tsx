@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/guards";
 import { isGoogleConfigured } from "@/lib/auth/google";
 import { LoginForm } from "./LoginForm";
 
 export const metadata: Metadata = { title: "Accedi" };
 
 export default async function LoginPage(props: PageProps<"/login">) {
-  const session = await getSession();
-  if (session) redirect(session.ruolo === "CLIENTE" ? "/portale" : "/dashboard");
+  // Verifica sul database (non solo sul cookie): un cookie di un utente disattivato o con sessione
+  // invalidata deve mostrare il form, altrimenti si creerebbe un ciclo di redirect con le pagine protette.
+  const utente = await getCurrentUser();
+  if (utente) redirect(utente.ruolo === "CLIENTE" ? "/portale" : "/dashboard");
   const sp = await props.searchParams;
   const next = typeof sp.next === "string" ? sp.next : "";
   const errore = typeof sp.errore === "string" ? sp.errore : "";
