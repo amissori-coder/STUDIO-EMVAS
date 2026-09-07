@@ -23,6 +23,7 @@ export default async function PortalePage(props: PageProps<"/portale">) {
   const sp = await props.searchParams;
   const requested = typeof sp.cliente === "string" ? sp.cliente : null;
   const clients = await getPortalClients(user);
+  // `?cliente=` ha la precedenza sul cookie; il selettore nell'intestazione lo legge e allinea il cookie.
   const client = await resolvePortalClient(clients, requested);
 
   if (!client) {

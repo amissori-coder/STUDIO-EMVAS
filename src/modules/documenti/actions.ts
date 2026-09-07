@@ -9,10 +9,12 @@ import { canUserDeleteDocument, removeDocument } from "./service";
 export interface DocActionResult {
   ok?: boolean;
   error?: string;
-  /** l'operazione richiede una conferma esplicita (es. cartella non vuota) */
+  /** l'operazione richiede una conferma esplicita (es. cartella non vuota o con sottocartelle) */
   needsConfirm?: boolean;
   /** numero di documenti coinvolti */
   count?: number;
+  /** numero di sottocartelle coinvolte */
+  sottocartelle?: number;
   /** id dell'entità creata */
   id?: string;
 }
@@ -134,8 +136,8 @@ async function collectFolderIds(rootId: string): Promise<string[]> {
 }
 
 /**
- * Elimina una cartella (staff). Se contiene documenti (anche nelle sottocartelle) serve `conferma=true`:
- * i documenti restano disponibili in "Senza cartella".
+ * Elimina una cartella (staff). Se contiene documenti (anche nelle sottocartelle) o sottocartelle serve
+ * `conferma=true`: le sottocartelle vengono eliminate, i documenti restano disponibili in "Senza cartella".
  */
 export async function deleteFolderAction(folderId: string, conferma = false): Promise<DocActionResult> {
   try {
@@ -144,8 +146,9 @@ export async function deleteFolderAction(folderId: string, conferma = false): Pr
     const folder = await prisma.documentFolder.findUnique({ where: { id }, select: { id: true, clientId: true, nome: true, parentId: true } });
     if (!folder) return { error: "Cartella non trovata." };
     const ids = await collectFolderIds(folder.id);
+    const sottocartelle = ids.length - 1;
     const count = await prisma.document.count({ where: { folderId: { in: ids } } });
-    if (count > 0 && !conferma) return { needsConfirm: true, count };
+    if ((count > 0 || sottocartelle > 0) && !conferma) return { needsConfirm: true, count, sottocartelle };
     if (count > 0) await prisma.document.updateMany({ where: { folderId: { in: ids } }, data: { folderId: null } });
     await prisma.documentFolder.delete({ where: { id: folder.id } });
     await audit({ userId: user.id, azione: "CARTELLA_ELIMINATA", entita: "DocumentFolder", entitaId: folder.id, dettagli: { clientId: folder.clientId, nome: folder.nome, documentiSpostati: count, sottocartelle: ids.length - 1 } });
@@ -166,7 +169,7 @@ export async function deleteDocumentAction(documentId: string): Promise<DocActio
       select: { id: true, clientId: true, nome: true, storagePath: true, folderId: true, daCliente: true, uploadedById: true },
     });
     if (!doc) return { error: "Documento non trovato." };
-    if (!canUserDeleteDocument(user, doc)) return { error: "Non puoi eliminare questo documento." };
+    if (!(await canUserDeleteDocument(user, doc))) return { error: "Non puoi eliminare questo documento." };
     await removeDocument(user, doc);
     revalidateDocs(doc.clientId, [doc.folderId]);
     return { ok: true };

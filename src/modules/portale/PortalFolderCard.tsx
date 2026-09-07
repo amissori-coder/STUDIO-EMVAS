@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { ChevronRight, Folder, Lock } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import type { PortalFolder } from "./service";
+import { LinkPending } from "./LinkPending";
+import { portalCountDeep, type PortalFolder } from "./service";
 
 /** Card grande e "touch-friendly" di una cartella del portale. */
 export function PortalFolderCard({ folder }: { folder: PortalFolder }) {
-  const totale = folder.count + folder.children.reduce((s, c) => s + c.count, 0);
+  const totale = portalCountDeep(folder);
   return (
     <Link
       href={`/portale/cartelle/${folder.id}`}
@@ -26,7 +27,9 @@ export function PortalFolderCard({ folder }: { folder: PortalFolder }) {
           {folder.children.length > 0 && ` · ${folder.children.length} sottocartell${folder.children.length === 1 ? "a" : "e"}`}
         </span>
       </span>
-      <ChevronRight className="h-5 w-5 shrink-0 text-slate-400 group-hover:text-blue-600" />
+      <LinkPending className="h-5 w-5 shrink-0 text-blue-600">
+        <ChevronRight className="h-5 w-5 shrink-0 text-slate-400 group-hover:text-blue-600" />
+      </LinkPending>
     </Link>
   );
 }

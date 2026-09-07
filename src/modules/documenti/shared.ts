@@ -74,16 +74,34 @@ export function extensionOf(name: string) {
   return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
 }
 
-/** MIME type da usare per un file caricato: quello del browser se plausibile, altrimenti dedotto dall'estensione. */
-export function guessMimeType(name: string, provided?: string | null) {
-  const p = (provided ?? "").trim().toLowerCase();
-  if (p && p !== "application/octet-stream" && /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/.test(p)) return p;
-  return MIME_BY_EXT[extensionOf(name)] ?? "application/octet-stream";
+const MIME_PATTERN = /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/;
+
+/** Restituisce il MIME se sintatticamente valido, altrimenti application/octet-stream (evita header malformati). */
+export function safeMimeType(mime: string | null | undefined) {
+  const m = (mime ?? "").trim().toLowerCase();
+  return m && MIME_PATTERN.test(m) ? m : "application/octet-stream";
 }
 
-/** PDF e immagini si aprono nel browser; il resto viene scaricato. */
+/**
+ * MIME type da usare per un file caricato: per le estensioni note vale sempre quello dedotto dall'estensione
+ * (il tipo dichiarato dal browser non è affidabile: un "foto.jpg" dichiarato image/svg+xml non deve
+ * essere servito come SVG); per le altre estensioni si usa il tipo dichiarato se plausibile.
+ */
+export function guessMimeType(name: string, provided?: string | null) {
+  const byExt = MIME_BY_EXT[extensionOf(name)];
+  if (byExt) return byExt;
+  return safeMimeType(provided);
+}
+
+/**
+ * Tipi che si aprono direttamente nel browser (Content-Disposition inline): solo PDF e immagini raster.
+ * Tutto il resto (in particolare SVG, HTML e XML, che possono contenere script eseguiti nell'origine
+ * dell'applicazione) viene servito come allegato da scaricare.
+ */
+const INLINE_MIMES = new Set(["application/pdf", "image/jpeg", "image/png", "image/gif", "image/webp"]);
+
 export function isInlineMime(mime: string) {
-  return mime === "application/pdf" || mime.startsWith("image/");
+  return INLINE_MIMES.has(mime);
 }
 
 export type FileKind = "pdf" | "image" | "sheet" | "doc" | "archive" | "xml" | "other";
@@ -110,6 +128,8 @@ export interface DocumentDto {
   daCliente: boolean;
   note: string | null;
   createdAt: string; // ISO
+  /** data/ora formattata sul server (fuso dello studio): i client component la usano così com'è, senza riformattarla */
+  createdAtLabel: string;
   uploadedBy: { id: string; nome: string } | null;
   email: { id: string; subject: string } | null;
   task: { id: string; titolo: string } | null;
@@ -161,6 +181,8 @@ export interface UploadResponse {
   ok?: boolean;
   error?: string;
   documenti?: DocumentDto[];
+  /** nomi dei file che non è stato possibile salvare (risposta 207) */
+  falliti?: string[];
 }
 
 const BLOCKED_EXT = new Set(["exe", "bat", "cmd", "com", "msi", "scr", "ps1", "sh", "js", "vbs", "jar"]);

@@ -1,6 +1,6 @@
 "use client";
 import { useId, useRef, useState, type ChangeEvent, type DragEvent } from "react";
-import { Camera, CheckCircle2, CloudUpload, FileText, FolderOpen, Trash2, UploadCloud, X } from "lucide-react";
+import { AlertTriangle, Camera, CheckCircle2, CloudUpload, FileText, FolderOpen, Trash2, UploadCloud, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { Textarea } from "@/components/ui/Input";
@@ -27,7 +27,12 @@ export interface UploadDropzoneProps {
   className?: string;
 }
 
-type Status = "idle" | "uploading" | "done" | "error";
+/** "partial": alcuni file sono stati salvati, altri no (restano in elenco per un nuovo tentativo). */
+type Status = "idle" | "uploading" | "done" | "partial" | "error";
+
+function sameFile(a: File, b: File) {
+  return a.name === b.name && a.size === b.size && a.lastModified === b.lastModified;
+}
 
 const DEFAULT_MAX = 25 * 1024 * 1024;
 
@@ -94,17 +99,14 @@ export function UploadDropzone({
       else if (hasBlockedExtension(f.name)) errors.push(`"${f.name}": tipo di file non consentito.`);
       else accepted.push(f);
     }
-    setFiles((prev) => {
-      const merged = [...prev];
-      for (const f of accepted) {
-        if (!merged.some((m) => m.name === f.name && m.size === f.size && m.lastModified === f.lastModified)) merged.push(f);
-      }
-      if (merged.length > MAX_FILES_PER_UPLOAD) {
-        errors.push(`Puoi caricare al massimo ${MAX_FILES_PER_UPLOAD} file per volta.`);
-        return merged.slice(0, MAX_FILES_PER_UPLOAD);
-      }
-      return merged;
-    });
+    // Calcolato sullo stato corrente, fuori dall'updater (che deve restare puro): gli handler non sono mai
+    // concorrenti tra loro, quindi `files` è aggiornato.
+    const merged = [...files];
+    for (const f of accepted) {
+      if (!merged.some((m) => sameFile(m, f))) merged.push(f);
+    }
+    if (merged.length > MAX_FILES_PER_UPLOAD) errors.push(`Puoi caricare al massimo ${MAX_FILES_PER_UPLOAD} file per volta.`);
+    setFiles(merged.slice(0, MAX_FILES_PER_UPLOAD));
     if (errors.length) {
       setStatus("error");
       setMessage(errors.join(" "));
@@ -144,10 +146,18 @@ export function UploadDropzone({
       const { status: httpStatus, json } = await uploadWithProgress(body, setProgress);
       if (httpStatus >= 200 && httpStatus < 300 && json.ok && json.documenti) {
         const n = json.documenti.length;
-        setStatus("done");
-        setMessage(json.error ? json.error : n === 1 ? "Documento caricato correttamente." : `${n} documenti caricati correttamente.`);
-        setFiles([]);
-        setNote("");
+        const falliti = json.falliti ?? [];
+        if (falliti.length > 0) {
+          // Caricamento parziale: restano in elenco solo i file non salvati, per riprovare.
+          setStatus("partial");
+          setMessage(`${n === 1 ? "1 documento caricato" : `${n} documenti caricati`}, ma non è stato possibile salvare: ${falliti.join(", ")}. Riprova con «Carica».`);
+          setFiles((prev) => prev.filter((f) => falliti.includes(f.name)));
+        } else {
+          setStatus("done");
+          setMessage(n === 1 ? "Documento caricato correttamente." : `${n} documenti caricati correttamente.`);
+          setFiles([]);
+          setNote("");
+        }
         onDone?.(json.documenti);
       } else {
         setStatus("error");
@@ -270,6 +280,11 @@ export function UploadDropzone({
       {message && status === "done" && (
         <div role="status" className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
           <CheckCircle2 className="h-5 w-5 shrink-0" /> {message}
+        </div>
+      )}
+      {message && status === "partial" && (
+        <div role="alert" className="flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
+          <AlertTriangle className="h-5 w-5 shrink-0" /> {message}
         </div>
       )}
       {message && status === "error" && (

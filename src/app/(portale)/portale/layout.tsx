@@ -4,12 +4,14 @@ import { LogOut, Mail } from "lucide-react";
 import { requireClientUser } from "@/lib/auth/guards";
 import { Avatar } from "@/components/ui/Avatar";
 import { ClientSwitcher } from "@/modules/portale/ClientSwitcher";
-import { getPortalClients, getStudioContactEmail, resolvePortalClient } from "@/modules/portale/service";
+import { getPortalClients, getPortalFolderClientMap, getStudioContactEmail, resolvePortalClient } from "@/modules/portale/service";
 
 export default async function PortaleLayout({ children }: { children: ReactNode }) {
   const user = await requireClientUser();
   const clients = await getPortalClients(user);
   const current = await resolvePortalClient(clients);
+  // il selettore riconosce dal percorso quale cliente è mostrato: serve la mappa cartella → cliente
+  const folderClients = clients.length > 1 ? await getPortalFolderClientMap(clients.map((c) => c.id)) : {};
   const contatto = getStudioContactEmail();
 
   return (
@@ -23,7 +25,7 @@ export default async function PortaleLayout({ children }: { children: ReactNode 
             </span>
           </Link>
           <div className="flex shrink-0 items-center gap-2">
-            {clients.length > 1 && current && <ClientSwitcher clients={clients} currentId={current.id} />}
+            {clients.length > 1 && current && <ClientSwitcher clients={clients} cookieId={current.id} folderClients={folderClients} />}
             <span className="hidden max-w-[10rem] truncate text-sm text-slate-600 sm:inline" title={user.nome}>
               {user.nome}
             </span>
