@@ -88,17 +88,38 @@ Crea un progetto chiamato `Studio EMVAS`, poi premi **Add Server** e imposta:
 | Backups | **Attiva** la casella |
 | Name | `studio-emvas` |
 
+### Opzione C: OVHcloud, datacenter a Milano
+
+Anche OVH ha un datacenter in Italia, a Milano, dove i VPS sono disponibili in singola zona di
+disponibilità. Fattura e assistenza sono italiane, il traffico è illimitato e il backup giornaliero
+è incluso nel pannello.
+
+C'è però una differenza che conta per noi: **il disco aggiuntivo di OVH arriva al massimo a 100 GB**,
+cioè si ferma esattamente dove il nostro volume comincia. Con OVH conviene quindi la strategia
+opposta: prendere un piano con un disco di sistema abbondante, che nella gamma arriva fino a 640 GB
+NVMe, e non aggiungere nessun secondo disco.
+
+| Voce | Valore |
+| --- | --- |
+| Gamma | Un piano con almeno **2 vCore, 4 GB di memoria e 160 GB di disco** |
+| Datacenter | Milano |
+| Sistema operativo | Ubuntu 24.04 |
+| Chiave SSH | Incolla la chiave pubblica copiata al punto 1 |
+| Disco aggiuntivo | Nessuno |
+
+Verifica il prezzo nel configuratore di OVH: non sono riuscito a leggerlo da qui perché i loro siti
+sono irraggiungibili da questo ambiente.
+
 ### Come scegliere
 
-| | Aruba Cloud | Hetzner Cloud |
-| --- | --- | --- |
-| Sede dei dati | Italia | Germania o Finlandia |
-| Fattura | italiana con IVA | tedesca in inversione contabile |
-| Assistenza | in italiano | in inglese e tedesco |
-| Server con 2 processori e 4 GB | circa 9,21 euro al mese | circa 9 euro al mese |
-| Disco del sistema incluso | 40 GB | 80 GB |
-| Disco aggiuntivo | volume di block storage, prezzo da verificare | volume, circa 4,4 euro per 100 GB |
-| Backup automatici dell'intero server | snapshot a pagamento | circa il venti per cento del canone |
+| | Aruba Cloud | OVHcloud | Hetzner Cloud |
+| --- | --- | --- | --- |
+| Sede dei dati | Italia | Italia, Milano | Germania o Finlandia |
+| Fattura | italiana con IVA | italiana con IVA | tedesca in inversione contabile |
+| Assistenza | in italiano | in italiano | in inglese e tedesco |
+| Come cresce lo spazio | volume ampliabile senza limiti pratici | cambio di piano, disco fino a 640 GB | volume ampliabile senza limiti pratici |
+| Disco aggiuntivo | block storage | massimo 100 GB | volume, circa 4,4 euro per 100 GB |
+| Backup dell'intero server | snapshot a pagamento | giornaliero incluso | circa il venti per cento del canone |
 
 Il GDPR non impone di tenere i dati in Italia: basta che restino nell'Unione Europea, e vale per
 entrambi. Avere i server in Italia semplifica però il registro dei trattamenti e le domande dei
@@ -112,6 +133,14 @@ numeri come `95.217.14.203`. Lo chiameremo **INDIRIZZO-IP**.
 L'applicazione in esercizio usa meno di 300 MB di memoria, quindi il vincolo vero non è il server ma
 lo spazio per i documenti dei clienti. Per questo stanno su un volume separato: si amplia in pochi
 minuti senza spegnere niente, mentre il disco del sistema si ingrandisce solo cambiando piano.
+
+Ci sono due modi di affrontarlo, entrambi supportati dall'applicazione:
+
+- **Disco separato**: i documenti stanno su un volume che si amplia in pochi minuti senza spegnere
+  niente. È la strada di Aruba e Hetzner. Si imposta `UPLOADS_PATH` nel file di configurazione.
+- **Disco di sistema abbondante**: nessun secondo disco, i documenti stanno insieme al resto e per
+  crescere si cambia piano. È la strada di OVH. Si lascia `UPLOADS_PATH` vuoto e si salta la parte
+  del punto 4 che prepara il volume.
 
 | Come caricano i clienti | 40 clienti | 80 clienti | 150 clienti |
 | --- | --- | --- | --- |
@@ -170,7 +199,10 @@ comandi si eseguono dentro questa finestra.
 
 ### Il disco dei documenti
 
-Prepara il volume acquistato al punto 2. Questo comando elenca i dischi:
+**Se hai scelto un piano con un solo disco abbondante, salta questa sezione** e vai avanti: i
+documenti staranno insieme al resto e nel file di configurazione lascerai `UPLOADS_PATH` vuoto.
+
+Altrimenti prepara il volume acquistato al punto 2. Questo comando elenca i dischi:
 
 ```bash
 lsblk -o NAME,SIZE,TYPE,MOUNTPOINT
@@ -254,6 +286,9 @@ ADMIN_PASSWORD=una-password-lunga-che-cambierai-al-primo-accesso
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=la-prima-riga-generata-sopra
 VAPID_PRIVATE_KEY=la-seconda-riga-generata-sopra
 ```
+
+Se non hai un disco separato per i documenti, lascia `UPLOADS_PATH` vuoto: finiranno in
+`/opt/studio-emvas/data/uploads` insieme al resto.
 
 Salva con `Ctrl+O`, Invio, poi esci con `Ctrl+X`.
 
