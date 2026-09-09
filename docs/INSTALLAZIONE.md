@@ -43,8 +43,35 @@ esiste già, hai già una chiave e puoi usare quella.
 
 ## 2. Acquisto del server
 
-Il fornitore consigliato è **Hetzner Cloud**: datacenter in Germania e Finlandia, quindi dati
-nell'Unione Europea, e il miglior rapporto tra prezzo e prestazioni. Registrati su
+Ti servono, con qualunque fornitore: **Ubuntu 24.04**, almeno **2 processori e 4 GB di memoria**, un
+**secondo disco per i documenti** che si possa ampliare, e la tua chiave pubblica caricata.
+
+Sotto trovi due fornitori adatti. Se per lo studio conta avere i dati e la fattura in Italia, scegli
+la prima opzione. Il resto della guida è identico nei due casi.
+
+### Opzione A: Aruba Cloud, datacenter in Italia
+
+La scelta consigliata se preferisci un fornitore italiano: datacenter a Ponte San Pietro in provincia
+di Bergamo, ad Arezzo e a Roma, fattura italiana con IVA e assistenza in italiano.
+
+Registrati su [cloud.it](https://www.cloud.it), vai nella sezione VPS e imposta:
+
+| Voce | Valore |
+| --- | --- |
+| Piano | Cloud VPS **O2A4**, 2 processori, 4 GB di memoria, 40 GB NVMe |
+| Hypervisor | OpenStack |
+| Sistema operativo | Ubuntu 24.04 |
+| Datacenter | Italia |
+| Chiave SSH | Incolla la chiave pubblica copiata al punto 1 |
+| Disco aggiuntivo | Crea un volume di block storage da **100 GB** e collegalo al server |
+
+Il piano O2A4 costa circa 9,21 euro al mese più IVA. **Verifica il prezzo del volume da 100 GB prima
+di confermare l'ordine**: non sono riuscito a leggerlo da qui e incide sul totale.
+
+### Opzione B: Hetzner Cloud, datacenter in Germania
+
+Più economico a parità di risorse e con un pannello più semplice, ma fornitore tedesco. I dati
+restano comunque nell'Unione Europea. Registrati su
 [console.hetzner.cloud](https://console.hetzner.cloud). La verifica dell'account può richiedere
 qualche ora la prima volta.
 
@@ -61,20 +88,30 @@ Crea un progetto chiamato `Studio EMVAS`, poi premi **Add Server** e imposta:
 | Backups | **Attiva** la casella |
 | Name | `studio-emvas` |
 
-Premi **Create & Buy Now**. Dopo un minuto il server è pronto e vedi il suo indirizzo IP, una
-sequenza di numeri come `95.217.14.203`. Annotalo: lo chiameremo **INDIRIZZO-IP**.
+### Come scegliere
 
-### Perché questa configurazione
+| | Aruba Cloud | Hetzner Cloud |
+| --- | --- | --- |
+| Sede dei dati | Italia | Germania o Finlandia |
+| Fattura | italiana con IVA | tedesca in inversione contabile |
+| Assistenza | in italiano | in inglese e tedesco |
+| Server con 2 processori e 4 GB | circa 9,21 euro al mese | circa 9 euro al mese |
+| Disco del sistema incluso | 40 GB | 80 GB |
+| Disco aggiuntivo | volume di block storage, prezzo da verificare | volume, circa 4,4 euro per 100 GB |
+| Backup automatici dell'intero server | snapshot a pagamento | circa il venti per cento del canone |
 
-Il piano CPX21 offre 3 processori, 4 GB di memoria e 80 GB di disco. L'applicazione in esercizio ne
-usa meno di 300 MB, quindi la memoria è abbondante: il vincolo vero è lo spazio per i documenti dei
-clienti, ed è per questo che il volume da 100 GB è separato.
+Il GDPR non impone di tenere i dati in Italia: basta che restino nell'Unione Europea, e vale per
+entrambi. Avere i server in Italia semplifica però il registro dei trattamenti e le domande dei
+clienti, e la fattura italiana entra in contabilità senza inversione contabile.
 
-Un volume si amplia in due minuti dal pannello, senza spegnere il server e senza spostare nulla. Il
-disco del server, invece, si può ingrandire solo cambiando piano ed è un'operazione irreversibile.
-Tenere i documenti su un volume separato è quindi la scelta che ti lascia le mani libere.
+Al termine dell'acquisto, con qualunque fornitore, annota l'indirizzo IP del server: una sequenza di
+numeri come `95.217.14.203`. Lo chiameremo **INDIRIZZO-IP**.
 
-Per farti un'idea di quanto durerà lo spazio:
+### Quanto durerà lo spazio
+
+L'applicazione in esercizio usa meno di 300 MB di memoria, quindi il vincolo vero non è il server ma
+lo spazio per i documenti dei clienti. Per questo stanno su un volume separato: si amplia in pochi
+minuti senza spegnere niente, mentre il disco del sistema si ingrandisce solo cambiando piano.
 
 | Come caricano i clienti | 40 clienti | 80 clienti | 150 clienti |
 | --- | --- | --- | --- |
@@ -88,13 +125,12 @@ Il backup notturno ti avvisa nel registro quando il disco supera l'ottanta per c
 
 | Voce | Costo |
 | --- | --- |
-| Server CPX21 | circa 9 euro |
-| Volume da 100 GB | circa 4,4 euro |
-| Backup automatici del server | circa 1,8 euro |
-| **Totale** | **circa 15 euro** |
+| Server con 2 processori e 4 GB di memoria | circa 9 euro |
+| Volume da 100 GB per i documenti | da 4 a 15 euro secondo il fornitore |
+| Backup automatici del server | circa 2 euro |
+| **Totale** | **tra 15 e 26 euro** |
 
-I prezzi sono al netto dell'IVA e vanno verificati al momento dell'acquisto. La fattura è tedesca con
-partita IVA europea, quindi in inversione contabile.
+I prezzi sono al netto dell'IVA e vanno verificati al momento dell'acquisto.
 
 ---
 
@@ -134,26 +170,31 @@ comandi si eseguono dentro questa finestra.
 
 ### Il disco dei documenti
 
-Prepara il volume acquistato al punto 2. Il primo comando ti mostra il suo nome:
+Prepara il volume acquistato al punto 2. Questo comando elenca i dischi:
 
 ```bash
-lsblk -o NAME,SIZE,MOUNTPOINT
+lsblk -o NAME,SIZE,TYPE,MOUNTPOINT
 ```
 
-Il volume è il disco da 100 GB senza punto di mount, di solito `sdb`. Formattalo e collegalo:
+Cerca il disco da 100 GB senza punto di mount: si chiama `sdb` oppure `vdb` secondo il fornitore. Il
+disco del sistema, quello con le partizioni già montate su `/`, non va toccato.
+
+Sostituisci **NOME-DISCO** con il nome che hai trovato ed esegui:
 
 ```bash
-mkfs.ext4 -F /dev/sdb
+mkfs.ext4 -F /dev/NOME-DISCO
 mkdir -p /mnt/documenti
-echo "/dev/sdb /mnt/documenti ext4 discard,nofail,defaults 0 0" >> /etc/fstab
+echo "UUID=$(blkid -s UUID -o value /dev/NOME-DISCO) /mnt/documenti ext4 discard,nofail,defaults 0 0" >> /etc/fstab
 mount /mnt/documenti
 df -h /mnt/documenti
 ```
 
-L'ultimo comando deve mostrare circa 98 GB disponibili.
+L'ultimo comando deve mostrare circa 98 GB disponibili. Il riferimento all'UUID invece che al nome
+del disco fa sì che il volume resti montato anche se il fornitore cambia l'ordine dei dischi a un
+riavvio.
 
 > Attenzione: `mkfs.ext4` cancella il contenuto del disco indicato. Esegui il comando solo sul volume
-> nuovo e vuoto, mai su `sda`, che è il disco del sistema.
+> nuovo e vuoto, mai sul disco del sistema.
 
 ### Sistema, Docker, firewall e backup
 
@@ -318,13 +359,26 @@ ls -lh /var/backups/studio-emvas/database | tail -5
 
 ### Copia fuori dal server
 
-I backup automatici di Hetzner, attivati al punto 2, fotografano l'intero server ogni giorno e
-bastano per il caso più comune. Per avere una copia anche fuori dal fornitore, acquista uno Storage
-Box da 1 TB, circa 4 euro al mese, e aggiungi una riga al cron notturno:
+Ai backup notturni conviene affiancare una copia che non stia sullo stesso server, così sopravvive
+anche a un guasto grave o a una cancellazione per errore.
 
-```bash
-rsync -az --delete /var/backups/studio-emvas/ utente@utente.your-storagebox.de:backup-emvas/
-```
+- **Snapshot del fornitore**: su Hetzner sono i backup automatici che hai attivato all'acquisto, su
+  Aruba sono gli snapshot da attivare dal pannello. Fotografano l'intero server e bastano per il caso
+  più comune.
+- **Spazio di archiviazione remoto**: uno Storage Box di Hetzner oppure un Cloud Object Storage di
+  Aruba, entrambi da pochi euro al mese per 1 TB. Aggiungi una riga al file
+  `/etc/cron.d/studio-emvas-backup` per copiarci i backup ogni notte:
+
+  ```bash
+  rsync -az --delete /var/backups/studio-emvas/ utente@indirizzo-dello-spazio-remoto:backup-emvas/
+  ```
+
+- **Una copia in studio**: puoi anche scaricare periodicamente la cartella dei backup su un disco
+  esterno dello studio, dal tuo computer:
+
+  ```bash
+  rsync -az root@INDIRIZZO-IP:/var/backups/studio-emvas/ ~/backup-emvas/
+  ```
 
 ### Ripristino
 
@@ -367,10 +421,12 @@ Gli aggiornamenti di sicurezza di Ubuntu si installano da soli. Ogni tanto riavv
 
 ### Ampliare il volume dei documenti
 
-Dal pannello Hetzner apri il volume, premi Resize e scegli la nuova dimensione. Poi sul server:
+Dal pannello del fornitore apri il volume e aumenta la dimensione. Su Aruba la voce è nella gestione
+del block storage, su Hetzner è il pulsante Resize. Poi sul server, con **NOME-DISCO** uguale a quello
+usato al punto 4:
 
 ```bash
-resize2fs /dev/sdb
+resize2fs /dev/NOME-DISCO
 df -h /mnt/documenti
 ```
 
