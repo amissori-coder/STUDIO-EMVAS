@@ -7,6 +7,17 @@ import { randomBytes } from "node:crypto";
 import { CATALOGO_ADEMPIMENTI } from "../src/lib/adempimenti/catalogo";
 import { CARTELLE_DEFAULT } from "../src/lib/constants";
 
+// Il seed può essere eseguito a mano (npm run db:seed) con le variabili scritte solo nel file .env,
+// oppure dal contenitore Docker, dove arrivano già dall'ambiente. Caricare il file quando manca
+// DATABASE_URL evita un errore poco comprensibile di Prisma.
+if (!process.env.DATABASE_URL) {
+  try {
+    process.loadEnvFile();
+  } catch {
+    // nessun file .env: le variabili devono essere già presenti nell'ambiente
+  }
+}
+
 const prisma = new PrismaClient();
 
 /** Password casuale leggibile (usata quando ADMIN_PASSWORD non è impostata: mai una password nota nel repository). */
