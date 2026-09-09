@@ -1,0 +1,34 @@
+# Reverse proxy per Studio EMVAS.
+# Caddy richiede e rinnova da solo il certificato HTTPS (Let's Encrypt) per il dominio
+# indicato in DOMINIO, purché le porte 80 e 443 siano raggiungibili da internet.
+
+{$DOMINIO} {
+	encode zstd gzip
+
+	# Caricamento documenti: 10 file da 25 MB più il margine del formato multipart.
+	request_body {
+		max_size 300MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+		-Server
+	}
+
+	reverse_proxy app:3000 {
+		# Sovrascrive l'intestazione invece di accodarsi: senza questo un client potrebbe
+		# dichiarare un indirizzo IP falso e aggirare il limite sui tentativi di accesso.
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Real-IP {remote_host}
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 10MB
+			roll_keep 5
+		}
+	}
+}

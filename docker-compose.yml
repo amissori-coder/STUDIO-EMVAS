@@ -1,3 +1,5 @@
+# Produzione: applicazione + reverse proxy con certificato HTTPS automatico.
+# Richiede nel file .env: DOMINIO (es. studio.emvas.tax) e APP_URL=https://$DOMINIO
 services:
   app:
     build:
@@ -6,12 +8,38 @@ services:
         NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
     container_name: studio-emvas
     restart: unless-stopped
+    # Esposta solo sul server (per diagnostica con curl); il traffico pubblico passa da Caddy.
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     env_file: .env
     environment:
       DATABASE_URL: "file:../data/emvas.db"
       DATA_DIR: /app/data
-      TZ: Europe/Rome
+      TZ: ${TZ:-Europe/Rome}
     volumes:
       - ./data:/app/data
+      # I documenti dei clienti stanno su un disco separato ed espandibile quando UPLOADS_PATH
+      # punta al punto di mount del volume (es. /mnt/documenti); altrimenti restano in ./data/uploads.
+      - ${UPLOADS_PATH:-./data/uploads}:/app/data/uploads
+
+  proxy:
+    image: caddy:2-alpine
+    container_name: studio-emvas-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMINIO: ${DOMINIO:?Imposta DOMINIO nel file .env, es. DOMINIO=studio.emvas.tax}
+      TZ: ${TZ:-Europe/Rome}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:

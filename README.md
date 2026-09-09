@@ -75,15 +75,21 @@ Un amministratore autenticato può eseguirli manualmente solo con `POST` (l'esec
 
 ## Produzione con Docker
 
+Guida completa passo per passo, dall'acquisto del server al primo accesso:
+[`docs/INSTALLAZIONE.md`](docs/INSTALLAZIONE.md). In sintesi:
+
 ```bash
-cp .env.example .env   # compila i valori reali (SESSION_SECRET obbligatorio in produzione)
+cp .env.example .env   # imposta almeno DOMINIO, APP_URL, SESSION_SECRET e ADMIN_PASSWORD
 docker compose up -d --build
 ```
 
-L'app ascolta sulla porta 3000; metti davanti un reverse proxy HTTPS (Caddy, Nginx, Traefik) che imposti
-`X-Forwarded-For` (usato per limitare i tentativi di login per IP).
-Il file `.dockerignore` tiene fuori dall'immagine `.env`, `data/` e `node_modules`.
-Il database e i documenti sono nella cartella `./data` (fai il backup di questa cartella).
+`docker compose` avvia l'applicazione e un reverse proxy che richiede e rinnova da solo il
+certificato HTTPS per il dominio indicato in `DOMINIO`. Impostando `UPLOADS_PATH` i documenti dei
+clienti finiscono su un disco separato e ampliabile.
+
+Backup notturno del database e dei documenti: `deploy/backup.sh`, installato nel cron da
+`deploy/prepara-server.sh`. Ripristino: `deploy/ripristina.sh <file-di-backup>`.
+Il database e i documenti stanno nella cartella `./data`, oppure in `UPLOADS_PATH` per i documenti.
 
 ## Comandi utili
 
