@@ -87,6 +87,7 @@ docker compose up -d --build
 certificato HTTPS per il dominio indicato in `DOMINIO`. Impostando `UPLOADS_PATH` i documenti dei
 clienti finiscono su un disco separato e ampliabile.
 
+Verifica dell'installazione: `deploy/verifica.sh` (controlla servizi, certificato, spazio, backup).
 Backup notturno del database e dei documenti: `deploy/backup.sh`, installato nel cron da
 `deploy/prepara-server.sh`. Ripristino: `deploy/ripristina.sh <file-di-backup>`.
 Il database e i documenti stanno nella cartella `./data`, oppure in `UPLOADS_PATH` per i documenti.

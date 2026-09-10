@@ -320,6 +320,19 @@ la prima apertura può metterci una decina di secondi.
 
 Accedi con l'email e la password che hai messo in `ADMIN_EMAIL` e `ADMIN_PASSWORD`.
 
+### Verifica dell'installazione
+
+Questo comando controlla venti aspetti dell'installazione e dice cosa manca:
+
+```bash
+bash /opt/studio-emvas/deploy/verifica.sh
+```
+
+Controlla Docker e il firewall, la configurazione e i segreti, i due servizi in esecuzione, la
+risposta dell'applicazione, il nome a dominio e il certificato HTTPS, lo spazio sui dischi,
+l'integrità del database e lo stato dei backup. Rieseguilo ogni volta che cambi qualcosa o se
+qualcosa non va: è solo lettura, non modifica niente.
+
 ---
 
 ## 7. Prime cose da fare nell'applicazione
@@ -445,6 +458,12 @@ Gli aggiornamenti di sicurezza di Ubuntu si installano da soli. Ogni tanto riavv
 ---
 
 ## 12. Se qualcosa non va
+
+Il primo comando da provare è sempre questo, che controlla tutto e indica il problema:
+
+```bash
+bash /opt/studio-emvas/deploy/verifica.sh
+```
 
 | Sintomo | Comando da eseguire sul server | Cosa guardare |
 | --- | --- | --- |
