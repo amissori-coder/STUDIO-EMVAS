@@ -194,8 +194,18 @@ Collegati al server dal tuo computer:
 ssh root@INDIRIZZO-IP
 ```
 
-Alla prima connessione scrivi `yes` per accettare l'identità del server. Da qui in avanti tutti i
-comandi si eseguono dentro questa finestra.
+Alla prima connessione scrivi `yes` per accettare l'identità del server.
+
+Alcuni fornitori, tra cui OVH, disabilitano l'accesso diretto come `root` e creano invece un utente
+`ubuntu`. Se il comando sopra viene rifiutato, usa questi due:
+
+```bash
+ssh ubuntu@INDIRIZZO-IP
+sudo -i
+```
+
+Il secondo ti fa diventare amministratore: il prompt finisce con `#` invece che con `$`. Da qui in
+avanti tutti i comandi si eseguono dentro questa finestra, da amministratore.
 
 ### Il disco dei documenti
 
