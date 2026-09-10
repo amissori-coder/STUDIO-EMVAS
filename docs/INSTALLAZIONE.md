@@ -90,25 +90,35 @@ Crea un progetto chiamato `Studio EMVAS`, poi premi **Add Server** e imposta:
 
 ### Opzione C: OVHcloud, datacenter a Milano
 
-Anche OVH ha un datacenter in Italia, a Milano, dove i VPS sono disponibili in singola zona di
-disponibilità. Fattura e assistenza sono italiane, il traffico è illimitato e il backup giornaliero
-è incluso nel pannello.
+Anche OVH ha un datacenter in Italia, a Milano. Fattura e assistenza sono italiane, il traffico è
+illimitato e il backup giornaliero è incluso nel prezzo. È la gamma più conveniente delle tre.
 
-C'è però una differenza che conta per noi: **il disco aggiuntivo di OVH arriva al massimo a 100 GB**,
-cioè si ferma esattamente dove il nostro volume comincia. Con OVH conviene quindi la strategia
-opposta: prendere un piano con un disco di sistema abbondante, che nella gamma arriva fino a 640 GB
-NVMe, e non aggiungere nessun secondo disco.
+Gamma VPS 2027, prezzi mensili al netto dell'IVA:
+
+| Piano | Processori | Memoria | Disco | Prezzo |
+| --- | --- | --- | --- | --- |
+| VPS-1 | 2 vCore | 4 GB | 40 GB NVMe | 3,81 euro |
+| **VPS-2** | **4 vCore** | **8 GB** | **75 GB NVMe** | **7,21 euro** |
+| VPS-3 | 6 vCore | 12 GB | 100 GB NVMe | 10,40 euro |
+| VPS-4 | 8 vCore | 24 GB | 200 GB NVMe | 19,96 euro |
+
+**Il piano consigliato è il VPS-2.** Processori e memoria sono già sovrabbondanti per
+l'applicazione, che ne usa meno di 300 MB: quello che conta è il disco. Il VPS-1 con 40 GB lascia
+troppo poco spazio ai documenti una volta tolti sistema e applicazione, e costa solo 3,40 euro in
+meno.
+
+Nel configuratore, alla pagina delle opzioni, guarda se compare un **disco aggiuntivo**: OVH lo
+offre da 5 a 100 GB. Se c'è, aggiungine uno da 100 GB e i documenti andranno lì, separati dal
+sistema. Se non compare, il VPS-2 va benissimo per partire e più avanti si passa a un piano
+superiore.
 
 | Voce | Valore |
 | --- | --- |
-| Gamma | Un piano con almeno **2 vCore, 4 GB di memoria e 160 GB di disco** |
+| Piano | **VPS-2** |
 | Datacenter | Milano |
 | Sistema operativo | Ubuntu 24.04 |
 | Chiave SSH | Incolla la chiave pubblica copiata al punto 1 |
-| Disco aggiuntivo | Nessuno |
-
-Verifica il prezzo nel configuratore di OVH: non sono riuscito a leggerlo da qui perché i loro siti
-sono irraggiungibili da questo ambiente.
+| Disco aggiuntivo | 100 GB se disponibile, altrimenti nessuno |
 
 ### Come scegliere
 
@@ -117,7 +127,7 @@ sono irraggiungibili da questo ambiente.
 | Sede dei dati | Italia | Italia, Milano | Germania o Finlandia |
 | Fattura | italiana con IVA | italiana con IVA | tedesca in inversione contabile |
 | Assistenza | in italiano | in italiano | in inglese e tedesco |
-| Come cresce lo spazio | volume ampliabile senza limiti pratici | cambio di piano, disco fino a 640 GB | volume ampliabile senza limiti pratici |
+| Come cresce lo spazio | volume ampliabile senza limiti pratici | disco aggiuntivo fino a 100 GB, poi cambio di piano | volume ampliabile senza limiti pratici |
 | Disco aggiuntivo | block storage | massimo 100 GB | volume, circa 4,4 euro per 100 GB |
 | Backup dell'intero server | snapshot a pagamento | giornaliero incluso | circa il venti per cento del canone |
 
@@ -138,9 +148,9 @@ Ci sono due modi di affrontarlo, entrambi supportati dall'applicazione:
 
 - **Disco separato**: i documenti stanno su un volume che si amplia in pochi minuti senza spegnere
   niente. È la strada di Aruba e Hetzner. Si imposta `UPLOADS_PATH` nel file di configurazione.
-- **Disco di sistema abbondante**: nessun secondo disco, i documenti stanno insieme al resto e per
-  crescere si cambia piano. È la strada di OVH. Si lascia `UPLOADS_PATH` vuoto e si salta la parte
-  del punto 4 che prepara il volume.
+- **Disco unico**: nessun secondo disco, i documenti stanno insieme al resto e per crescere si
+  cambia piano. È la strada di OVH quando non si aggiunge il disco supplementare. Si lascia
+  `UPLOADS_PATH` vuoto e si salta la parte del punto 4 che prepara il volume.
 
 | Come caricano i clienti | 40 clienti | 80 clienti | 150 clienti |
 | --- | --- | --- | --- |
@@ -154,10 +164,10 @@ Il backup notturno ti avvisa nel registro quando il disco supera l'ottanta per c
 
 | Voce | Costo |
 | --- | --- |
-| Server con 2 processori e 4 GB di memoria | circa 9 euro |
-| Volume da 100 GB per i documenti | da 4 a 15 euro secondo il fornitore |
-| Backup automatici del server | circa 2 euro |
-| **Totale** | **tra 15 e 26 euro** |
+| Server con almeno 2 processori e 4 GB di memoria | da 7 a 10 euro |
+| Spazio per i documenti | incluso nel piano, oppure da 4 a 15 euro se separato |
+| Backup automatici del server | incluso con OVH, circa 2 euro altrove |
+| **Totale** | **tra 7 e 26 euro secondo il fornitore** |
 
 I prezzi sono al netto dell'IVA e vanno verificati al momento dell'acquisto.
 
