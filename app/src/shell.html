@@ -72,7 +72,9 @@ a { color: var(--accent); }
 .top .spacer { flex: 1; }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; font-size: 12px; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
 .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
-.pill.cloud .dot { background: var(--ok); }
+.pill.cloud .dot, .pill.firebase .dot { background: var(--ok); }
+button.pill { border: 0; cursor: pointer; font: inherit; font-size: 12px; }
+button.pill:hover { background: var(--accent-soft); color: var(--accent); }
 .pill.browser .dot { background: var(--warn); }
 .pill.memoria .dot { background: var(--bad); }
 
@@ -232,7 +234,7 @@ tr.stripe-ok td:first-child { box-shadow: inset 3px 0 0 var(--ok); }
 <div class="top">
   <div class="brand"><b>Estratti conto → Koinos</b><span>Studio EMVAS</span></div>
   <div class="spacer"></div>
-  <span class="pill" id="storagePill"><span class="dot"></span><span id="storageTxt">Avvio…</span></span>
+  <button class="pill" id="storagePill" data-act="archivio" title="Archivio dati"><span class="dot"></span><span id="storageTxt">Avvio…</span></button>
   <span class="small muted" id="saveTxt"></span>
   <button class="btn sm" data-act="backup">Scarica backup</button>
   <button class="btn sm" data-act="ripristina">Ripristina backup</button>

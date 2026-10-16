@@ -1,0 +1,15 @@
+{
+  "hosting": {
+    "public": "app/dist",
+    "ignore": ["estratti-conto.html", "**/.*"],
+    "headers": [
+      {
+        "source": "**/*.@(html|js)",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      }
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

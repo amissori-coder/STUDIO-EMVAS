@@ -1,0 +1,23 @@
+rules_version = '2';
+
+// Archivio dell'app «Estratti conto → Koinos».
+// Leggono e scrivono solo gli utenti autenticati con un'email verificata @emvas.tax
+// (accesso con Google o con link via email: in entrambi i casi l'email risulta verificata).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function utenteStudio() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower().matches('.*@emvas[.]tax$');
+    }
+
+    match /kv/{documento} {
+      allow read, write: if utenteStudio();
+    }
+
+    // Tutto il resto è chiuso.
+    match /{percorso=**} {
+      allow read, write: if false;
+    }
+  }
+}

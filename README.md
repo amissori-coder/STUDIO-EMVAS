@@ -47,6 +47,6 @@ Funzioni principali:
 node app/build.mjs
 ```
 
-Poi apri `app/dist/index.html` nel browser. In locale i dati restano nel browser
+Poi apri `app/dist/index.html` nel browser. Per il database condiviso dello studio su Firebase (Firestore, accesso solo @emvas.tax, pubblicazione su Firebase Hosting) segui [FIREBASE.md](FIREBASE.md). In locale i dati restano nel browser
 (IndexedDB): fai backup regolari. Pubblicata su claude.ai, la pagina usa
 l'archivio online dell'artifact.

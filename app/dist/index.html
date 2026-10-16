@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="firebase-config.js"></script>
 </head>
 <body>
 <title>Estratti conto Koinos</title>
@@ -79,7 +80,9 @@ a { color: var(--accent); }
 .top .spacer { flex: 1; }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; font-size: 12px; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
 .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
-.pill.cloud .dot { background: var(--ok); }
+.pill.cloud .dot, .pill.firebase .dot { background: var(--ok); }
+button.pill { border: 0; cursor: pointer; font: inherit; font-size: 12px; }
+button.pill:hover { background: var(--accent-soft); color: var(--accent); }
 .pill.browser .dot { background: var(--warn); }
 .pill.memoria .dot { background: var(--bad); }
 
@@ -239,7 +242,7 @@ tr.stripe-ok td:first-child { box-shadow: inset 3px 0 0 var(--ok); }
 <div class="top">
   <div class="brand"><b>Estratti conto → Koinos</b><span>Studio EMVAS</span></div>
   <div class="spacer"></div>
-  <span class="pill" id="storagePill"><span class="dot"></span><span id="storageTxt">Avvio…</span></span>
+  <button class="pill" id="storagePill" data-act="archivio" title="Archivio dati"><span class="dot"></span><span id="storageTxt">Avvio…</span></button>
   <span class="small muted" id="saveTxt"></span>
   <button class="btn sm" data-act="backup">Scarica backup</button>
   <button class="btn sm" data-act="ripristina">Ripristina backup</button>
@@ -342,13 +345,20 @@ function periodoDaKey(key) {
 const Store = {
   mode: 'memoria', db: null, idb: null, mem: new Map(), counts: new Map(),
   pending: new Map(), timer: null, flushing: false, listeners: [],
+  CH: 60000,
   async init() {
-    try {
-      if (window.claude && typeof window.claude.use === 'function') {
+    if (inArtifact()) {
+      try {
         const db = await window.claude.use('db');
         if (db) { this.db = db; this.mode = 'cloud'; return; }
+      } catch (e) { /* passa al browser */ }
+    } else {
+      const conf = configFirebase();
+      if (conf) {
+        try { await Firebase.avvia(conf); this.db = Firebase.db; this.mode = 'firebase'; this.CH = 250000; return; }
+        catch (e) { console.error(e); toast('Firebase non raggiungibile: ' + (e.message || e.code) + '. Uso l’archivio del browser.', true); }
       }
-    } catch (e) { /* passa al browser */ }
+    }
     try { this.idb = await this.apriIdb(); this.mode = 'browser'; } catch (e) { this.mode = 'memoria'; }
   },
   apriIdb() {
@@ -371,7 +381,7 @@ const Store = {
   },
   async get(key) {
     if (this.pending.has(key)) return structuredClone(this.pending.get(key));
-    if (this.mode === 'cloud') return this.cloudGet(key);
+    if (this.db) return this.cloudGet(key);
     if (this.mode === 'browser') { try { return await this.idbOp('readonly', (s) => s.get(key)); } catch (e) { return undefined; } }
     return this.mem.has(key) ? structuredClone(this.mem.get(key)) : undefined;
   },
@@ -396,7 +406,7 @@ const Store = {
   },
   async cloudSet(key, val) {
     const testo = JSON.stringify(val);
-    const CH = 60000;
+    const CH = this.CH;
     const n = Math.max(1, Math.ceil(testo.length / CH));
     const v = uid();
     let prima = this.counts.get(key);
@@ -426,15 +436,16 @@ const Store = {
         const [key, val] = this.pending.entries().next().value;
         this.pending.delete(key);
         try {
-          if (this.mode === 'cloud') { if (val === undefined) await this.cloudDel(key); else await this.cloudSet(key, val); }
+          if (this.db) { if (val === undefined) await this.cloudDel(key); else await this.cloudSet(key, val); }
           else if (this.mode === 'browser') await this.idbOp('readwrite', (s) => (val === undefined ? s.delete(key) : s.put(val, key)));
           else { if (val === undefined) this.mem.delete(key); else this.mem.set(key, val); }
           this.lastError = null;
         } catch (e) {
           this.lastError = e;
           if (!this.pending.has(key)) this.pending.set(key, val);
-          const quota = e && e.code === 'quota_exceeded';
-          toast(quota ? 'Archivio pieno: elimina periodi o società non più necessari, poi riprova.' : 'Salvataggio non riuscito, nuovo tentativo tra pochi secondi.', true);
+          const quota = e && (e.code === 'quota_exceeded' || e.code === 'resource-exhausted');
+          const negato = e && e.code === 'permission-denied';
+          toast(quota ? 'Archivio pieno: elimina periodi o società non più necessari, poi riprova.' : negato ? 'Firebase ha rifiutato il salvataggio: controlla le regole di sicurezza e che il tuo account sia autorizzato.' : 'Salvataggio non riuscito, nuovo tentativo tra pochi secondi.', true);
           this.flushing = false;
           this.notify();
           this.timer = setTimeout(() => this.flush(), quota ? 30000 : 4000);
@@ -447,6 +458,67 @@ const Store = {
   notify() { const el = $('#saveTxt'); if (el) el.textContent = this.pending.size ? 'Salvataggio…' : (this.lastError ? 'Non salvato' : 'Tutto salvato'); },
 };
 window.addEventListener('beforeunload', (e) => { if (Store.pending.size) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ============================================================ firebase */
+const FB_VER = '10.12.2';
+const FB_KEY = 'emvas-firebase';
+const inArtifact = () => !!(window.claude && typeof window.claude.use === 'function');
+function configFirebase() {
+  let c = window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.config && window.FIREBASE_CONFIG.config.apiKey ? window.FIREBASE_CONFIG : null;
+  if (c) c = Object.assign({ origine: 'file' }, c);
+  else { try { c = JSON.parse(localStorage.getItem(FB_KEY) || 'null'); if (c) c.origine = 'browser'; } catch (e) { c = null; } }
+  return c && c.config && c.config.apiKey && c.config.projectId ? c : null;
+}
+function leggiSnippetFirebase(testo) {
+  const m = String(testo).match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  let j = m[0].replace(/^\s*\/\/.*$/gm, '').replace(/([{,]\s*)([A-Za-z_][\w]*)\s*:/g, '$1"$2":').replace(/'/g, '"').replace(/,\s*}/g, '}');
+  try { const o = JSON.parse(j); return o.apiKey && o.projectId ? o : null; } catch (e) { return null; }
+}
+function caricaScript(src) {
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('impossibile caricare ' + src)); document.head.appendChild(s); });
+}
+const Firebase = {
+  conf: null, auth: null, db: null, user: null,
+  async avvia(conf) {
+    this.conf = conf;
+    for (const lib of ['app', 'auth', 'firestore']) await caricaScript(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-${lib}-compat.js`);
+    if (!firebase.apps.length) firebase.initializeApp(conf.config);
+    this.auth = firebase.auth();
+    this.db = firebase.firestore();
+    try { await this.db.enablePersistence({ synchronizeTabs: true }); } catch (e) { /* cache locale facoltativa */ }
+    if (this.auth.isSignInWithEmailLink(location.href)) {
+      let email = '';
+      try { email = localStorage.getItem('emvas-email-link') || ''; } catch (e) { /* facoltativo */ }
+      if (!email) email = window.prompt('Per completare l’accesso conferma la tua email') || '';
+      try { await this.auth.signInWithEmailLink(email.trim(), location.href); } catch (e) { toast('Link di accesso non valido o scaduto: richiedine uno nuovo.', true); }
+      history.replaceState(null, '', location.pathname);
+    }
+    this.user = await new Promise((res) => { const un = this.auth.onAuthStateChanged((u) => { un(); res(u); }); });
+    let msg = '';
+    while (!this.valido(this.user)) {
+      if (this.user) { msg = `L’account ${this.user.email} non è autorizzato: accedi con un indirizzo @${this.conf.dominio}.`; await this.auth.signOut(); }
+      this.user = await this.attendiLogin(msg);
+    }
+  },
+  valido(u) {
+    if (!u || !u.email) return false;
+    const d = (this.conf.dominio || '').trim().toLowerCase();
+    return !d || u.email.toLowerCase().endsWith('@' + d);
+  },
+  attendiLogin(msg) {
+    $('#side').innerHTML = '';
+    $('#storageTxt').textContent = 'Firebase · accesso richiesto';
+    $('#main').innerHTML = `<div class="wrap"><div class="empty" style="max-width:560px">
+      <h2>Accedi all’archivio dello studio</h2>
+      <p>I dati sono nel database Firebase «${esc(this.conf.config.projectId)}»${this.conf.dominio ? `, riservato agli account @${esc(this.conf.dominio)}` : ''}.</p>
+      ${msg ? `<div class="note bad">${esc(msg)}</div>` : ''}
+      <button class="btn primary" data-act="fbGoogle">Accedi con Google</button>
+      <form data-form="fbLink" class="row" style="width:100%"><input class="inp" style="flex:1;min-width:220px" type="email" name="email" id="fbEmail" required placeholder="nome@${esc(this.conf.dominio || 'studio.it')}"><button class="btn">Ricevi link di accesso via email</button></form>
+    </div></div>`;
+    return new Promise((res) => { const un = this.auth.onAuthStateChanged((u) => { if (u) { un(); res(u); } }); });
+  },
+};
 
 /* ============================================================ stato app */
 const S = {
@@ -917,6 +989,7 @@ function viewHome() {
   </div></div>`;
 }
 function noteArchivio() {
+  if (Store.mode === 'firebase') return `<p class="small muted">I dati sono nel database Firebase dello studio e li ritrovi da qualsiasi computer dopo l’accesso. Scarica comunque un backup periodico.</p>`;
   if (Store.mode === 'cloud') return `<p class="small muted">I dati sono salvati nell’archivio di questa pagina su claude.ai e li ritrovi da qualsiasi dispositivo. Scarica comunque un backup periodico.</p>`;
   if (Store.mode === 'browser') return `<div class="note warn">I dati restano salvati solo in questo browser, su questo computer. Usa «Scarica backup» regolarmente e «Ripristina backup» per spostarli su un altro computer.</div>`;
   return `<div class="note bad">Questo browser non permette di salvare i dati: tutto andrà perso alla chiusura della pagina. Usa «Scarica backup» prima di chiudere.</div>`;
@@ -2049,6 +2122,29 @@ const AZIONI = {
   },
   ripristina: () => scegliFile({ tipo: 'restore' }, '.json'),
   vaiFormato: () => vai({ view: 'dati', datiTab: 'export' }),
+  fbGoogle: async () => {
+    const p = new firebase.auth.GoogleAuthProvider();
+    if (Firebase.conf.dominio) p.setCustomParameters({ hd: Firebase.conf.dominio });
+    try { await Firebase.auth.signInWithPopup(p); } catch (e) { if (e.code !== 'auth/popup-closed-by-user') toast('Accesso non riuscito: ' + (e.message || e.code), true); }
+  },
+  fbEsci: async () => { await Store.flush(); await Firebase.auth.signOut(); location.reload(); },
+  archivio: () => apriModale(htmlArchivio()),
+  fbScollega: () => { try { localStorage.removeItem(FB_KEY); } catch (e) { /* facoltativo */ } location.reload(); },
+  fbMigra: async (el) => {
+    el.disabled = true; el.textContent = 'Copia in corso…';
+    const idb = await Store.apriIdb();
+    const tx = (fn) => new Promise((res, rej) => { const rq = fn(idb.transaction('kv', 'readonly').objectStore('kv')); rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error); });
+    const chiavi = await tx((st) => st.getAllKeys());
+    let n = 0;
+    for (const k of chiavi) {
+      const v = await tx((st) => st.get(k));
+      if (k === 'index') { for (const x of v.societa || []) if (!S.index.societa.some((y) => y.id === x.id)) S.index.societa.push(x); salvaIndex(); }
+      else { Store.save(k, v); n++; }
+    }
+    await Store.flush();
+    S.soc = {}; S.per = {};
+    chiudiModale(); toast(`Copiati su Firebase ${n} documenti dall’archivio del browser.`); render();
+  },
   caricaModello: () => scegliFile({ tipo: 'modello' }, '.xls,.xlsx,.xlsm'),
   rimuoviModello: () => { const soc = socCorrente(); delete soc.export.modello; Store.remove(`tpl_${soc.id}`); salvaSoc(soc); render(); toast('Modello rimosso: userò il layout standard.'); },
   confermaRestore: async () => { const d = _restore; _restore = null; chiudiModale(); await ripristinaBackup(d); toast(`Backup ripristinato: ${d.societa.length} società.`); render(); },
@@ -2123,7 +2219,39 @@ async function rerenderMantenendoFocus() {
   await render();
   if (id) { const el = document.getElementById(id); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (e) { /* select */ } } }
 }
+function htmlArchivio() {
+  const m = Store.mode;
+  let corpo;
+  if (m === 'cloud') corpo = `<p style="margin:0">Questa pagina è pubblicata su claude.ai e salva i dati nell’archivio della pagina. Il database Firebase si usa con la versione dell’app pubblicata su Firebase Hosting (vedi FIREBASE.md nel repository): per spostare i dati usa «Scarica backup» qui e «Ripristina backup» là.</p>`;
+  else if (m === 'firebase') corpo = `<div class="grid2"><div class="field"><span>Progetto Firebase</span><b class="mono">${esc(Firebase.conf.config.projectId)}</b></div><div class="field"><span>Utente</span><b>${esc(Firebase.user?.email || '')}</b></div></div>
+    <p class="small muted" style="margin:0">Tutti gli utenti autorizzati vedono e modificano lo stesso archivio. Se due persone lavorano sullo stesso periodo nello stesso momento, vale l’ultimo salvataggio.</p>
+    <div class="row"><button class="btn" data-act="fbMigra">Copia su Firebase i dati salvati in questo browser</button>${Firebase.conf.origine === 'browser' ? '<button class="btn danger" data-act="fbScollega">Scollega Firebase da questo browser</button>' : ''}<button class="btn" data-act="fbEsci">Esci</button></div>`;
+  else corpo = `<p style="margin:0">Ora i dati sono salvati ${m === 'browser' ? 'solo in questo browser' : 'solo in memoria'}. Per usare un database Firebase condiviso dallo studio incolla qui la configurazione dell’app web (Console Firebase › Impostazioni progetto › Le tue app › Configurazione SDK).</p>
+    <form data-form="fbConfig"><div class="mb" style="padding:0">
+      <label class="field"><span>Configurazione Firebase</span><textarea class="inp" name="snippet" id="fbSnippet" rows="9" placeholder="const firebaseConfig = {&#10;  apiKey: &quot;…&quot;,&#10;  authDomain: &quot;…&quot;,&#10;  projectId: &quot;…&quot;,&#10;  …&#10;};" required></textarea></label>
+      <label class="field" style="max-width:320px"><span>Dominio email autorizzato</span><input class="inp" name="dominio" id="fbDominio" value="emvas.tax"><small>Solo gli account con questo dominio possono accedere. Vuoto = qualsiasi account (sconsigliato).</small></label>
+      <div class="row"><button class="btn primary">Collega Firebase</button></div></div></form>
+    <p class="small muted" style="margin:0">L’accesso con Google o via email funziona solo con la pagina aperta da un indirizzo web autorizzato in Firebase (per esempio Firebase Hosting), non da un file sul computer.</p>`;
+  return `${mHead('Archivio dati')}<div class="mb">${corpo}</div><div class="mf"><button class="btn" data-act="chiudi">Chiudi</button></div>`;
+}
 const FORMS = {
+  fbConfig: (form) => {
+    const fd = new FormData(form);
+    const config = leggiSnippetFirebase(fd.get('snippet'));
+    if (!config) { toast('Non riesco a leggere la configurazione: incolla il blocco con apiKey, authDomain e projectId.', true); return; }
+    try { localStorage.setItem(FB_KEY, JSON.stringify({ config, dominio: str(fd.get('dominio')).replace(/^@/, '') })); } catch (e) { toast('Il browser non permette di salvare la configurazione.', true); return; }
+    location.reload();
+  },
+  fbLink: async (form) => {
+    const email = str(new FormData(form).get('email')).toLowerCase();
+    const d = (Firebase.conf.dominio || '').toLowerCase();
+    if (d && !email.endsWith('@' + d)) { toast(`Usa un indirizzo @${d}.`, true); return; }
+    try {
+      await Firebase.auth.sendSignInLinkToEmail(email, { url: location.origin + location.pathname, handleCodeInApp: true });
+      try { localStorage.setItem('emvas-email-link', email); } catch (e) { /* facoltativo */ }
+      toast(`Ti ho inviato il link di accesso a ${email}.`);
+    } catch (e) { toast('Invio non riuscito: ' + (e.message || e.code), true); }
+  },
   nuovaSoc: (form) => {
     const fd = new FormData(form);
     const soc = nuovaSocieta({ nome: str(fd.get('nome')), cf: str(fd.get('cf')).toUpperCase(), tipoCont: fd.get('tipoCont') });
@@ -2204,8 +2332,8 @@ async function avvio() {
   await Store.init();
   const pill = $('#storagePill');
   pill.classList.add(Store.mode);
-  $('#storageTxt').textContent = { cloud: 'Archivio online', browser: 'Archivio in questo browser', memoria: 'Dati non salvati' }[Store.mode];
-  pill.title = { cloud: 'I dati sono salvati nell’archivio della pagina su claude.ai', browser: 'I dati restano in questo browser: scarica backup regolari', memoria: 'Il browser non permette il salvataggio: scarica un backup prima di chiudere' }[Store.mode];
+  $('#storageTxt').textContent = { cloud: 'Archivio online', firebase: `Firebase · ${Firebase.user?.email || ''}`, browser: 'Archivio in questo browser', memoria: 'Dati non salvati' }[Store.mode];
+  pill.title = { cloud: 'I dati sono salvati nell’archivio della pagina su claude.ai', firebase: 'I dati sono nel database Firebase dello studio', browser: 'I dati restano in questo browser: scarica backup regolari', memoria: 'Il browser non permette il salvataggio: scarica un backup prima di chiudere' }[Store.mode];
   try { S.index = (await Store.get('index')) || { societa: [] }; } catch (e) { toast('Archivio non raggiungibile: ' + (e.message || e.code), true); }
   const u = leggiUi();
   if (u) Object.assign(S.ui, u, { sel: new Set() });
