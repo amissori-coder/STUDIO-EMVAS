@@ -739,7 +739,7 @@ async function leggiFile(file) {
     return XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
   }
   let text = new TextDecoder('utf-8').decode(buf);
-  if (text.includes('�')) text = new TextDecoder('windows-1252').decode(buf);
+  if (text.includes('\uFFFD')) text = new TextDecoder('windows-1252').decode(buf);
   text = text.replace(/^﻿/, '');
   return parseCsv(text, trovaSeparatore(text));
 }
