@@ -2,6 +2,11 @@
 
 ## Estratti conto → Koinos
 
+> L'app è stata spostata nel repository dedicato
+> [amissori-coder/estratti-conto-koinos](https://github.com/amissori-coder/estratti-conto-koinos),
+> pubblicato su https://amissori-coder.github.io/estratti-conto-koinos/.
+> La copia qui sotto non viene più aggiornata.
+
 Web app per trasformare gli estratti conto bancari delle società clienti nel file
 «Importazione da file di testo movimenti» di DATEV Koinos.
 
