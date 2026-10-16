@@ -22,7 +22,28 @@ sta in un database Firestore dello studio. Lo vedono tutti gli utenti con un'ema
    Copia l'oggetto `firebaseConfig` e incollalo in `app/firebase-config.js`.
    Lascia `dominio: 'emvas.tax'`.
 
-## 2. Pubblica app e regole
+## 2. Pubblica l'app con GitHub (senza comandi)
+
+L'app si pubblica da sola su GitHub Pages a ogni modifica del branch `main`
+(workflow `.github/workflows/pages.yml`). L'indirizzo è:
+**https://amissori-coder.github.io/STUDIO-EMVAS/**
+
+Da fare una volta sola:
+
+1. **GitHub** › repository › **Settings › Pages** › Source: **GitHub Actions**.
+2. **Firebase** › Authentication › **Impostazioni › Domini autorizzati** ›
+   aggiungi `amissori-coder.github.io`.
+3. **Firebase** › Firestore Database › **Regole**: incolla il contenuto di
+   `firestore.rules` e clicca **Pubblica**.
+
+La prima pubblicazione parte quando il codice arriva su `main`. Puoi anche avviarla
+a mano da GitHub › **Actions** › «Pubblica app su GitHub Pages» › **Run workflow**.
+
+Il repository è pubblico: chiunque può leggere il codice e la configurazione
+Firebase, che non è un segreto. I dati non stanno su GitHub: sono in Firestore,
+protetti dalle regole e dall'accesso riservato agli account @emvas.tax.
+
+## 2-bis. In alternativa: Firebase Hosting (da riga di comando)
 
 Da un computer con Node.js:
 
