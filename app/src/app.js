@@ -218,7 +218,7 @@ async function caricaSocieta(id) {
 }
 function migraSocieta(soc) {
   soc.conti ||= []; soc.causali ||= []; soc.registri ||= []; soc.stati ||= {};
-  soc.export = Object.assign({ sep: ';', enc: 'cp1252', header: true, dataReg: 'operazione', codId: true }, soc.export || {});
+  soc.export = Object.assign({ formato: 'primanota', descrPN: 'koinos', sep: ';', enc: 'cp1252', header: true, dataReg: 'operazione', codId: true }, soc.export || {});
 }
 async function caricaPeriodo(sid, cc, p) {
   const k = kPer(sid, cc, p);
@@ -254,7 +254,7 @@ function nuovaSocieta({ nome, cf, tipoCont }) {
     mastroClienti: '', mastroFornitori: '', contoTransitorio: '',
     causaleIncasso: 'B25', causalePagamento: 'B05', causaleEntrate: 'B78', causaleUscite: 'B82',
     partitaMancante: 'blocca',
-    export: { sep: ';', enc: 'cp1252', header: true, dataReg: 'operazione', codId: true },
+    export: { formato: 'primanota', descrPN: 'koinos', sep: ';', enc: 'cp1252', header: true, dataReg: 'operazione', codId: true },
     conti: [], causali: CAUSALI_TPL.map(([c, d, t, iva, u]) => ({ c, d, t, iva: !!iva, u: !!u })), registri: [], stati: {},
     creata: new Date().toISOString(),
   };
@@ -492,11 +492,11 @@ async function leggiFile(file) {
   }
   let text = new TextDecoder('utf-8').decode(buf);
   if (text.includes('\uFFFD')) text = new TextDecoder('windows-1252').decode(buf);
-  text = text.replace(/^﻿/, '');
+  text = text.replace(/^\uFEFF/, '');
   return parseCsv(text, trovaSeparatore(text));
 }
 function righeDaIncolla(text) {
-  text = text.replace(/^﻿/, '');
+  text = text.replace(/^\uFEFF/, '');
   return parseCsv(text, text.includes('\t') ? '\t' : trovaSeparatore(text));
 }
 
@@ -835,6 +835,7 @@ function barraSelezione() {
 }
 function sezioneGenera(soc, cc, per, cnt) {
   const daFare = cnt.da + cnt.inc + cnt.sugg;
+  if (soc.export.formato === 'primanota') return sezioneGeneraPN(soc, cc, per, daFare);
   const sepNome = { ';': 'punto e virgola', ',': 'virgola', 'tab': 'tabulazione' }[soc.export.sep] || soc.export.sep;
   const blocchi = [];
   if (!cc.codiceConto) blocchi.push('Indica il codice conto Koinos della banca (Modifica conto).');
@@ -845,6 +846,16 @@ function sezioneGenera(soc, cc, per, cnt) {
       ${daFare ? `<label class="check"><input type="checkbox" id="usaTransitorio" ${soc.contoTransitorio ? '' : 'disabled'}><span>Registra i movimenti non pronti sul conto transitorio${soc.contoTransitorio ? '' : ' (da impostare in Dati di base)'}</span></label>` : ''}
     </div>
     <div class="row"><button class="btn" data-act="anteprima" ${blocchi.length ? 'disabled' : ''}>Anteprima registrazioni</button><button class="btn primary" data-act="genera" ${blocchi.length ? 'disabled' : ''}>Genera CSV per Koinos</button></div>
+  </section>`;
+}
+function sezioneGeneraPN(soc, cc, per, daFare) {
+  const mod = soc.export.modello;
+  return `<section class="card"><div class="card-h"><h2>Excel prima nota cassa banca</h2><span class="small muted">${mod ? `Modello Koinos: ${esc(mod.nome)}` : 'Layout standard Koinos'} · <button class="btn ghost sm" data-act="vaiFormato">Cambia formato</button></span></div>
+    <div class="note">Una riga per movimento con data, descrizione operazione, importo entrata o uscita. ${soc.export.descrPN === 'koinos' ? 'Per incassi e pagamenti abbinati la descrizione segue lo schema di Koinos («Incasso cliente Rossi Snc ft 123»), per gli altri movimenti uso la descrizione della regola o della banca: le regole di Koinos completano la registrazione all’importazione.' : 'La descrizione è quella dell’estratto conto.'}</div>
+    ${daFare ? `<div class="note warn">${daFare} movimenti non sono abbinati o sono da confermare: nel foglio avranno la descrizione della banca e li completerai nella prima nota di Koinos.</div>` : ''}
+    ${!mod && !soc.cf ? '<div class="note warn">Indica il codice fiscale della società in Dati di base: Koinos lo confronta con quello dell’archivio aperto.</div>' : ''}
+    <div class="row"><label class="field" style="max-width:220px"><span>Saldo iniziale del periodo (facoltativo)</span><input class="inp num" id="saldoIniziale" data-ch="saldoIniziale" value="${per.saldoIniziale != null ? esc(fmtEur(per.saldoIniziale)) : ''}" placeholder="0,00"></label></div>
+    <div class="row"><button class="btn" data-act="anteprima">Anteprima foglio</button><button class="btn primary" data-act="genera">Genera Excel prima nota</button></div>
   </section>`;
 }
 function sezioneEsportazioni(per) {
@@ -1105,14 +1116,130 @@ function htmlAnteprima(soc, cc, ris) {
     </tbody></table></div>${ris.righe.length > vis.length ? `<p class="small muted">Mostrate le prime ${vis.length} righe.</p>` : ''}</div>
   <div class="mf"><button class="btn" data-act="chiudi">Chiudi</button></div>`;
 }
+function descrPrimaNota(soc, ctx, r) {
+  const a = r.abb;
+  if (soc.export.descrPN === 'banca' || !a || r.fonte === 'suggerito') return r.descr;
+  const t = tipoCausale(ctx, a.causale);
+  const nom = a.nominativo ? ctx.nom.get(a.nominativo) : null;
+  const ft = a.partita ? ` ft ${a.partita.split('|')[0]}` : '';
+  if (nom && (t === 7 || t === 9)) return `Incasso cliente ${nom.d}${ft}`;
+  if (nom && t === 8) return `Pagamento fornitore ${nom.d}${ft}`;
+  return a.descr || r.descr;
+}
+function righePrimaNota(soc, per) {
+  const ctx = contesto(soc);
+  return per.righe.slice().sort((a, b) => a.data.localeCompare(b.data) || a.ord - b.ord).map((r) => ({
+    data: soc.export.dataReg === 'valuta' && r.valuta ? r.valuta : r.data,
+    descr: pulisciTesto(descrPrimaNota(soc, ctx, r), 250),
+    ent: r.importo > 0 ? r.importo : null, usc: r.importo < 0 ? -r.importo : null, stato: statoRiga(soc, ctx, r),
+  }));
+}
+const serialeExcel = (iso) => { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d) / 86400000 + 25569; };
+const cellaData = (iso) => ({ t: 'n', v: serialeExcel(iso), z: 'dd/mm/yyyy' });
+const cellaNum = (n) => ({ t: 'n', v: round2(n), z: '#,##0.00' });
+const cellaTesto = (v) => ({ t: 's', v: String(v ?? '') });
+function bytesInBase64(bytes) { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s); }
+function base64InBytes(b64) { const s = atob(b64); const out = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i); return out; }
+function trovaPosizioniModello(wb) {
+  for (const nome of wb.SheetNames) {
+    const ws = wb.Sheets[nome];
+    const celle = Object.keys(ws).filter((k) => k[0] !== '!');
+    const intest = celle.find((k) => norm(ws[k].v) === 'DESCRIZIONE OPERAZIONE');
+    if (!intest) continue;
+    const { r, c } = XLSX.utils.decode_cell(intest);
+    const pos = { foglio: nome, riga: r, descr: c, data: c - 1, ent: c + 1, usc: c + 2, saldo: null };
+    for (const k of celle) {
+      const x = XLSX.utils.decode_cell(k), v = norm(ws[k].v);
+      if (x.r === r && v.includes('DATA')) pos.data = x.c;
+      if (x.r === r && v.includes('ENTRATA')) pos.ent = x.c;
+      if (x.r === r && v.includes('USCITA')) pos.usc = x.c;
+      if (v === 'SALDO INIZIALE') pos.saldo = XLSX.utils.encode_cell({ r: x.r, c: x.c + 1 });
+    }
+    return pos;
+  }
+  return null;
+}
+async function workbookPrimaNota(soc, per) {
+  if (!window.XLSX) throw new Error('Il modulo Excel non è disponibile: controlla la connessione e ricarica la pagina.');
+  const righe = righePrimaNota(soc, per);
+  const saldo = per.saldoIniziale;
+  const enc = (r, c) => XLSX.utils.encode_cell({ r, c });
+  if (soc.export.modello) {
+    const tpl = await Store.get(`tpl_${soc.id}`);
+    if (!tpl) throw new Error('Il modello Koinos non è più in archivio: ricaricalo in Dati di base › Formato file.');
+    const wb = XLSX.read(base64InBytes(tpl.b64), { type: 'array', cellFormula: true, cellNF: true, cellStyles: true });
+    const pos = trovaPosizioniModello(wb);
+    if (!pos) throw new Error('Nel modello non trovo la colonna «Descrizione operazione».');
+    const ws = wb.Sheets[pos.foglio];
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+    for (let R = pos.riga + 1; R <= range.e.r; R++) for (const C of [pos.data, pos.descr, pos.ent, pos.usc]) delete ws[enc(R, C)];
+    righe.forEach((x, i) => {
+      const R = pos.riga + 1 + i;
+      ws[enc(R, pos.data)] = cellaData(x.data); ws[enc(R, pos.descr)] = cellaTesto(x.descr);
+      if (x.ent != null) ws[enc(R, pos.ent)] = cellaNum(x.ent);
+      if (x.usc != null) ws[enc(R, pos.usc)] = cellaNum(x.usc);
+    });
+    range.e.r = Math.max(range.e.r, pos.riga + righe.length);
+    range.e.c = Math.max(range.e.c, pos.data, pos.descr, pos.ent, pos.usc);
+    ws['!ref'] = XLSX.utils.encode_range(range);
+    if (pos.saldo && saldo != null) ws[pos.saldo] = cellaNum(saldo);
+    return { wb, righe, xls: /\.xls$/i.test(tpl.nome) };
+  }
+  const ws = {};
+  const fine = Math.max(9, 8 + righe.length);
+  const tot = righe.reduce((t, x) => { t.e += x.ent || 0; t.u += x.usc || 0; return t; }, { e: 0, u: 0 });
+  Object.assign(ws, {
+    B1: cellaTesto('Movimenti di prima nota'),
+    C3: cellaTesto('Congome e Nome o Denominazione'), D3: cellaTesto('Saldo iniziale'),
+    C4: cellaTesto(soc.nome), D4: cellaTesto('Tot. Entrate'), E4: { t: 'n', f: `SUM(D9:D${fine})`, v: round2(tot.e), z: '#,##0.00' },
+    C5: cellaTesto('Codice Fiscale'), D5: cellaTesto('Tot. Uscite'), E5: { t: 'n', f: `SUM(E9:E${fine})`, v: round2(tot.u), z: '#,##0.00' },
+    C6: cellaTesto(soc.cf || ''), D6: cellaTesto('Saldo Finale'), E6: { t: 'n', f: 'E3+E4-E5', v: round2((saldo || 0) + tot.e - tot.u), z: '#,##0.00' },
+    B8: cellaTesto('Data registrazione'), C8: cellaTesto('Descrizione operazione'), D8: cellaTesto('Importo entrata'), E8: cellaTesto('Importo uscita'),
+  });
+  if (saldo != null) ws.E3 = cellaNum(saldo);
+  righe.forEach((x, i) => {
+    const R = 8 + i;
+    ws[enc(R, 1)] = cellaData(x.data); ws[enc(R, 2)] = cellaTesto(x.descr);
+    if (x.ent != null) ws[enc(R, 3)] = cellaNum(x.ent);
+    if (x.usc != null) ws[enc(R, 4)] = cellaNum(x.usc);
+  });
+  ws['!ref'] = `A1:E${fine}`;
+  ws['!cols'] = [{ wch: 3 }, { wch: 16 }, { wch: 70 }, { wch: 16 }, { wch: 16 }];
+  ws['!merges'] = [{ s: { r: 0, c: 1 }, e: { r: 0, c: 4 } }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Movimenti di prima nota');
+  return { wb, righe, xls: false };
+}
+function htmlAnteprimaPN(soc, righe) {
+  const tot = righe.reduce((t, x) => { t.e += x.ent || 0; t.u += x.usc || 0; return t; }, { e: 0, u: 0 });
+  return `${mHead('Anteprima foglio prima nota', `${righe.length} righe · entrate ${fmtEur(tot.e)} · uscite ${fmtEur(tot.u)}`)}
+  <div class="mb"><div class="tablewrap"><table class="t"><thead><tr><th>Data registrazione</th><th>Descrizione operazione</th><th class="num">Importo entrata</th><th class="num">Importo uscita</th><th>Abbinamento</th></tr></thead><tbody>
+  ${righe.slice(0, 300).map((x) => `<tr><td class="num">${fmtData(x.data)}</td><td>${esc(x.descr)}</td><td class="num amt-in">${x.ent != null ? fmtEur(x.ent) : ''}</td><td class="num">${x.usc != null ? fmtEur(x.usc) : ''}</td><td><span class="chip ${STATI[x.stato][0]}">${STATI[x.stato][1]}</span></td></tr>`).join('')}
+  </tbody></table></div></div><div class="mf"><button class="btn" data-act="chiudi">Chiudi</button></div>`;
+}
+async function generaPrimaNota(soc, cc) {
+  const per = S.per[kPer(soc.id, cc.id, S.ui.pkey)];
+  if (!per.righe.length) { toast('Nessun movimento da esportare.', true); return; }
+  const { wb, righe, xls } = await workbookPrimaNota(soc, per);
+  const usaXls = xls && !(await capDownloads());
+  const file = `PrimaNota_${slug(soc.nome)}_${slug(cc.nome)}_${S.ui.pkey}.${usaXls ? 'xls' : 'xlsx'}`;
+  const dati = new Uint8Array(XLSX.write(wb, { type: 'array', bookType: usaXls ? 'biff8' : 'xlsx' }));
+  const ok = await scarica(file, dati, usaXls ? 'application/vnd.ms-excel' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  if (!ok) return;
+  per.esportazioni.push({ data: new Date().toISOString(), file, movimenti: righe.length, transitorio: 0 });
+  salvaPeriodo(soc, cc.id, S.ui.pkey, { esportato: true });
+  toast(`Foglio generato: ${righe.length} movimenti.`);
+  render();
+}
 async function genera(soc, cc) {
+  if (soc.export.formato === 'primanota') return generaPrimaNota(soc, cc);
   const per = S.per[kPer(soc.id, cc.id, S.ui.pkey)];
   const transitorio = !!$('#usaTransitorio')?.checked;
   const ris = generaTracciato(soc, cc, per, { transitorio });
   if (ris.errori.length) { toast(`${ris.errori.length} movimenti non sono pronti. Completali o spunta l’opzione del conto transitorio.`, true); S.ui.filtro = 'da'; render(); return; }
   if (!ris.movimenti) { toast('Nessun movimento da esportare.', true); return; }
   const file = `Koinos_${slug(soc.nome)}_${slug(cc.nome)}_${S.ui.pkey}.csv`;
-  const dati = soc.export.enc === 'cp1252' ? codificaCp1252(ris.testo) : '﻿' + ris.testo;
+  const dati = soc.export.enc === 'cp1252' ? codificaCp1252(ris.testo) : '\uFEFF' + ris.testo;
   const ok = await scarica(file, dati, 'text/csv');
   if (!ok) return;
   per.esportazioni.push({ data: new Date().toISOString(), file, movimenti: ris.movimenti, transitorio: ris.nTrans });
@@ -1207,12 +1334,32 @@ function tabConti(soc) {
 }
 function tabExport(soc) {
   const e = soc.export;
-  return `<section class="card"><div class="card-h"><h2>Formato del file per Koinos</h2></div>
+  const scelta = `<section class="card"><div class="card-h"><h2>File da generare per Koinos</h2></div>
+    <div class="grid2">
+      <label class="check"><input type="radio" name="formato" id="e_formatoPN" data-ch="expCampo" data-k="formato" value="primanota" ${e.formato === 'primanota' ? 'checked' : ''}><span><b>Excel prima nota cassa banca</b><br><span class="small muted">Il foglio «Movimenti di prima nota» da importare nella Prima nota cassa banca. Le regole di Koinos completano causali e conti.</span></span></label>
+      <label class="check"><input type="radio" name="formato" id="e_formatoCsv" data-ch="expCampo" data-k="formato" value="csv" ${e.formato === 'csv' ? 'checked' : ''}><span><b>CSV tracciato movimenti</b><br><span class="small muted">«Importazione da file di testo movimenti»: registrazioni complete con causale, conti, nominativo e partita.</span></span></label>
+    </div>
+    <label class="field" style="max-width:320px"><span>Data di registrazione</span><select class="inp" id="e_dataReg" data-ch="expCampo" data-k="dataReg"><option value="operazione" ${e.dataReg !== 'valuta' ? 'selected' : ''}>Data operazione (contabile)</option><option value="valuta" ${e.dataReg === 'valuta' ? 'selected' : ''}>Data valuta</option></select></label>
+  </section>`;
+  if (e.formato === 'primanota') {
+    return scelta + `<section class="card"><div class="card-h"><h2>Excel prima nota cassa banca</h2></div>
+    <label class="field" style="max-width:520px"><span>Descrizione operazione</span><select class="inp" id="e_descrPN" data-ch="expCampo" data-k="descrPN">
+      <option value="koinos" ${e.descrPN !== 'banca' ? 'selected' : ''}>Dagli abbinamenti, nello schema di Koinos («Incasso cliente Rossi Snc ft 123»)</option>
+      <option value="banca" ${e.descrPN === 'banca' ? 'selected' : ''}>Descrizione originale dell’estratto conto</option></select>
+      <small>Con la prima opzione, per i movimenti normali uso la «Descrizione della registrazione» indicata nella regola o nell’abbinamento: scrivila come le voci proposte da Koinos (es. «Spese postali (costo)», «Pagamento stipendi (debito)»).</small></label>
+    <div class="card" style="background:var(--surface-2);border:0">
+      <div class="card-h"><h3>Modello creato da Koinos</h3>${e.modello ? `<span class="chip ok">Caricato</span>` : '<span class="chip neutral">Non caricato</span>'}</div>
+      ${e.modello ? `<p class="small" style="margin:0"><span class="mono">${esc(e.modello.nome)}</span> · caricato il ${fmtDataOra(e.modello.caricato)} · foglio «${esc(e.modello.foglio)}», intestazioni alla riga ${e.modello.riga}</p>` : `<p class="small muted" style="margin:0">Senza modello creo il foglio con la stessa impostazione di Koinos (denominazione e codice fiscale in testata, dati dalla riga 9). Per la massima compatibilità carica il file vuoto che Koinos crea con «Crea file Excel di importazione» per questa società: lo riempio mantenendo intestazione e celle di controllo.</p>`}
+      <div class="row"><button class="btn" data-act="caricaModello">${e.modello ? 'Sostituisci modello' : 'Carica modello Koinos'}</button>${e.modello ? '<button class="btn danger" data-act="rimuoviModello">Rimuovi modello</button>' : ''}</div>
+    </div>
+    <div class="note">In Koinos: importa una volta nella «Gestione regole» il file «Regole Excel PN cassa banca (imprese).ric» o «(professionisti).ric», poi usa l’importazione della Prima nota cassa banca applicando il gruppo di regole (passo 3/10). Koinos chiede le credenziali se il codice fiscale del file è diverso da quello dell’archivio aperto.</div>
+  </section>`;
+  }
+  return scelta + `<section class="card"><div class="card-h"><h2>CSV tracciato movimenti</h2></div>
     <p class="small muted" style="margin:0">In Koinos, in «Importazione da file di testo movimenti», scegli il tipo file Delimited con lo stesso separatore e associa le colonne per nome. Il file contiene tutte le 66 colonne del tracciato, nello stesso ordine del foglio Esempio.</p>
     <div class="grid3">
       <label class="field"><span>Separatore</span><select class="inp" id="e_sep" data-ch="expCampo" data-k="sep">${[[';', 'Punto e virgola ;'], ['tab', 'Tabulazione'], [',', 'Virgola ,']].map(([v, l]) => `<option value="${v}" ${e.sep === v ? 'selected' : ''}>${l}</option>`).join('')}</select><small>Con la virgola, le virgole nei testi diventano spazi; gli importi usano sempre la virgola decimale, quindi sconsigliata.</small></label>
       <label class="field"><span>Codifica caratteri</span><select class="inp" id="e_enc" data-ch="expCampo" data-k="enc"><option value="cp1252" ${e.enc === 'cp1252' ? 'selected' : ''}>Windows-1252 (ANSI)</option><option value="utf8" ${e.enc === 'utf8' ? 'selected' : ''}>UTF-8 con BOM</option></select></label>
-      <label class="field"><span>Data di registrazione</span><select class="inp" id="e_dataReg" data-ch="expCampo" data-k="dataReg"><option value="operazione" ${e.dataReg !== 'valuta' ? 'selected' : ''}>Data operazione (contabile)</option><option value="valuta" ${e.dataReg === 'valuta' ? 'selected' : ''}>Data valuta</option></select></label>
     </div>
     <label class="check"><input type="checkbox" id="e_header" data-ch="expCampo" data-k="header" ${e.header ? 'checked' : ''}><span>Prima riga con i nomi delle colonne</span></label>
     <label class="check"><input type="checkbox" id="e_codId" data-ch="expCampo" data-k="codId" ${e.codId ? 'checked' : ''}><span>Compila «Cod. identificativo» con un codice univoco per movimento: Koinos segnala i movimenti già importati</span></label>
@@ -1450,7 +1597,8 @@ async function creaBackup() {
     await caricaTuttiPeriodi(soc);
     const periodi = {};
     for (const k of Object.keys(soc.stati)) { const [cc, p] = k.split('|'); periodi[k] = S.per[kPer(soc.id, cc, p)]; }
-    out.societa.push({ soc, pdc: S.pdc[soc.id], nom: S.nom[soc.id], reg: S.reg[soc.id], periodi });
+    const modello = soc.export.modello ? await Store.get(`tpl_${soc.id}`) : null;
+    out.societa.push({ soc, pdc: S.pdc[soc.id], nom: S.nom[soc.id], reg: S.reg[soc.id], periodi, modello });
   }
   return out;
 }
@@ -1458,6 +1606,7 @@ async function ripristinaBackup(dati) {
   for (const b of dati.societa) {
     const soc = b.soc; migraSocieta(soc);
     S.soc[soc.id] = soc; S.pdc[soc.id] = b.pdc || []; S.nom[soc.id] = b.nom || []; S.reg[soc.id] = b.reg || [];
+    if (b.modello) Store.save(`tpl_${soc.id}`, b.modello);
     Store.save(kSoc(soc.id), soc); Store.save(kPdc(soc.id), S.pdc[soc.id]); Store.save(kNom(soc.id), S.nom[soc.id]); Store.save(kReg(soc.id), S.reg[soc.id]);
     for (const [k, per] of Object.entries(b.periodi || {})) { const [cc, p] = k.split('|'); S.per[kPer(soc.id, cc, p)] = per; Store.save(kPer(soc.id, cc, p), per); }
     const e = S.index.societa.find((x) => x.id === soc.id);
@@ -1523,6 +1672,16 @@ $('#fileIn').addEventListener('change', async (e) => {
       _restore = dati;
       return;
     }
+    if (purpose.tipo === 'modello') {
+      if (!window.XLSX) throw new Error('Il modulo Excel non è disponibile: ricarica la pagina.');
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const pos = trovaPosizioniModello(XLSX.read(bytes, { type: 'array' }));
+      if (!pos) throw new Error('Nel file non trovo la colonna «Descrizione operazione»: carica il foglio creato da Koinos con «Crea file Excel di importazione».');
+      Store.save(`tpl_${soc.id}`, { nome: file.name, b64: bytesInBase64(bytes) });
+      soc.export.modello = { nome: file.name, caricato: new Date().toISOString(), foglio: pos.foglio, riga: pos.riga + 1 };
+      salvaSoc(soc); render(); toast('Modello Koinos caricato.');
+      return;
+    }
     const rows = await leggiFile(file);
     if (purpose.tipo === 'ec') apriMappatura(soc, soc.conti.find((c) => c.id === S.ui.ccId), rows, file.name);
     else if (purpose.tipo === 'tab') apriImportTabella(soc, purpose.tab, rows, file.name);
@@ -1569,7 +1728,7 @@ const AZIONI = {
     if (!el.dataset.ok) { el.dataset.ok = '1'; el.textContent = 'Conferma: elimina tutti i movimenti del periodo'; return; }
     const soc = socCorrente(); const per = S.per[kPer(soc.id, S.ui.ccId, S.ui.pkey)]; per.righe = []; salvaPeriodo(soc, S.ui.ccId, S.ui.pkey); render(); toast('Periodo svuotato.');
   },
-  anteprima: () => { const soc = socCorrente(); const cc = soc.conti.find((c) => c.id === S.ui.ccId); const ris = generaTracciato(soc, cc, S.per[kPer(soc.id, cc.id, S.ui.pkey)], { transitorio: !!$('#usaTransitorio')?.checked }); apriModale(htmlAnteprima(soc, cc, ris), { wide: true }); },
+  anteprima: () => { const soc = socCorrente(); const cc = soc.conti.find((c) => c.id === S.ui.ccId); if (soc.export.formato === 'primanota') { apriModale(htmlAnteprimaPN(soc, righePrimaNota(soc, S.per[kPer(soc.id, cc.id, S.ui.pkey)])), { wide: true }); return; } const ris = generaTracciato(soc, cc, S.per[kPer(soc.id, cc.id, S.ui.pkey)], { transitorio: !!$('#usaTransitorio')?.checked }); apriModale(htmlAnteprima(soc, cc, ris), { wide: true }); },
   genera: () => { const soc = socCorrente(); genera(soc, soc.conti.find((c) => c.id === S.ui.ccId)); },
   datiTab: (el) => vai({ datiTab: el.dataset.tab }),
   importaTab: (el) => scegliFile({ tipo: 'tab', tab: el.dataset.tab }, '.xlsx,.xls,.xlsm,.ods,.csv,.txt'),
@@ -1604,6 +1763,7 @@ const AZIONI = {
     if ($('#eliminaNome').value.trim() !== soc.nome) { toast('Scrivi esattamente la ragione sociale per confermare.', true); return; }
     for (const k of Object.keys(soc.stati)) { const [cc, p] = k.split('|'); Store.remove(kPer(soc.id, cc, p)); delete S.per[kPer(soc.id, cc, p)]; }
     [kSoc, kPdc, kNom, kReg].forEach((f) => Store.remove(f(soc.id)));
+    Store.remove(`tpl_${soc.id}`);
     S.index.societa = S.index.societa.filter((x) => x.id !== soc.id); salvaIndex();
     delete S.soc[soc.id];
     vai({ socId: null, view: 'home' }); toast('Società eliminata.');
@@ -1633,12 +1793,16 @@ const AZIONI = {
     await scarica(`backup_estratti_conto_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.json`, JSON.stringify(dati), 'application/json');
   },
   ripristina: () => scegliFile({ tipo: 'restore' }, '.json'),
+  vaiFormato: () => vai({ view: 'dati', datiTab: 'export' }),
+  caricaModello: () => scegliFile({ tipo: 'modello' }, '.xls,.xlsx,.xlsm'),
+  rimuoviModello: () => { const soc = socCorrente(); delete soc.export.modello; Store.remove(`tpl_${soc.id}`); salvaSoc(soc); render(); toast('Modello rimosso: userò il layout standard.'); },
   confermaRestore: async () => { const d = _restore; _restore = null; chiudiModale(); await ripristinaBackup(d); toast(`Backup ripristinato: ${d.societa.length} società.`); render(); },
 };
 function copiaDatiBase(src, soc) {
   soc.causali = structuredClone(src.causali); soc.registri = structuredClone(src.registri);
   for (const k of ['mastroClienti', 'mastroFornitori', 'contoTransitorio', 'causaleIncasso', 'causalePagamento', 'causaleEntrate', 'causaleUscite', 'partitaMancante']) soc[k] = src[k];
   soc.export = structuredClone(src.export);
+  delete soc.export.modello;
   S.pdc[soc.id] = structuredClone(S.pdc[src.id] || []);
   salvaSoc(soc); salvaPdc(soc);
 }
@@ -1672,7 +1836,13 @@ const CAMBI = {
     if (['mastroClienti', 'mastroFornitori', 'contoTransitorio', 'partitaMancante'].includes(k)) aggiornaStati(soc);
     toast('Salvato.');
   },
-  expCampo: (el) => { const soc = socCorrente(); soc.export[el.dataset.k] = el.type === 'checkbox' ? el.checked : el.value; salvaSoc(soc); toast('Salvato.'); },
+  expCampo: (el) => { const soc = socCorrente(); soc.export[el.dataset.k] = el.type === 'checkbox' ? el.checked : el.value; salvaSoc(soc); if (el.dataset.k === 'formato') render(); toast('Salvato.'); },
+  saldoIniziale: (el) => {
+    const soc = socCorrente(); const per = S.per[kPer(soc.id, S.ui.ccId, S.ui.pkey)];
+    const v = el.value.trim() ? parseNum(el.value) : null;
+    if (el.value.trim() && v == null) { toast('Saldo non valido: scrivi un importo come 1.250,00', true); return; }
+    per.saldoIniziale = v; el.value = v != null ? fmtEur(v) : ''; salvaPeriodo(soc, S.ui.ccId, S.ui.pkey, { mantieni: true });
+  },
   riep: (el) => { S.ui.riep[el.dataset.k] = el.value; $('#riepBody').innerHTML = corpoRiepilogo(socCorrente()); },
   regTestSegno: (el) => { S.ui.regTestSegno = el.value; render(); },
 };

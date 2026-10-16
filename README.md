@@ -20,7 +20,14 @@ Funzioni principali:
     confermare;
   - i movimenti nuovi si abbinano a mano, con la possibilità di salvare una regola
     per i periodi successivi.
-- **Generazione CSV**: produce le 66 colonne del tracciato. Ogni movimento diventa
+- **Excel prima nota cassa banca** (formato predefinito): genera il foglio
+  «Movimenti di prima nota» da importare nella Prima nota cassa banca di Koinos.
+  Contiene data registrazione, descrizione operazione, importo entrata e uscita,
+  con denominazione, codice fiscale e saldi in testata. Se carichi il file vuoto
+  creato da Koinos con «Crea file Excel di importazione», l'app lo usa come modello.
+  Per incassi e pagamenti abbinati la descrizione segue lo schema di Koinos
+  («Incasso cliente Rossi Snc ft 123»).
+- **Generazione CSV** (in alternativa): produce le 66 colonne del tracciato. Ogni movimento diventa
   una registrazione di due righe:
   - riga banca con Tipo riga 2;
   - riga di contropartita. Per incassi e pagamenti ha Tipo riga 0, il nominativo,
