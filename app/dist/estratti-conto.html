@@ -1,0 +1,2341 @@
+<title>Estratti conto Koinos</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Serif:wght@500;600&display=swap">
+<style>
+/* Layout: registro a sinistra (società e sezioni) + area di lavoro con tabelle dense in stile partitario */
+:root {
+  --bg: #f3f5f4;
+  --surface: #ffffff;
+  --surface-2: #eaefed;
+  --line: #d5ddda;
+  --line-strong: #b9c6c2;
+  --ink: #16211e;
+  --ink-2: #53625d;
+  --ink-3: #7b8a85;
+  --accent: #1b5d64;
+  --accent-ink: #ffffff;
+  --accent-soft: #d9eaeb;
+  --ok: #2c7a4c;
+  --ok-soft: #dff0e5;
+  --warn: #9a6100;
+  --warn-soft: #f8ecd0;
+  --bad: #b2362e;
+  --bad-soft: #f7dfdb;
+  --info: #34529f;
+  --info-soft: #e1e8f7;
+  --shadow: 0 1px 2px rgba(22, 33, 30, .06), 0 4px 16px rgba(22, 33, 30, .06);
+  --overlay: rgba(16, 24, 22, .45);
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-display: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --r: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1514; --surface: #151d1c; --surface-2: #1c2625; --line: #2a3634; --line-strong: #3a4946;
+    --ink: #e3ebe9; --ink-2: #9caba7; --ink-3: #74837f; --accent: #5db0b7; --accent-ink: #0b1514; --accent-soft: #1d3739;
+    --ok: #6cc690; --ok-soft: #173224; --warn: #e3a93c; --warn-soft: #3a2c11; --bad: #ef7f74; --bad-soft: #3d1d1a;
+    --info: #92aaf0; --info-soft: #1d2640; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25); --overlay: rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1514; --surface: #151d1c; --surface-2: #1c2625; --line: #2a3634; --line-strong: #3a4946;
+  --ink: #e3ebe9; --ink-2: #9caba7; --ink-3: #74837f; --accent: #5db0b7; --accent-ink: #0b1514; --accent-soft: #1d3739;
+  --ok: #6cc690; --ok-soft: #173224; --warn: #e3a93c; --warn-soft: #3a2c11; --bad: #ef7f74; --bad-soft: #3d1d1a;
+  --info: #92aaf0; --info-soft: #1d2640; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25); --overlay: rgba(0,0,0,.6);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.45; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+button, input, select, textarea { font: inherit; color: inherit; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+a { color: var(--accent); }
+.mono, code { font-family: var(--font-mono); font-size: .92em; }
+.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.muted { color: var(--ink-2); }
+.small { font-size: 12.5px; }
+.label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); font-weight: 600; }
+
+/* barra superiore */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--surface); border-bottom: 1px solid var(--line);
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.brand b { font-family: var(--font-display); font-size: 17px; font-weight: 600; letter-spacing: .01em; }
+.brand span { color: var(--ink-3); font-size: 12.5px; }
+.top .spacer { flex: 1; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; font-size: 12px; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
+.pill.cloud .dot, .pill.firebase .dot { background: var(--ok); }
+button.pill { border: 0; cursor: pointer; font: inherit; font-size: 12px; }
+button.pill:hover { background: var(--accent-soft); color: var(--accent); }
+.pill.browser .dot { background: var(--warn); }
+.pill.memoria .dot { background: var(--bad); }
+
+.layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: calc(100vh - 56px); }
+.side { background: var(--surface); border-right: 1px solid var(--line); padding: 16px 12px; display: flex; flex-direction: column; gap: 18px; }
+.side .group { display: flex; flex-direction: column; gap: 2px; }
+.side .group .label { padding: 0 8px 6px; }
+.navbtn { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; text-align: left; background: none; border: 0; border-radius: var(--r);
+  padding: 7px 8px; cursor: pointer; color: var(--ink); }
+.navbtn:hover { background: var(--surface-2); }
+.navbtn.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.navbtn .sub { color: var(--ink-3); font-size: 12px; font-weight: 400; }
+.navbtn .count { font-size: 11.5px; padding: 1px 7px; border-radius: 999px; background: var(--bad-soft); color: var(--bad); font-weight: 600; }
+main { min-width: 0; padding-block: 22px 60px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+
+.pagehead { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.pagehead h1 { font-family: var(--font-display); font-size: 24px; font-weight: 600; }
+.pagehead .meta { color: var(--ink-2); font-size: 13px; margin-top: 2px; }
+.crumbs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; color: var(--ink-3); font-size: 13px; }
+.crumbs button { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.card-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.card-h h2 { font-size: 16px; font-weight: 600; }
+.card-h h3 { font-size: 14px; font-weight: 600; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; }
+
+/* bottoni e campi */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+  border-radius: var(--r); padding: 7px 12px; cursor: pointer; white-space: nowrap; font-weight: 500; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.btn.ghost { border-color: transparent; background: none; color: var(--accent); padding-inline: 8px; }
+.btn.ghost:hover { background: var(--accent-soft); }
+.btn.sm { padding: 4px 9px; font-size: 13px; }
+.btn[disabled] { opacity: .5; cursor: not-allowed; filter: none; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field > span { font-size: 12.5px; color: var(--ink-2); font-weight: 500; }
+.field small { color: var(--ink-3); font-size: 12px; }
+.inp, select.inp, textarea.inp { width: 100%; border: 1px solid var(--line-strong); background: var(--surface); border-radius: var(--r); padding: 7px 9px; min-width: 0; }
+textarea.inp { min-height: 120px; font-family: var(--font-mono); font-size: 12.5px; }
+.inp:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.check { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
+.check input { margin-top: 3px; accent-color: var(--accent); }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--r); overflow: hidden; }
+.seg button { border: 0; background: var(--surface); padding: 5px 11px; cursor: pointer; font-size: 13px; }
+.seg button + button { border-left: 1px solid var(--line-strong); }
+.seg button.on { background: var(--accent); color: var(--accent-ink); }
+.seg button[disabled] { cursor: not-allowed; opacity: .55; }
+
+/* chip di stato */
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.chip.ok { background: var(--ok-soft); color: var(--ok); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.chip.bad { background: var(--bad-soft); color: var(--bad); }
+.chip.info { background: var(--info-soft); color: var(--info); }
+.chip.neutral { background: var(--surface-2); color: var(--ink-2); }
+.tag { font-family: var(--font-mono); font-size: 12px; padding: 1px 6px; border-radius: 4px; background: var(--surface-2); color: var(--ink); white-space: nowrap; }
+
+/* tabelle */
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.t th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); font-weight: 600; background: var(--surface-2);
+  padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; position: sticky; top: 0; }
+table.t td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.t tr:last-child td { border-bottom: 0; }
+table.t tbody tr.click { cursor: pointer; }
+table.t tbody tr.click:hover td { background: color-mix(in srgb, var(--accent-soft) 45%, transparent); }
+table.t tr.sel td { background: var(--accent-soft); }
+table.t td.descr { min-width: 260px; max-width: 460px; }
+table.t td.descr .d1 { word-break: break-word; }
+.amt-in { color: var(--ok); }
+.amt-out { color: var(--ink); }
+.abb { display: flex; flex-direction: column; gap: 2px; min-width: 200px; }
+.abb .l1 { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.abb .l2 { color: var(--ink-2); font-size: 12.5px; }
+.problem { color: var(--bad); font-size: 12px; }
+tr.stripe-da td:first-child { box-shadow: inset 3px 0 0 var(--bad); }
+tr.stripe-sugg td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+tr.stripe-inc td:first-child { box-shadow: inset 3px 0 0 var(--bad); }
+tr.stripe-ok td:first-child { box-shadow: inset 3px 0 0 var(--ok); }
+
+/* periodi */
+.years { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.yearbtn { border: 1px solid var(--line-strong); background: var(--surface); border-radius: var(--r); padding: 4px 11px; cursor: pointer; font-variant-numeric: tabular-nums; font-weight: 500; }
+.yearbtn.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.ptile { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; min-height: 92px; }
+.ptile:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+.ptile .pt { font-weight: 600; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+.ptile .pt small { font-weight: 400; color: var(--ink-3); font-size: 11.5px; }
+.ptile .pc { color: var(--ink-2); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.ptile.vuoto { background: transparent; border-style: dashed; }
+.ptile.futuro { opacity: .6; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.stat { border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; background: var(--surface); display: flex; flex-direction: column; gap: 2px; }
+.stat b { font-size: 18px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.stat.bad b { color: var(--bad); }
+.stat.warn b { color: var(--warn); }
+.stat.ok b { color: var(--ok); }
+
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 12px; cursor: pointer; color: var(--ink-2); font-weight: 500; margin-bottom: -1px; }
+.tabs button.on { color: var(--accent); border-bottom-color: var(--accent); }
+.tabs button .n { font-size: 11.5px; color: var(--ink-3); margin-left: 4px; }
+
+.empty { border: 1px dashed var(--line-strong); border-radius: 10px; padding: 28px 22px; display: flex; flex-direction: column; gap: 14px; align-items: flex-start; background: var(--surface); }
+.empty h2 { font-family: var(--font-display); font-size: 21px; font-weight: 600; }
+.empty p { margin: 0; max-width: 64ch; color: var(--ink-2); }
+.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 70ch; }
+.note { border-left: 3px solid var(--info); background: var(--info-soft); padding: 9px 12px; border-radius: 0 6px 6px 0; font-size: 13px; }
+.note.warn { border-color: var(--warn); background: var(--warn-soft); }
+.note.bad { border-color: var(--bad); background: var(--bad-soft); }
+
+.bulk { position: sticky; bottom: max(12px, env(safe-area-inset-bottom, 0px)); z-index: 5; background: var(--ink); color: var(--surface); border-radius: 8px; padding: 9px 12px;
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap; box-shadow: var(--shadow); }
+.bulk .btn { background: transparent; color: var(--surface); border-color: color-mix(in srgb, var(--surface) 40%, transparent); }
+
+/* modale */
+#modal { position: fixed; inset: 0; z-index: 50; background: var(--overlay); display: flex; align-items: flex-start; justify-content: center; overflow-y: auto;
+  padding-block: max(24px, env(safe-area-inset-top, 0px)) 24px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+.modal-card { background: var(--surface); border-radius: 10px; width: min(760px, 100%); box-shadow: var(--shadow); display: flex; flex-direction: column; }
+.modal-card.wide { width: min(1080px, 100%); }
+.mh { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.mh h2 { font-size: 17px; font-weight: 600; }
+.mb { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.mf { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.mf .left { margin-right: auto; }
+.descbox { background: var(--surface-2); border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.descbox .d { font-family: var(--font-mono); font-size: 12.5px; word-break: break-word; }
+
+#toast { position: fixed; z-index: 60; left: 50%; transform: translateX(-50%); bottom: max(18px, env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--surface);
+  padding: 9px 14px; border-radius: 8px; box-shadow: var(--shadow); max-width: calc(100% - 32px); font-size: 13.5px; }
+#toast.err { background: var(--bad); color: #fff; }
+
+.loading { padding: 60px 0; text-align: center; color: var(--ink-2); }
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .side { border-right: 0; border-bottom: 1px solid var(--line); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .side .group { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+  .side .group .label { width: 100%; padding-bottom: 2px; }
+  .navbtn { width: auto; }
+  .grid2, .grid3 { grid-template-columns: minmax(0, 1fr); }
+  .brand span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="top">
+  <div class="brand"><b>Estratti conto → Koinos</b><span>Studio EMVAS</span></div>
+  <div class="spacer"></div>
+  <button class="pill" id="storagePill" data-act="archivio" title="Archivio dati"><span class="dot"></span><span id="storageTxt">Avvio…</span></button>
+  <span class="small muted" id="saveTxt"></span>
+  <button class="btn sm" data-act="backup">Scarica backup</button>
+  <button class="btn sm" data-act="ripristina">Ripristina backup</button>
+</div>
+<div class="layout">
+  <aside class="side" id="side"></aside>
+  <main id="main"><div class="loading">Caricamento archivio…</div></main>
+</div>
+<div id="modal" hidden><div class="modal-card" id="modalCard" role="dialog" aria-modal="true"></div></div>
+<div id="toast" hidden></div>
+<input type="file" id="fileIn" hidden>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+'use strict';
+/* ======================================================================
+   Estratti conto → Koinos
+   Gestione società, conti correnti, periodi, abbinamenti e generazione
+   del file di importazione movimenti (tracciato DATEV Koinos).
+   ====================================================================== */
+
+const CAUSALI_TPL = [["A05","Fattura acquisti",5,1,1],["A06","Nota di credito acquisti",5,1,1],["A07","Nota di credito acquisti c/fattura",5,1,0],["A08","Fattura acquisti per variazione (imponibile o IVA)",5,1,0],["A10","Fattura acquisto immobilizzazioni (mat. e immat.)",5,1,1],["A11","Nota di credito su acq. immobilizzazioni",5,1,1],["A12","Fattura incremento immobilizz. (mat. e immat.)",5,1,1],["A13","Fattura incremento immobilizz. / percipiente",5,1,0],["A14","Nota di credito acq. immobilizz. / percipiente",5,1,0],["A15","Fattura / Nota professionista/collaboratore",5,1,1],["A16","Nota di credito professionista/collaboratore",5,1,0],["A17","Nota professionista/collaboratore",0,0,0],["A18","Fattura acquisto immobilizzazioni / percipiente",5,1,0],["A19","Fattura percipiente Extra UE",0,0,0],["A20","Fatture di acquisti raggruppate (inf. € 300)",11,1,0],["A21","Storno su reg.ne ft acquisti raggruppate",11,1,0],["A25","Fattura acquisti per omaggi <= € 50,00",5,1,0],["A26","Nota di credito su acq. omaggi <= € 50,00",5,1,0],["A30","Fattura acquisti per omaggi > € 50,00",5,1,0],["A31","Nota di credito su acq. omaggi > € 50,00",5,1,0],["A32","Fattura acquisti per omaggi a dipendenti",5,1,0],["A33","Nota di credito su acq. omaggi a dipendenti",5,1,0],["A35","Fattura acquisti servizi UE",5,1,0],["A36","Nota di credito acquisti servizi UE",5,1,0],["A40","Fattura acquisti servizi UE da autofatt. art. 17",12,1,0],["A41","Nota cred. acquisti servizi UE da autofatt.art.17",12,1,0],["A42","Fattura acquisti servizi UE integrazione IVA",12,1,1],["A43","Nota cred. acquisti servizi UE integrazione IVA",12,1,0],["A44","Fattura acquisti servizi UE / percipiente ",12,1,0],["A45","Fattura acq. servizi UE connessi all'importazione",5,1,0],["A46","Nota cred.acq. servizi UE connessi all'importaz.",5,1,0],["A50","Fattura acquisti merce UE",6,1,0],["A51","Nota di credito acquisti merce UE",6,1,0],["A52","Nota di credito c/fattura acquisti merce UE",6,1,0],["A55","Fattura acquisti UE immobilizzazioni",6,1,0],["A56","Nota di credito acq. UE immobilizzazioni",6,1,0],["A57","Nota di credito c/fatt. acq. UE immobilizzazioni",6,1,0],["A60","Acquisto con autofattura art. 17",12,1,1],["A61","Nota di credito acq. con autofattura art. 17",12,1,0],["A62","Autofattura con ritenuta d'acconto",12,1,0],["A63","Nota di credito autofattura ritenuta acc.",12,1,0],["A64","Acquisto immobilizzazioni con autofattura art. 17",12,1,0],["A65","Nota di credito acq. immobilizz. autofatt. art. 17",12,1,0],["A80","Bolla doganale",5,1,0],["A81","Fattura spedizioniere",5,1,0],["A82","Acquisto extracomunitario",0,0,0],["A83","Acquisto servizi intracomunitari",0,0,0],["A85","Autofattura per variazione",5,1,0],["A90","Costi fuori ambito IVA",0,0,1],["B05","Pagamento fornitore",8,0,1],["B06","Abbuono fornitore",8,0,0],["B07","Pagamento fornitore con bonifico bancario",8,0,0],["B09","Pagamento fornitore con assegno",8,0,0],["B11","Pagamento fornitore con ritiro effetti passivi",8,0,0],["B13","Pagamento fornitore tramite R.I.D.",8,0,0],["B15","Pagamento fornitore in contanti",8,0,1],["B16","Pagamento fornitore Bancomat/CC",8,0,0],["B17","Pagamento acconto a fornitore",8,0,0],["B19","Pagamento fattura / Nota prof./collaboratore",8,0,1],["B25","Incasso fattura cliente",7,0,1],["B26","Abbuono cliente",7,0,0],["B27","Incasso fattura cliente con bonifico bancario",7,0,0],["B29","Incasso fattura cliente con assegno",7,0,0],["B30","Incasso fattura cliente corrispettivi",7,0,0],["B31","Incasso fattura cliente in contanti",7,0,0],["B32","Incasso fattura cliente Bancomat/CC",7,0,0],["B33","Incasso anticipo da cliente",7,0,0],["B34","Incasso distinta ASL",0,0,0],["B35","Insoluto su RIBA/RID clienti",9,0,0],["B40","Versamento in banca",0,0,0],["B42","Versamento da cassa corrispettivi",0,0,0],["B50","Emessi effetti attivi a saldo ft cliente",7,0,0],["B52","Emesse RIBA a saldo ft cliente",7,0,0],["B54","Emessi RID a saldo ft cliente",7,0,0],["B56","Presentati effetti all'incasso",0,0,0],["B57","Emesse RIBA/SDD all'incasso",0,0,0],["B58","Presentati effetti SBF",0,0,0],["B60","Accreditati effetti/RID all'incasso",0,0,0],["B62","Accreditamento effetti/RID SBF",0,0,0],["B70","Pagamento modello F24",0,0,1],["B72","Pagamento nota spese",0,0,0],["B74","Pagamento retribuzioni",0,0,1],["B76","Competenze bancarie",0,0,1],["B78","Movimenti vari di banca",0,0,1],["B80","Giroconto",0,0,1],["B82","Pagamenti e addebiti vari ",0,0,1],["B84","Prelievo per cassa",0,0,0],["B86","Pagamento in contanti",0,0,0],["B88","Uscita di cassa",0,0,0],["B90","Incasso in contanti",0,0,0],["B92","Entrata di cassa",0,0,0],["C05","Retribuzioni e contributi del mese",0,0,1],["C06","Accantonamento T.F.R.",0,0,0],["C07","Premio INAIL",0,0,0],["C10","Registrazione nota spese",0,0,0],["C15","Giroconto liquidazione IVA periodo",0,0,1],["C16","G/c fine sospensione IVA",0,0,0],["C20","Operazioni diverse no IVA",0,0,0],["C25","Sopravvenienze attive e passive",0,0,0],["C30","Arrotondamenti attivi e passivi",0,0,0],["C35","Rilevato ritenute autonomi",0,0,0],["C40","Eliminazione cespite ammortizzabile",0,0,0],["C42","Acquisto cespite ammortizzabile (senza doc. IVA)",0,0,0],["C44","Rivalutazione cespiti",0,0,0],["C46","Svalutazione cespiti",0,0,0],["C48","Giroconto per alienazione/eliminazione cespiti",0,0,0],["C50","Rilevazione fatture/NC da ricevere",4,0,0],["C51","G/c rilevazione fatture/NC da ricevere",4,0,0],["C52","Rilevazione fatture/NC da emettere",4,0,0],["C53","G/c rilevazione fatture/NC da emettere",4,0,0],["C54","Risconti attivi e passivi",4,0,0],["C55","G/c risconti attivi e passivi",4,0,0],["C56","Ratei diversi attivi e passivi",4,0,0],["C57","G/c ratei diversi attivi e passivi",4,0,0],["C58","Ammortamenti",4,0,0],["C60","Accantonamento imposte",4,0,0],["C62","Rettifiche varie fine esercizio",4,0,0],["C63","Accantonamento imposte differite",4,0,0],["C64","Accantonamento imposte anticipate",4,0,0],["C65","Storno accantonamento imposte differite",4,0,0],["C66","Storno accantonamento imposte anticipate",4,0,0],["C68","Rimanenze finali - Registrazione extra contabile",0,0,0],["C80","Bilancio di apertura",1,0,0],["C82","Bilancio di chiusura patrimoniale",2,0,0],["C84","Bilancio di chiusura c/economico",3,0,0],["C86","Rilevazione utile/perdita d'esercizio",2,0,0],["C90","Riporto partite clienti",1,0,0],["C92","Riporto partite fornitori",1,0,0],["C94","Riporto saldi contabili conti patrimoniali",1,0,0],["C96","Riporto saldi contabili conti economici",1,0,0],["V05","Emessa fattura vendita merci e servizi",5,1,1],["V06","Emessa nota credito su vendita merci e servizi",5,1,1],["V07","Emessa nota credito c/fattura",5,1,0],["V08","Emessa fatt.vend.per variazione (imponibile o IVA)",5,1,0],["V10","Emessa fattura alienazione cespite ammortizzabile",5,1,0],["V11","Emessa nota credito su alienazione cespite ammort.",5,1,0],["V12","Fattura cessione merce UE",5,1,0],["V13","Nota di credito cessione merce UE",5,1,0],["V14","Nota di credito c/fattura cessione merce UE",5,1,0],["V15","Emessa fattura per omaggi",5,1,0],["V16","Emessa nota credito per omaggi",5,1,0],["V20","Emessa fattura vendita in sospensione d'imposta",10,1,0],["V21","Emessa nota credito in sosp.imp. c/fatt.",10,1,0],["V25","Fatt. vendita raggrupp. (inf. € 300)",11,1,0],["V26","Storno su reg.ne ft vendita raggruppate",11,1,0],["V30","Registrazione corrispettivi",5,1,0],["V31","Variazione corrispettivi",5,1,0],["V35","Registrazione corrispettivi da ventilare",5,1,0],["V36","Variazione corrispettivi da ventilare",5,1,0],["V40","Emessa fattura vendita (scontrino fisc.)",5,1,0],["V41","Emessa nota credito (scontrino fiscale)",5,1,0],["V47","Emessa fattura alienazione cespite ammort. UE",5,1,0],["V48","Emessa nota credito su alienazione cespite amm. UE",5,1,0],["V50","Fattura prestazione servizi UE",5,1,0],["V51","Nota di credito prestazione servizi UE",5,1,0],["V52","Nota di credito c/fattura prestazione servizi UE",5,1,0],["V85","Emessa distinta ASL",0,0,0],["V90","Ricavi fuori ambito IVA",0,0,0]];
+
+const COLONNE = ["N. mov", "N. riga", "Causale", "Valenza", "E' fiscale", "Data registrazione", "Data competenza bil.", "Data competenza IVA", "Data documento", "Num. documento", "Descrizione mov.", "Cod. provvisorio", "Tipo pagamento", "Mod. pagamento", "Cod. partita", "Scadenze", "Registro IVA", "Reg. IVA vendite", "Importo ritenuta", "Importo Enasarco", "Tipo riga", "Cod. conto", "Cod. nominativo", "C.F. nominatvo", "Descrizione riga", "Importo riga", "Importo IVA", "Importo in valuta", "Cod. valuta  estera", "Cambio", "Cod. aliquota IVA", "Cod. articolo IVA", "Cod. centro costo", "Cod. att. ISTAT", "Num. unità prod.", "Protocollo IVA", "Nuova data scadenza", "Doc. IVA esigibilità diff.", "Data doc. riferimento", "Incasso con accredito diff.", "Tipo rettifica", "Conto rettifica", "Data comp. bilancio rett.", "Periodo rett. da", "Periodo rett. a", "Regime IVA esigibilità diff.", "Protocollo di arrivo", "Allegato", "Cod. identificativo", "C.F. sogg. deceduto", "Cognome e nome sogg. deceduto", "Tipo registrazione", "Spese asilo - C.F. 1", "Spese asilo - Importo 1", "Spese asilo - C.F. 2", "Spese asilo - Importo 2", "Spese asilo - C.F. 3", "Spese asilo - Importo 3", "Tipo op. Dati fattura", "Tipologia spesa sanitaria", "Spese asilo - C.F. genitore 1", "Spese asilo - C.F. genitore 2", "Spese sanitarie - Pag. tracciato", "Identificativo SdI", "Altre spese 730 - Pag. tracciato", "Spese sanitarie - Opposizione"];
+
+const TIPI_CAUSALE = { 0: 'Normale', 1: 'Apertura', 2: 'Chiusura SP', 3: 'Chiusura CE', 4: 'Rettifica', 5: 'IVA normale', 6: 'IVA acq. intra UE', 7: 'Incasso', 8: 'Pagamento', 9: 'Insoluto', 10: 'IVA in sospensione', 11: 'Super registrazione', 12: 'Autofattura art.17' };
+const TIPI_IVA = new Set([5, 6, 10, 11, 12]);
+const CON_PARTITA = new Set([7, 8, 9]);
+const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+const ANNO_BASE = 2026;
+const TIPI_REGISTRO = { V: 'Vendite', A: 'Acquisti', C: 'Corrispettivi', CV: 'Corrispettivi da ventilare', S: 'Sospensione' };
+const TIPI_NOM = { C: 'Cliente', F: 'Fornitore', A: 'Altro' };
+const FONTI = { regola: 'Regola', manuale: 'Manuale', suggerito: 'Da confermare' };
+
+/* ---------------------------------------------------------------- utilità */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const pad = (n) => String(n).padStart(2, '0');
+const norm = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+const fmtEur = (n) => (n ?? 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtData = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '');
+const fmtDataOra = (iso) => { if (!iso) return ''; const d = new Date(iso); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const oggiIso = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const slug = (s) => norm(s).replace(/ /g, '_').slice(0, 40) || 'file';
+const round2 = (n) => Math.round(n * 100) / 100;
+const codiceDa = (v) => { const s = String(v ?? '').trim(); const i = s.indexOf(' — '); return (i >= 0 ? s.slice(0, i) : s).trim(); };
+const str = (v) => (v == null ? '' : typeof v === 'number' ? String(Number.isInteger(v) ? v : v) : String(v).trim());
+
+function isoData(y, m, d) {
+  if (!(y > 1900 && m >= 1 && m <= 12 && d >= 1 && d <= 31)) return null;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCMonth() !== m - 1) return null;
+  return `${y}-${pad(m)}-${pad(d)}`;
+}
+function parseData(v) {
+  if (v == null || v === '') return null;
+  if (v instanceof Date && !isNaN(v)) return isoData(v.getFullYear(), v.getMonth() + 1, v.getDate());
+  if (typeof v === 'number') {
+    if (v > 20000 && v < 80000) { const d = new Date(Math.round((v - 25569) * 86400000)); return isoData(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()); }
+    return null;
+  }
+  const s = String(v).trim();
+  let m = s.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2,4})\b/);
+  if (m) { let y = +m[3]; if (y < 100) y += 2000; return isoData(y, +m[2], +m[1]); }
+  m = s.match(/^(\d{4})[\-\/.](\d{1,2})[\-\/.](\d{1,2})/);
+  if (m) return isoData(+m[1], +m[2], +m[3]);
+  m = s.match(/^(\d{2})(\d{2})(\d{4})$/);
+  if (m) return isoData(+m[3], +m[2], +m[1]);
+  return null;
+}
+function parseNum(v) {
+  if (typeof v === 'number') return isFinite(v) ? v : null;
+  let s = String(v ?? '').trim().replace(/\s|€|EUR/gi, '');
+  if (!s) return null;
+  let neg = false;
+  if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
+  if (s.endsWith('-')) { neg = true; s = s.slice(0, -1); }
+  if (s.startsWith('+')) s = s.slice(1);
+  const lc = s.lastIndexOf(','), ld = s.lastIndexOf('.');
+  if (lc > -1 && ld > -1) s = lc > ld ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  else if (lc > -1) s = (s.match(/,/g).length > 1) ? s.replace(/,/g, '') : s.replace(',', '.');
+  else if (ld > -1 && s.match(/\./g).length > 1) s = s.replace(/\./g, '');
+  if (!/^-?\d+(\.\d+)?$/.test(s)) return null;
+  const n = parseFloat(s);
+  return neg ? -n : n;
+}
+
+/* --------------------------------------------------------------- periodi */
+const ultimoGiorno = (y, m) => `${y}-${pad(m)}-${pad(new Date(Date.UTC(y, m, 0)).getUTCDate())}`;
+function periodiAnno(anno, tipo) {
+  if (tipo === 'T') return [1, 2, 3, 4].map((q) => ({ key: `${anno}-T${q}`, label: `${q}° trimestre`, breve: `T${q} · ${MESI[q * 3 - 3].slice(0, 3)}–${MESI[q * 3 - 1].slice(0, 3)}`, da: `${anno}-${pad(q * 3 - 2)}-01`, a: ultimoGiorno(anno, q * 3) }));
+  return MESI.map((m, i) => ({ key: `${anno}-${pad(i + 1)}`, label: m, breve: m, da: `${anno}-${pad(i + 1)}-01`, a: ultimoGiorno(anno, i + 1) }));
+}
+function periodoDaKey(key) {
+  const [y, p] = key.split('-');
+  return p.startsWith('T') ? periodiAnno(+y, 'T')[+p.slice(1) - 1] : periodiAnno(+y, 'M')[+p - 1];
+}
+
+/* ============================================================ archivio */
+const Store = {
+  mode: 'memoria', db: null, idb: null, mem: new Map(), counts: new Map(),
+  pending: new Map(), timer: null, flushing: false, listeners: [],
+  CH: 60000,
+  async init() {
+    if (inArtifact()) {
+      try {
+        const db = await window.claude.use('db');
+        if (db) { this.db = db; this.mode = 'cloud'; return; }
+      } catch (e) { /* passa al browser */ }
+    } else {
+      const conf = configFirebase();
+      if (conf) {
+        try { await Firebase.avvia(conf); this.db = Firebase.db; this.mode = 'firebase'; this.CH = 250000; return; }
+        catch (e) { console.error(e); toast('Firebase non raggiungibile: ' + (e.message || e.code) + '. Uso l’archivio del browser.', true); }
+      }
+    }
+    try { this.idb = await this.apriIdb(); this.mode = 'browser'; } catch (e) { this.mode = 'memoria'; }
+  },
+  apriIdb() {
+    return new Promise((res, rej) => {
+      try {
+        const rq = indexedDB.open('emvas-estratti-conto', 1);
+        rq.onupgradeneeded = () => rq.result.createObjectStore('kv');
+        rq.onsuccess = () => res(rq.result);
+        rq.onerror = () => rej(rq.error);
+      } catch (e) { rej(e); }
+    });
+  },
+  idbOp(mode, fn) {
+    return new Promise((res, rej) => {
+      const tx = this.idb.transaction('kv', mode);
+      const rq = fn(tx.objectStore('kv'));
+      tx.oncomplete = () => res(rq && rq.result);
+      tx.onerror = () => rej(tx.error);
+    });
+  },
+  async get(key) {
+    if (this.pending.has(key)) return structuredClone(this.pending.get(key));
+    if (this.db) return this.cloudGet(key);
+    if (this.mode === 'browser') { try { return await this.idbOp('readonly', (s) => s.get(key)); } catch (e) { return undefined; } }
+    return this.mem.has(key) ? structuredClone(this.mem.get(key)) : undefined;
+  },
+  async cloudGet(key, tentativo = 0) {
+    const s0 = await this.db.doc(`kv/${key}~0`).get();
+    if (!s0.exists) { this.counts.set(key, 0); return undefined; }
+    const d0 = s0.data();
+    const altri = [];
+    for (let i = 1; i < d0.n; i++) altri.push(this.db.doc(`kv/${key}~${i}`).get());
+    const snaps = await Promise.all(altri);
+    const parti = [d0.s];
+    for (const sn of snaps) {
+      const d = sn.exists ? sn.data() : null;
+      if (!d || d.v !== d0.v) {
+        if (tentativo < 2) { await new Promise((r) => setTimeout(r, 400)); return this.cloudGet(key, tentativo + 1); }
+        throw new Error('Documento incompleto: ' + key);
+      }
+      parti.push(d.s);
+    }
+    this.counts.set(key, d0.n);
+    return JSON.parse(parti.join(''));
+  },
+  async cloudSet(key, val) {
+    const testo = JSON.stringify(val);
+    const CH = this.CH;
+    const n = Math.max(1, Math.ceil(testo.length / CH));
+    const v = uid();
+    let prima = this.counts.get(key);
+    if (prima == null) { const s0 = await this.db.doc(`kv/${key}~0`).get(); prima = s0.exists ? s0.data().n : 0; }
+    for (let i = n - 1; i >= 0; i--) await this.db.doc(`kv/${key}~${i}`).set({ n, v, s: testo.slice(i * CH, (i + 1) * CH) });
+    for (let i = n; i < prima; i++) await this.db.doc(`kv/${key}~${i}`).delete();
+    this.counts.set(key, n);
+  },
+  async cloudDel(key) {
+    let n = this.counts.get(key);
+    if (n == null) { const s0 = await this.db.doc(`kv/${key}~0`).get(); n = s0.exists ? s0.data().n : 0; }
+    for (let i = n - 1; i >= 0; i--) await this.db.doc(`kv/${key}~${i}`).delete();
+    this.counts.set(key, 0);
+  },
+  save(key, val) {
+    this.pending.set(key, val === undefined ? undefined : structuredClone(val));
+    this.notify();
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.flush(), 450);
+  },
+  remove(key) { this.save(key, undefined); },
+  async flush() {
+    if (this.flushing) { this.timer = setTimeout(() => this.flush(), 300); return; }
+    this.flushing = true;
+    try {
+      while (this.pending.size) {
+        const [key, val] = this.pending.entries().next().value;
+        this.pending.delete(key);
+        try {
+          if (this.db) { if (val === undefined) await this.cloudDel(key); else await this.cloudSet(key, val); }
+          else if (this.mode === 'browser') await this.idbOp('readwrite', (s) => (val === undefined ? s.delete(key) : s.put(val, key)));
+          else { if (val === undefined) this.mem.delete(key); else this.mem.set(key, val); }
+          this.lastError = null;
+        } catch (e) {
+          this.lastError = e;
+          if (!this.pending.has(key)) this.pending.set(key, val);
+          const quota = e && (e.code === 'quota_exceeded' || e.code === 'resource-exhausted');
+          const negato = e && e.code === 'permission-denied';
+          toast(quota ? 'Archivio pieno: elimina periodi o società non più necessari, poi riprova.' : negato ? 'Firebase ha rifiutato il salvataggio: controlla le regole di sicurezza e che il tuo account sia autorizzato.' : 'Salvataggio non riuscito, nuovo tentativo tra pochi secondi.', true);
+          this.flushing = false;
+          this.notify();
+          this.timer = setTimeout(() => this.flush(), quota ? 30000 : 4000);
+          return;
+        }
+        this.notify();
+      }
+    } finally { this.flushing = false; this.notify(); }
+  },
+  notify() { const el = $('#saveTxt'); if (el) el.textContent = this.pending.size ? 'Salvataggio…' : (this.lastError ? 'Non salvato' : 'Tutto salvato'); },
+};
+window.addEventListener('beforeunload', (e) => { if (Store.pending.size) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ============================================================ firebase */
+const FB_VER = '10.12.2';
+const FB_KEY = 'emvas-firebase';
+const inArtifact = () => !!(window.claude && typeof window.claude.use === 'function');
+function configFirebase() {
+  let c = window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.config && window.FIREBASE_CONFIG.config.apiKey ? window.FIREBASE_CONFIG : null;
+  if (c) c = Object.assign({ origine: 'file' }, c);
+  else { try { c = JSON.parse(localStorage.getItem(FB_KEY) || 'null'); if (c) c.origine = 'browser'; } catch (e) { c = null; } }
+  return c && c.config && c.config.apiKey && c.config.projectId ? c : null;
+}
+function leggiSnippetFirebase(testo) {
+  const m = String(testo).match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  let j = m[0].replace(/^\s*\/\/.*$/gm, '').replace(/([{,]\s*)([A-Za-z_][\w]*)\s*:/g, '$1"$2":').replace(/'/g, '"').replace(/,\s*}/g, '}');
+  try { const o = JSON.parse(j); return o.apiKey && o.projectId ? o : null; } catch (e) { return null; }
+}
+function caricaScript(src) {
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('impossibile caricare ' + src)); document.head.appendChild(s); });
+}
+const Firebase = {
+  conf: null, auth: null, db: null, user: null,
+  async avvia(conf) {
+    this.conf = conf;
+    for (const lib of ['app', 'auth', 'firestore']) await caricaScript(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-${lib}-compat.js`);
+    if (!firebase.apps.length) firebase.initializeApp(conf.config);
+    this.auth = firebase.auth();
+    this.db = firebase.firestore();
+    try { await this.db.enablePersistence({ synchronizeTabs: true }); } catch (e) { /* cache locale facoltativa */ }
+    if (this.auth.isSignInWithEmailLink(location.href)) {
+      let email = '';
+      try { email = localStorage.getItem('emvas-email-link') || ''; } catch (e) { /* facoltativo */ }
+      if (!email) email = window.prompt('Per completare l’accesso conferma la tua email') || '';
+      try { await this.auth.signInWithEmailLink(email.trim(), location.href); } catch (e) { toast('Link di accesso non valido o scaduto: richiedine uno nuovo.', true); }
+      history.replaceState(null, '', location.pathname);
+    }
+    this.user = await new Promise((res) => { const un = this.auth.onAuthStateChanged((u) => { un(); res(u); }); });
+    let msg = '';
+    while (!this.valido(this.user)) {
+      if (this.user) { msg = `L’account ${this.user.email} non è autorizzato: accedi con un indirizzo @${this.conf.dominio}.`; await this.auth.signOut(); }
+      this.user = await this.attendiLogin(msg);
+    }
+  },
+  valido(u) {
+    if (!u || !u.email) return false;
+    const d = (this.conf.dominio || '').trim().toLowerCase();
+    return !d || u.email.toLowerCase().endsWith('@' + d);
+  },
+  attendiLogin(msg) {
+    $('#side').innerHTML = '';
+    $('#storageTxt').textContent = 'Firebase · accesso richiesto';
+    $('#main').innerHTML = `<div class="wrap"><div class="empty" style="max-width:560px">
+      <h2>Accedi all’archivio dello studio</h2>
+      <p>I dati sono nel database Firebase «${esc(this.conf.config.projectId)}»${this.conf.dominio ? `, riservato agli account @${esc(this.conf.dominio)}` : ''}.</p>
+      ${msg ? `<div class="note bad">${esc(msg)}</div>` : ''}
+      <button class="btn primary" data-act="fbGoogle">Accedi con Google</button>
+      <form data-form="fbLink" class="row" style="width:100%"><input class="inp" style="flex:1;min-width:220px" type="email" name="email" id="fbEmail" required placeholder="nome@${esc(this.conf.dominio || 'studio.it')}"><button class="btn">Ricevi link di accesso via email</button></form>
+    </div></div>`;
+    return new Promise((res) => { const un = this.auth.onAuthStateChanged((u) => { if (u) { un(); res(u); } }); });
+  },
+};
+
+/* ============================================================ stato app */
+const S = {
+  index: { societa: [] },
+  soc: {}, pdc: {}, nom: {}, reg: {}, per: {},
+  ui: { view: 'home', socId: null, ccId: null, pkey: null, anno: {}, datiTab: 'generale', filtro: 'tutti', cerca: '', sel: new Set(), tabCerca: '', tabLimite: 200, riep: { cc: '', anno: '', fonte: '', causale: '', testo: '' }, regCerca: '', regTest: '' },
+};
+const UI_KEY = 'emvas-ec-ui';
+function salvaUi() {
+  try { const { view, socId, ccId, pkey, anno, datiTab } = S.ui; localStorage.setItem(UI_KEY, JSON.stringify({ view, socId, ccId, pkey, anno, datiTab })); } catch (e) { /* facoltativo */ }
+}
+function leggiUi() { try { return JSON.parse(localStorage.getItem(UI_KEY) || 'null'); } catch (e) { return null; } }
+
+const kSoc = (id) => `soc_${id}`, kPdc = (id) => `pdc_${id}`, kNom = (id) => `nom_${id}`, kReg = (id) => `reg_${id}`;
+const kPer = (sid, cc, p) => `per_${sid}_${cc}_${p}`;
+
+async function caricaSocieta(id) {
+  if (S.soc[id]) return S.soc[id];
+  const [soc, pdc, nom, reg] = await Promise.all([Store.get(kSoc(id)), Store.get(kPdc(id)), Store.get(kNom(id)), Store.get(kReg(id))]);
+  if (!soc) return null;
+  migraSocieta(soc);
+  S.soc[id] = soc; S.pdc[id] = pdc || []; S.nom[id] = nom || []; S.reg[id] = reg || [];
+  return soc;
+}
+function migraSocieta(soc) {
+  soc.conti ||= []; soc.causali ||= []; soc.registri ||= []; soc.stati ||= {};
+  soc.export = Object.assign({ formato: 'primanota', descrPN: 'koinos', sep: ';', enc: 'cp1252', header: true, dataReg: 'operazione', codId: true }, soc.export || {});
+}
+async function caricaPeriodo(sid, cc, p) {
+  const k = kPer(sid, cc, p);
+  if (!S.per[k]) S.per[k] = (await Store.get(k)) || { righe: [], esportazioni: [] };
+  return S.per[k];
+}
+async function caricaTuttiPeriodi(soc) {
+  const chiavi = Object.keys(soc.stati).map((s) => s.split('|'));
+  await Promise.all(chiavi.map(([cc, p]) => caricaPeriodo(soc.id, cc, p)));
+}
+const salvaIndex = () => Store.save('index', S.index);
+const salvaSoc = (soc) => { Store.save(kSoc(soc.id), soc); const e = S.index.societa.find((x) => x.id === soc.id); if (e && e.nome !== soc.nome) { e.nome = soc.nome; salvaIndex(); } };
+const salvaPdc = (soc) => Store.save(kPdc(soc.id), S.pdc[soc.id]);
+const salvaNom = (soc) => Store.save(kNom(soc.id), S.nom[soc.id]);
+const salvaReg = (soc) => Store.save(kReg(soc.id), S.reg[soc.id]);
+function salvaPeriodo(soc, cc, p, opt = {}) {
+  const per = S.per[kPer(soc.id, cc, p)];
+  const ctx = contesto(soc);
+  let pend = 0, entrate = 0, uscite = 0;
+  for (const r of per.righe) { if (statoRiga(soc, ctx, r) !== 'ok') pend++; if (r.importo > 0) entrate += r.importo; else uscite -= r.importo; }
+  const ult = per.esportazioni[per.esportazioni.length - 1];
+  const prec = soc.stati[`${cc}|${p}`];
+  const agg = opt.esportato && ult ? ult.data : opt.mantieni && prec ? prec.agg : new Date().toISOString();
+  if (per.righe.length || per.esportazioni.length) soc.stati[`${cc}|${p}`] = { n: per.righe.length, pend, entrate: round2(entrate), uscite: round2(uscite), exp: ult ? ult.data : null, agg };
+  else delete soc.stati[`${cc}|${p}`];
+  if (per.righe.length || per.esportazioni.length) Store.save(kPer(soc.id, cc, p), per); else Store.remove(kPer(soc.id, cc, p));
+  salvaSoc(soc);
+}
+
+function nuovaSocieta({ nome, cf, tipoCont }) {
+  return {
+    id: uid(), nome, cf: cf || '', tipoCont: tipoCont || 'ordinaria', codDitta: '',
+    mastroClienti: '', mastroFornitori: '', contoTransitorio: '',
+    causaleIncasso: 'B25', causalePagamento: 'B05', causaleEntrate: 'B78', causaleUscite: 'B82',
+    partitaMancante: 'blocca',
+    export: { formato: 'primanota', descrPN: 'koinos', sep: ';', enc: 'cp1252', header: true, dataReg: 'operazione', codId: true },
+    conti: [], causali: CAUSALI_TPL.map(([c, d, t, iva, u]) => ({ c, d, t, iva: !!iva, u: !!u })), registri: [], stati: {},
+    creata: new Date().toISOString(),
+  };
+}
+
+/* ======================================================== abbinamento */
+function contesto(soc) {
+  return {
+    caus: new Map(soc.causali.map((c) => [c.c, c])),
+    pdc: new Map((S.pdc[soc.id] || []).map((x) => [x.c, x])),
+    nom: new Map((S.nom[soc.id] || []).map((x) => [x.c, x])),
+  };
+}
+const tipoCausale = (ctx, c) => ctx.caus.get(c)?.t;
+function contoContropartita(soc, ctx, a) {
+  if (a.conto) return a.conto;
+  const t = tipoCausale(ctx, a.causale);
+  const nom = a.nominativo ? ctx.nom.get(a.nominativo) : null;
+  if (nom && nom.conto) return nom.conto;
+  if (CON_PARTITA.has(t) || a.nominativo) {
+    if (t === 8) return soc.mastroFornitori;
+    if (t === 7 || t === 9) return soc.mastroClienti;
+    if (nom) return nom.tipo === 'F' ? soc.mastroFornitori : soc.mastroClienti;
+  }
+  return '';
+}
+function problemiRiga(soc, ctx, r) {
+  const a = r.abb;
+  if (!a) return ['Da abbinare'];
+  const p = [];
+  const c = ctx.caus.get(a.causale);
+  if (!a.causale) p.push('Manca la causale');
+  else if (!c) p.push(`Causale ${a.causale} non presente in tabella`);
+  else if (TIPI_IVA.has(c.t)) p.push('Causale IVA non utilizzabile per la banca');
+  const t = c?.t;
+  if (CON_PARTITA.has(t)) {
+    if (!a.nominativo) p.push('Manca il cliente/fornitore');
+    if (!a.partita && soc.partitaMancante !== 'normale') p.push('Manca la partita');
+  }
+  const conto = contoContropartita(soc, ctx, a);
+  if (!conto) p.push(CON_PARTITA.has(t) ? 'Manca il mastro clienti/fornitori (Dati di base)' : 'Manca il conto di contropartita');
+  else if (ctx.pdc.size && !ctx.pdc.has(conto)) p.push(`Conto ${conto} non presente nel piano dei conti`);
+  if (a.nominativo && ctx.nom.size && !ctx.nom.has(a.nominativo)) p.push(`Nominativo ${a.nominativo} non in anagrafica`);
+  return p;
+}
+function statoRiga(soc, ctx, r) {
+  if (!r.abb) return 'da';
+  if (r.fonte === 'suggerito') return 'sugg';
+  return problemiRiga(soc, ctx, r).length ? 'inc' : 'ok';
+}
+const STATI = { da: ['bad', 'Da abbinare'], sugg: ['warn', 'Da confermare'], inc: ['bad', 'Incompleto'], ok: ['ok', 'Pronto'] };
+
+const SUFFISSI = new Set(['SRL', 'SPA', 'SAS', 'SNC', 'SRLS', 'SS', 'S', 'R', 'L', 'P', 'A', 'C', 'E', 'DI', 'DEL', 'DELLA', 'IN', 'LIQUIDAZIONE', 'SOCIETA', 'COOP', 'SOC', 'SCARL', 'ONLUS', 'STP', 'UNIPERSONALE']);
+const _chiaviNom = new WeakMap();
+function chiaviNominativo(n) {
+  if (_chiaviNom.has(n)) return _chiaviNom.get(n);
+  const k = [];
+  const nome = norm(n.d).split(' ').filter((w) => !SUFFISSI.has(w)).join(' ');
+  if (nome.length >= 5) k.push(nome);
+  for (const a of String(n.alias || '').split(/[,;]/)) { const x = norm(a); if (x.length >= 3) k.push(x); }
+  _chiaviNom.set(n, k);
+  return k;
+}
+const PAROLE_GENERICHE = new Set(['BONIFICO', 'BONIF', 'BON', 'A', 'DA', 'DI', 'DEL', 'DELLA', 'PER', 'CON', 'IL', 'LA', 'LO', 'E', 'FAVORE', 'VOSTRO', 'VS', 'NS', 'NOSTRO', 'DISPOSTO', 'ORDINANTE', 'ORD', 'BENEFICIARIO', 'BENEF', 'ADDEBITO', 'ADD', 'ACCREDITO', 'ACCR', 'SDD', 'SEPA', 'CORE', 'B2B', 'DIRETTO', 'DIRETTA', 'PAGAMENTO', 'PAG', 'RIF', 'CRO', 'TRN', 'INFO', 'ID', 'MANDATO', 'DATA', 'OPERAZIONE', 'OP', 'CAUSALE', 'COD', 'CODICE', 'N', 'NR', 'NUM', 'FATT', 'FATTURA', 'FT', 'DOC', 'SALDO', 'ACCONTO', 'ISTANTANEO', 'ORDINARIO', 'INSTANT', 'BIC', 'IBAN', 'END', 'TO', 'E2E', 'UTENZA', 'ORE', 'IT', 'EUR', 'CARTA', 'CARD', 'POS', 'PRESSO', 'MOV', 'DISP', 'IMPORTO', 'BANCA', 'BANCARIO']);
+function suggerisciParole(descr) {
+  const mesi = new Set(MESI.map((m) => norm(m)).concat(MESI.map((m) => norm(m).slice(0, 3))));
+  const tok = norm(descr).split(' ').filter((w) => w.length >= 3 && !/\d/.test(w) && !mesi.has(w));
+  const buoni = tok.filter((w) => !PAROLE_GENERICHE.has(w));
+  return (buoni.length ? buoni : tok).slice(0, 3).join(' ');
+}
+function suggerisciPartita(descr, data) {
+  const s = String(descr || '').toUpperCase();
+  const m = s.match(/\b(?:FATTURA|FATTURE|FATT|FT|FAT|FTT|DOC)\.?\s*(?:N(?:R|UM|°|\.)?\.?\s*)?([A-Z]{0,4}[\-\/]?\d{1,8}(?:[\/\-][A-Z0-9]{1,6})?)/);
+  if (!m) return '';
+  let num = m[1], anno = '';
+  const ma = num.match(/^(.+?)[\/\-](20\d{2})$/);
+  if (ma) { num = ma[1]; anno = ma[2]; }
+  if (!anno) { const md = s.match(/\bDEL\s+\d{1,2}[\/\-.]\d{1,2}[\/\-.](\d{2,4})/); if (md) anno = md[1].length === 2 ? '20' + md[1] : md[1]; }
+  if (!anno) anno = data.slice(0, 4);
+  return `${num.replace(/[^A-Z0-9\-_\/. ]/g, '')}|${anno}`;
+}
+function regolaCorrisponde(rg, r, ccId, descrN) {
+  if (rg.segno === 'E' && r.importo <= 0) return -1;
+  if (rg.segno === 'U' && r.importo >= 0) return -1;
+  if (rg.ccId && rg.ccId !== ccId) return -1;
+  if (rg.importo != null && rg.importo !== '' && Math.abs(Math.abs(r.importo) - Math.abs(+rg.importo)) > 0.005) return -1;
+  const parole = norm(rg.parole).split(' ').filter(Boolean);
+  if (!parole.length) return -1;
+  for (const p of parole) if (!descrN.includes(p)) return -1;
+  return parole.join('').length + (rg.importo != null && rg.importo !== '' ? 40 : 0) + (rg.ccId ? 5 : 0) + (rg.segno ? 2 : 0);
+}
+function trovaRegola(soc, r, ccId) {
+  const dn = ' ' + norm(r.descr) + ' ';
+  let best = null, bs = -1;
+  for (const rg of S.reg[soc.id] || []) { const sc = regolaCorrisponde(rg, r, ccId, dn); if (sc > bs) { bs = sc; best = rg; } }
+  return best;
+}
+function abbDaRegola(soc, ctx, rg, r) {
+  const a = { causale: rg.causale, conto: rg.conto || '', nominativo: rg.nominativo || '', partita: rg.partita || '', descr: rg.descr || '', registro: rg.registro || '' };
+  if (CON_PARTITA.has(tipoCausale(ctx, a.causale)) && !a.partita) a.partita = suggerisciPartita(r.descr, r.data);
+  return a;
+}
+function abbinaRiga(soc, ctx, r, ccId) {
+  const rg = trovaRegola(soc, r, ccId);
+  if (rg) { r.abb = abbDaRegola(soc, ctx, rg, r); r.fonte = 'regola'; r.regolaId = rg.id; return; }
+  const dn = ' ' + norm(r.descr) + ' ';
+  const digits = String(r.descr).replace(/\D+/g, ' ');
+  for (const n of S.nom[soc.id] || []) {
+    const piva = String(n.piva || '').replace(/\D/g, '');
+    const trovato = (piva.length === 11 && digits.includes(piva)) || (n.cf && n.cf.length === 16 && dn.includes(norm(n.cf))) || chiaviNominativo(n).some((k) => dn.includes(' ' + k + ' '));
+    if (!trovato) continue;
+    if (r.importo > 0 && n.tipo !== 'F') { r.abb = { causale: soc.causaleIncasso, conto: '', nominativo: n.c, partita: suggerisciPartita(r.descr, r.data), descr: '' }; }
+    else if (r.importo < 0 && n.tipo !== 'C') { r.abb = { causale: soc.causalePagamento, conto: '', nominativo: n.c, partita: suggerisciPartita(r.descr, r.data), descr: '' }; }
+    else continue;
+    r.fonte = 'suggerito'; r.regolaId = null; return;
+  }
+  r.abb = null; r.fonte = null; r.regolaId = null;
+}
+function riapplica(soc, per, ccId, soloLibere) {
+  const ctx = contesto(soc);
+  let n = 0;
+  for (const r of per.righe) {
+    if (r.fonte === 'manuale') continue;
+    if (soloLibere && r.abb && r.fonte !== 'suggerito') continue;
+    const prima = JSON.stringify([r.abb, r.fonte]);
+    abbinaRiga(soc, ctx, r, ccId);
+    if (JSON.stringify([r.abb, r.fonte]) !== prima) n++;
+  }
+  return n;
+}
+
+/* ================================================= generazione tracciato */
+const CP1252 = { 0x20AC: 0x80, 0x201A: 0x82, 0x0192: 0x83, 0x201E: 0x84, 0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87, 0x02C6: 0x88, 0x2030: 0x89, 0x0160: 0x8A, 0x2039: 0x8B, 0x0152: 0x8C, 0x017D: 0x8E, 0x2018: 0x91, 0x2019: 0x92, 0x201C: 0x93, 0x201D: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97, 0x02DC: 0x98, 0x2122: 0x99, 0x0161: 0x9A, 0x203A: 0x9B, 0x0153: 0x9C, 0x017E: 0x9E, 0x0178: 0x9F };
+function codificaCp1252(s) {
+  const out = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    out[i] = c < 0x80 || (c >= 0xA0 && c <= 0xFF) ? c : (CP1252[c] ?? 0x3F);
+  }
+  return out;
+}
+const numKoinos = (n) => round2(n).toFixed(2).replace('.', ',');
+function pulisciTesto(s, max, sep) {
+  let t = String(s ?? '').replace(/[\r\n\t]+/g, ' ').replace(/"/g, "'").replace(/\s+/g, ' ').trim();
+  if (sep) t = t.split(sep).join(sep === ',' ? ' ' : ',');
+  return max ? t.slice(0, max) : t;
+}
+function normPartita(p, data) {
+  let s = String(p || '').trim();
+  if (!s) return '';
+  let [cod, anno] = s.split('|');
+  cod = cod.replace(/[^A-Za-z0-9 \-_\/.]/g, '').trim().slice(0, 15);
+  anno = (anno || '').trim() || data.slice(0, 4);
+  return `${cod}|${anno}`;
+}
+function hash36(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
+
+function generaTracciato(soc, cc, per, { transitorio }) {
+  const ctx = contesto(soc);
+  const sep = soc.export.sep === 'tab' ? '\t' : soc.export.sep;
+  const righe = per.righe.slice().sort((a, b) => a.data.localeCompare(b.data) || a.ord - b.ord);
+  const out = [];
+  const errori = [];
+  let nmov = 0, nTrans = 0;
+  for (const r of righe) {
+    let a = r.abb;
+    if (statoRiga(soc, ctx, r) !== 'ok') {
+      if (!transitorio) { errori.push(r); continue; }
+      a = { causale: r.importo > 0 ? soc.causaleEntrate : soc.causaleUscite, conto: soc.contoTransitorio, nominativo: '', partita: '', descr: '' };
+      nTrans++;
+    }
+    let causale = a.causale;
+    let t = tipoCausale(ctx, causale);
+    let partita = normPartita(a.partita, r.data);
+    if (CON_PARTITA.has(t) && !partita) { causale = r.importo > 0 ? soc.causaleEntrate : soc.causaleUscite; t = tipoCausale(ctx, causale); }
+    const conPart = CON_PARTITA.has(t);
+    const nom = a.nominativo ? ctx.nom.get(a.nominativo) : null;
+    const dataReg = soc.export.dataReg === 'valuta' && r.valuta ? r.valuta : r.data;
+    const descrMov = pulisciTesto(a.descr || r.descr, 100, sep);
+    nmov++;
+    const base = { 'N. mov': nmov, 'Causale': causale, 'Data registrazione': fmtData(dataReg) };
+    const testa = Object.assign({}, base, {
+      'N. riga': 1, 'Valenza': 0, "E' fiscale": 0, 'Data documento': fmtData(r.data), 'Descrizione mov.': descrMov,
+      'Tipo riga': 2, 'Cod. conto': cc.codiceConto, 'Descrizione riga': pulisciTesto(r.descr, 100, sep), 'Importo riga': numKoinos(r.importo),
+    });
+    if (soc.tipoCont === 'semplificata' && t === 0 && a.registro) testa['Registro IVA'] = a.registro;
+    if (soc.export.codId) testa['Cod. identificativo'] = `EC-${hash36(`${soc.id}|${cc.id}|${r.data}|${r.importo}|${norm(r.descr)}|${r.ord}`)}-${r.data.replace(/-/g, '')}`.slice(0, 50);
+    const contro = Object.assign({}, base, {
+      'N. riga': 2, 'Tipo riga': conPart ? 0 : 2, 'Cod. conto': contoContropartita(soc, ctx, a),
+      'Descrizione riga': pulisciTesto(a.descr || r.descr, 100, sep), 'Importo riga': numKoinos(-r.importo),
+    });
+    if (nom) { contro['Cod. nominativo'] = nom.c; if (nom.cf || nom.piva) contro['C.F. nominatvo'] = nom.cf || nom.piva; }
+    else if (a.nominativo) contro['Cod. nominativo'] = a.nominativo;
+    if (conPart) { contro['Cod. partita'] = partita; contro['Scadenze'] = '*'; }
+    out.push(testa, contro);
+  }
+  const righeTesto = out.map((o) => COLONNE.map((c) => (o[c] == null ? '' : String(o[c]).split(sep).join(','))).join(sep));
+  if (soc.export.header) righeTesto.unshift(COLONNE.join(sep));
+  return { testo: righeTesto.join('\r\n') + '\r\n', righe: out, movimenti: nmov, errori, nTrans };
+}
+
+/* ====================================================== lettura file */
+function parseCsv(text, sep) {
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += ch; }
+    else if (ch === '"' && f === '') q = true;
+    else if (ch === sep) { row.push(f); f = ''; }
+    else if (ch === '\n') { row.push(f); rows.push(row); row = []; f = ''; }
+    else if (ch !== '\r') f += ch;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+function trovaSeparatore(text) {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim()).slice(0, 25);
+  let best = ';', bs = -1;
+  for (const s of [';', '\t', ',', '|']) {
+    const c = lines.map((l) => l.split(s).length - 1);
+    const pos = c.filter((x) => x > 0);
+    const sc = pos.length ? pos.length * 10 + Math.min(...pos) : 0;
+    if (sc > bs) { bs = sc; best = s; }
+  }
+  return best;
+}
+async function leggiFile(file) {
+  const nome = file.name.toLowerCase();
+  const buf = await file.arrayBuffer();
+  if (/\.(xlsx|xlsm|xls|ods)$/.test(nome)) {
+    if (!window.XLSX) throw new Error('Il lettore Excel non è stato caricato: controlla la connessione e ricarica la pagina, oppure salva il file come CSV.');
+    const wb = XLSX.read(buf, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+  }
+  let text = new TextDecoder('utf-8').decode(buf);
+  if (text.includes('\uFFFD')) text = new TextDecoder('windows-1252').decode(buf);
+  text = text.replace(/^\uFEFF/, '');
+  return parseCsv(text, trovaSeparatore(text));
+}
+function righeDaIncolla(text) {
+  text = text.replace(/^\uFEFF/, '');
+  return parseCsv(text, text.includes('\t') ? '\t' : trovaSeparatore(text));
+}
+
+const GUESS_EC = {
+  data: ['DATA CONTABILE', 'DATA OPERAZIONE', 'DATA OP', 'DATA REGISTRAZIONE', 'DATA MOVIMENTO', 'DATA'],
+  valuta: ['DATA VALUTA', 'VALUTA', 'VAL'],
+  descr: ['DESCRIZIONE OPERAZIONE', 'DESCRIZIONE', 'CAUSALE DESCRIZIONE', 'DETTAGLI', 'DETTAGLIO', 'OPERAZIONE', 'MOVIMENTO', 'CAUSALE'],
+  descr2: ['DESCRIZIONE ESTESA', 'DESCRIZIONE AGGIUNTIVA', 'NOTE', 'INFORMAZIONI', 'RIFERIMENTI', 'DETTAGLIO OPERAZIONE'],
+  importo: ['IMPORTO', 'IMPORTO EUR', 'IMPORTO EURO', 'IMPORTO IN EURO', 'IMPORTO OPERAZIONE'],
+  dare: ['DARE', 'ADDEBITI', 'USCITE', 'ADDEBITO', 'IMPORTO DARE'],
+  avere: ['AVERE', 'ACCREDITI', 'ENTRATE', 'ACCREDITO', 'IMPORTO AVERE'],
+};
+function indovinaColonne(header, guess) {
+  const h = header.map((x) => norm(x));
+  const res = {}; const usate = new Set();
+  for (const campo of Object.keys(guess)) {
+    let idx = -1;
+    for (const g of guess[campo]) { idx = h.findIndex((x, i) => x === g && !usate.has(i)); if (idx >= 0) break; }
+    if (idx < 0) for (const g of guess[campo]) { idx = h.findIndex((x, i) => x && x.includes(g) && !usate.has(i)); if (idx >= 0) break; }
+    if (idx >= 0) { res[campo] = idx; usate.add(idx); }
+  }
+  return res;
+}
+function trovaRigaIntestazione(rows, guess) {
+  let best = 0, bs = 0;
+  for (let i = 0; i < Math.min(rows.length, 40); i++) {
+    const sc = Object.keys(indovinaColonne(rows[i] || [], guess)).length;
+    if (sc > bs) { bs = sc; best = i; }
+  }
+  return bs >= 2 ? best : 0;
+}
+function costruisciMovimenti(rows, m) {
+  const out = [];
+  for (let i = m.headerRow + 1; i < rows.length; i++) {
+    const row = rows[i] || [];
+    const data = parseData(row[m.data]);
+    if (!data) continue;
+    let imp = null;
+    if (m.modo === 'dareavere') {
+      const d = parseNum(row[m.dare]), av = parseNum(row[m.avere]);
+      if (av) imp = Math.abs(av);
+      if (d) imp = (imp || 0) - Math.abs(d);
+    } else imp = parseNum(row[m.importo]);
+    if (imp == null || Math.abs(imp) < 0.005) continue;
+    if (m.inverti) imp = -imp;
+    const descr = [row[m.descr], m.descr2 != null && m.descr2 !== '' ? row[m.descr2] : ''].map(str).filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+    out.push({ data, valuta: m.valuta != null && m.valuta !== '' ? parseData(row[m.valuta]) || '' : '', descr, importo: round2(imp) });
+  }
+  return out;
+}
+const firma = (r) => `${r.data}|${r.importo.toFixed(2)}|${norm(r.descr)}`;
+
+/* ===================================================== download file */
+let _downloads;
+function capDownloads() {
+  if (_downloads === undefined) _downloads = (window.claude && typeof window.claude.use === 'function') ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+  return _downloads;
+}
+async function scarica(filename, data, mime) {
+  const dl = await capDownloads();
+  if (dl) {
+    try { await dl.save({ filename, data }); return true; }
+    catch (e) {
+      if (e && e.code === 'declined') { toast('Download annullato.'); return false; }
+      if (e && e.code === 'rate_limited') { toast('C’è già una richiesta di download aperta: confermala o chiudila, poi riprova.', true); return false; }
+      if (e && !['unavailable', 'not_granted', 'capability_disabled', 'capability_removed'].includes(e.code)) { toast('Download non riuscito: ' + (e.message || e.code), true); return false; }
+    }
+  }
+  const blob = data instanceof Blob ? data : new Blob([data], { type: mime || 'application/octet-stream' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  return true;
+}
+
+/* ============================================================ toast */
+let _toastT;
+function toast(msg, err) {
+  const t = $('#toast');
+  t.textContent = msg; t.className = err ? 'err' : ''; t.hidden = false;
+  clearTimeout(_toastT); _toastT = setTimeout(() => { t.hidden = true; }, err ? 6000 : 3200);
+}
+
+/* ============================================================ modale */
+let _modalOnClose = null;
+function apriModale(html, { wide = false, onClose = null } = {}) {
+  const card = $('#modalCard');
+  card.className = 'modal-card' + (wide ? ' wide' : '');
+  card.innerHTML = html;
+  $('#modal').hidden = false;
+  _modalOnClose = onClose;
+  const f = card.querySelector('[autofocus]') || card.querySelector('input,select,textarea,button');
+  if (f) setTimeout(() => f.focus(), 30);
+}
+function chiudiModale() { $('#modal').hidden = true; $('#modalCard').innerHTML = ''; const cb = _modalOnClose; _modalOnClose = null; if (cb) cb(); }
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#modal').hidden) chiudiModale(); });
+$('#modal').addEventListener('mousedown', (e) => { if (e.target.id === 'modal') chiudiModale(); });
+const mHead = (titolo, sotto) => `<div class="mh"><div><h2>${esc(titolo)}</h2>${sotto ? `<div class="small muted">${sotto}</div>` : ''}</div><button class="btn ghost sm" data-act="chiudi" aria-label="Chiudi">Chiudi</button></div>`;
+
+/* ======================================================= navigazione */
+const socCorrente = () => (S.ui.socId ? S.soc[S.ui.socId] : null);
+async function vai(patch) {
+  Object.assign(S.ui, patch);
+  if ('view' in patch || 'pkey' in patch) { S.ui.sel = new Set(); S.ui.cerca = ''; S.ui.filtro = 'tutti'; }
+  if ('datiTab' in patch) { S.ui.tabCerca = ''; S.ui.tabLimite = 200; }
+  salvaUi();
+  await render();
+  window.scrollTo({ top: 0 });
+}
+
+async function render() {
+  renderSide();
+  const main = $('#main');
+  const soc = socCorrente();
+  try {
+    if (!soc) { main.innerHTML = viewHome(); return; }
+    if (S.ui.view === 'periodo' && S.ui.ccId && S.ui.pkey) { await caricaPeriodo(soc.id, S.ui.ccId, S.ui.pkey); main.innerHTML = viewPeriodo(soc); return; }
+    if (S.ui.view === 'dati') { main.innerHTML = viewDati(soc); return; }
+    if (S.ui.view === 'regole') { main.innerHTML = '<div class="loading">Calcolo utilizzi…</div>'; await caricaTuttiPeriodi(soc); main.innerHTML = viewRegole(soc); return; }
+    if (S.ui.view === 'riepilogo') { main.innerHTML = '<div class="loading">Carico tutti i periodi…</div>'; await caricaTuttiPeriodi(soc); main.innerHTML = viewRiepilogo(soc); return; }
+    main.innerHTML = viewPeriodi(soc);
+  } catch (e) {
+    console.error(e);
+    main.innerHTML = `<div class="wrap"><div class="note bad">Non sono riuscito a caricare questa pagina: ${esc(e.message || e)}. Ricarica la pagina; se il problema resta, ripristina l’ultimo backup.</div></div>`;
+  }
+}
+
+function renderSide() {
+  const soc = socCorrente();
+  const lista = S.index.societa.slice().sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+  let html = `<div class="group"><div class="label">Società</div>`;
+  html += lista.map((s) => `<button class="navbtn ${s.id === S.ui.socId ? 'on' : ''}" data-act="apriSoc" data-id="${s.id}"><span>${esc(s.nome)}</span></button>`).join('');
+  html += `<button class="navbtn" data-act="nuovaSoc"><span style="color:var(--accent)">+ Nuova società</span></button></div>`;
+  if (soc) {
+    const pend = Object.values(soc.stati).reduce((t, x) => t + (x.pend || 0), 0);
+    const v = S.ui.view;
+    html += `<div class="group"><div class="label">${esc(soc.nome)}</div>
+      <button class="navbtn ${v === 'periodi' || v === 'periodo' ? 'on' : ''}" data-act="vai" data-view="periodi"><span>Conti e periodi</span>${pend ? `<span class="count" title="Movimenti da completare">${pend}</span>` : ''}</button>
+      <button class="navbtn ${v === 'dati' ? 'on' : ''}" data-act="vai" data-view="dati"><span>Dati di base</span></button>
+      <button class="navbtn ${v === 'regole' ? 'on' : ''}" data-act="vai" data-view="regole"><span>Regole di abbinamento</span><span class="sub">${(S.reg[soc.id] || []).length}</span></button>
+      <button class="navbtn ${v === 'riepilogo' ? 'on' : ''}" data-act="vai" data-view="riepilogo"><span>Riepilogo abbinamenti</span></button>
+    </div>`;
+  }
+  $('#side').innerHTML = html;
+}
+
+/* ============================================================ home */
+function viewHome() {
+  if (S.index.societa.length) return `<div class="wrap"><div class="empty"><h2>Scegli una società</h2><p>Seleziona una società nell’elenco a sinistra oppure creane una nuova.</p><button class="btn primary" data-act="nuovaSoc">Nuova società</button></div></div>`;
+  return `<div class="wrap"><div class="empty">
+    <h2>Dall’estratto conto al file di importazione Koinos</h2>
+    <p>Per ogni società inserisci i conti correnti e i dati contabili di base. Poi, mese per mese o trimestre per trimestre, carichi l’estratto conto, controlli gli abbinamenti e generi il CSV da importare in Koinos.</p>
+    <ol class="steps">
+      <li><b>Società e dati di base</b>: causali (già precaricate dalla vostra tabella), piano dei conti, clienti e fornitori, registri IVA, mastri e conto transitorio.</li>
+      <li><b>Conti correnti</b>: codice conto Koinos e periodicità mensile o trimestrale per ogni anno, dal ${ANNO_BASE} in poi.</li>
+      <li><b>Periodo</b>: carichi l’estratto conto (Excel, CSV o copia e incolla). Le regole già apprese abbinano i movimenti noti.</li>
+      <li><b>Movimenti nuovi</b>: li abbini a mano e, se vuoi, salvi una regola per le volte successive.</li>
+      <li><b>Genera il CSV</b> nel tracciato «Importazione da file di testo movimenti».</li>
+    </ol>
+    <div class="row"><button class="btn primary" data-act="nuovaSoc">Crea la prima società</button><button class="btn" data-act="demo">Prova con una società di esempio</button></div>
+    ${noteArchivio()}
+  </div></div>`;
+}
+function noteArchivio() {
+  if (Store.mode === 'firebase') return `<p class="small muted">I dati sono nel database Firebase dello studio e li ritrovi da qualsiasi computer dopo l’accesso. Scarica comunque un backup periodico.</p>`;
+  if (Store.mode === 'cloud') return `<p class="small muted">I dati sono salvati nell’archivio di questa pagina su claude.ai e li ritrovi da qualsiasi dispositivo. Scarica comunque un backup periodico.</p>`;
+  if (Store.mode === 'browser') return `<div class="note warn">I dati restano salvati solo in questo browser, su questo computer. Usa «Scarica backup» regolarmente e «Ripristina backup» per spostarli su un altro computer.</div>`;
+  return `<div class="note bad">Questo browser non permette di salvare i dati: tutto andrà perso alla chiusura della pagina. Usa «Scarica backup» prima di chiudere.</div>`;
+}
+
+/* ===================================================== conti e periodi */
+function annoSelezionato(cc) {
+  const anni = Object.keys(cc.anni).map(Number).sort((a, b) => a - b);
+  let a = S.ui.anno[cc.id];
+  if (!anni.includes(a)) { const now = new Date().getFullYear(); a = anni.includes(now) ? now : anni[anni.length - 1]; }
+  return a;
+}
+function viewPeriodi(soc) {
+  const avvisi = [];
+  if (!soc.mastroClienti || !soc.mastroFornitori) avvisi.push('il mastro clienti e il mastro fornitori');
+  if (!(S.pdc[soc.id] || []).length) avvisi.push('il piano dei conti');
+  if (!(S.nom[soc.id] || []).length) avvisi.push('l’anagrafica clienti e fornitori');
+  let html = `<div class="wrap"><div class="pagehead"><div><h1>${esc(soc.nome)}</h1><div class="meta">${esc(soc.cf || 'Codice fiscale non indicato')} · contabilità ${esc(soc.tipoCont)}</div></div>
+    <button class="btn primary" data-act="nuovoCc">Aggiungi conto corrente</button></div>`;
+  if (avvisi.length) html += `<div class="note warn">Per abbinamenti completi inserisci in <button class="btn ghost sm" data-act="vai" data-view="dati">Dati di base</button> ${avvisi.join(', ')}.</div>`;
+  if (!soc.conti.length) {
+    html += `<div class="empty"><h2>Nessun conto corrente</h2><p>Aggiungi i conti correnti della società: per ognuno indichi il codice del conto banca nel piano dei conti Koinos e la periodicità di lavorazione (mensile o trimestrale) per ciascun anno.</p><button class="btn primary" data-act="nuovoCc">Aggiungi conto corrente</button></div>`;
+  }
+  for (const cc of soc.conti) {
+    const anni = Object.keys(cc.anni).map(Number).sort((a, b) => a - b);
+    const anno = annoSelezionato(cc);
+    const tipo = cc.anni[anno];
+    const per = periodiAnno(anno, tipo);
+    const haDati = per.some((p) => soc.stati[`${cc.id}|${p.key}`]);
+    const oggi = oggiIso();
+    html += `<section class="card">
+      <div class="card-h"><div><h2>${esc(cc.nome)}</h2><div class="small muted">${esc(cc.banca || '')}${cc.iban ? ` · <span class="mono">${esc(cc.iban)}</span>` : ''} · conto Koinos ${cc.codiceConto ? `<span class="tag">${esc(cc.codiceConto)}</span>` : '<span class="chip bad">da indicare</span>'}</div></div>
+        <button class="btn sm" data-act="modCc" data-cc="${cc.id}">Modifica conto</button></div>
+      <div class="row" style="justify-content:space-between">
+        <div class="years">${anni.map((a) => `<button class="yearbtn ${a === anno ? 'on' : ''}" data-act="anno" data-cc="${cc.id}" data-anno="${a}">${a}</button>`).join('')}
+          <button class="btn ghost sm" data-act="aggAnno" data-cc="${cc.id}">+ Anno ${anni[anni.length - 1] + 1}</button></div>
+        <div class="row"><span class="small muted">Periodicità ${anno}</span><div class="seg" role="group">
+          <button class="${tipo === 'M' ? 'on' : ''}" data-act="periodicita" data-cc="${cc.id}" data-anno="${anno}" data-tipo="M" ${haDati ? 'disabled title="Ci sono già periodi lavorati in questo anno"' : ''}>Mensile</button>
+          <button class="${tipo === 'T' ? 'on' : ''}" data-act="periodicita" data-cc="${cc.id}" data-anno="${anno}" data-tipo="T" ${haDati ? 'disabled title="Ci sono già periodi lavorati in questo anno"' : ''}>Trimestrale</button></div></div>
+      </div>
+      <div class="pgrid">${per.map((p) => tilePeriodo(soc, cc, p, oggi)).join('')}</div>
+    </section>`;
+  }
+  html += noteArchivio() + '</div>';
+  return html;
+}
+function tilePeriodo(soc, cc, p, oggi) {
+  const st = soc.stati[`${cc.id}|${p.key}`];
+  let chip, info;
+  if (!st || !st.n) { chip = st && st.exp ? '<span class="chip info">Esportato</span>' : '<span class="chip neutral">Da caricare</span>'; info = p.da > oggi ? 'Periodo futuro' : 'Nessun movimento'; }
+  else if (st.pend) { chip = `<span class="chip bad">${st.pend} da completare</span>`; info = `${st.n} movimenti`; }
+  else if (st.exp && st.exp >= st.agg) { chip = '<span class="chip info">Esportato</span>'; info = `${st.n} movimenti · ${fmtData(st.exp.slice(0, 10))}`; }
+  else if (st.exp) { chip = '<span class="chip warn">Modificato dopo l’export</span>'; info = `${st.n} movimenti`; }
+  else { chip = '<span class="chip ok">Pronto</span>'; info = `${st.n} movimenti`; }
+  const cls = !st ? (p.da > oggi ? 'vuoto futuro' : 'vuoto') : '';
+  return `<button class="ptile ${cls}" data-act="apriPeriodo" data-cc="${cc.id}" data-p="${p.key}"><span class="pt">${esc(p.label)}<small>${fmtData(p.da).slice(0, 5)}–${fmtData(p.a).slice(0, 5)}</small></span>${chip}<span class="pc">${info}</span></button>`;
+}
+
+function formConto(soc, cc) {
+  const nuovo = !cc;
+  cc = cc || { nome: '', banca: '', iban: '', codiceConto: '', anni: { [Math.max(ANNO_BASE, new Date().getFullYear())]: 'M' } };
+  const anni = Object.keys(cc.anni).map(Number).sort((a, b) => a - b);
+  const conti = S.pdc[soc.id] || [];
+  return `${mHead(nuovo ? 'Nuovo conto corrente' : 'Modifica conto corrente')}
+  <form data-form="salvaCc" data-cc="${nuovo ? '' : cc.id}">
+    <div class="mb">
+      <div class="grid2">
+        <label class="field"><span>Nome del conto *</span><input class="inp" name="nome" id="ccNome" required value="${esc(cc.nome)}" placeholder="Es. Intesa Sanpaolo c/c 1000/123" autofocus></label>
+        <label class="field"><span>Banca</span><input class="inp" name="banca" id="ccBanca" value="${esc(cc.banca)}"></label>
+        <label class="field"><span>IBAN</span><input class="inp mono" name="iban" id="ccIban" value="${esc(cc.iban)}" placeholder="IT00X0000000000000000000000"></label>
+        <label class="field"><span>Codice conto banca in Koinos *</span><input class="inp mono" name="codiceConto" id="ccCodice" list="dlConti" value="${esc(cc.codiceConto)}" required placeholder="Es. 1201015"><small>È il conto movimentato sulla riga banca di ogni registrazione.</small></label>
+      </div>
+      ${nuovo ? `<div class="grid2">
+        <label class="field"><span>Primo anno da gestire</span><select class="inp" name="anno" id="ccAnno">${[0, 1, 2, 3].map((i) => ANNO_BASE + i).map((a) => `<option ${a === anni[0] ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
+        <label class="field"><span>Periodicità</span><select class="inp" name="tipo" id="ccTipo"><option value="M">Mensile</option><option value="T">Trimestrale</option></select><small>Puoi cambiarla per ogni anno, finché l’anno non ha periodi lavorati.</small></label></div>` : `<p class="small muted">Anni gestiti: ${anni.join(', ')}. Aggiungi anni e cambia periodicità dalla pagina «Conti e periodi».</p>`}
+      <datalist id="dlConti">${conti.slice(0, 3000).map((c) => `<option value="${esc(c.c)}">${esc(c.d)}</option>`).join('')}</datalist>
+      ${!nuovo ? `<div id="ccElimina"></div>` : ''}
+    </div>
+    <div class="mf">${!nuovo ? `<button type="button" class="btn danger left" data-act="eliminaCc" data-cc="${cc.id}">Elimina conto</button>` : ''}<button type="button" class="btn" data-act="chiudi">Annulla</button><button class="btn primary">Salva</button></div>
+  </form>`;
+}
+
+/* ============================================================ periodo */
+function righeFiltrate(soc, ctx, per) {
+  const f = S.ui.filtro, q = norm(S.ui.cerca);
+  return per.righe.filter((r) => {
+    const st = statoRiga(soc, ctx, r);
+    if (f === 'da' && !(st === 'da' || st === 'inc')) return false;
+    if (f === 'sugg' && st !== 'sugg') return false;
+    if (f === 'ok' && st !== 'ok') return false;
+    if (q && !(norm(r.descr).includes(q) || norm(r.abb ? [r.abb.causale, r.abb.conto, r.abb.nominativo, r.abb.partita].join(' ') : '').includes(q) || fmtEur(Math.abs(r.importo)).includes(S.ui.cerca.trim()))) return false;
+    return true;
+  }).sort((a, b) => a.data.localeCompare(b.data) || a.ord - b.ord);
+}
+function viewPeriodo(soc) {
+  const cc = soc.conti.find((c) => c.id === S.ui.ccId);
+  if (!cc) { S.ui.view = 'periodi'; return viewPeriodi(soc); }
+  const p = periodoDaKey(S.ui.pkey);
+  const per = S.per[kPer(soc.id, cc.id, p.key)];
+  const ctx = contesto(soc);
+  const anno = p.key.slice(0, 4);
+  let html = `<div class="wrap">
+    <div class="crumbs"><button data-act="vai" data-view="periodi">Conti e periodi</button> › <span>${esc(cc.nome)}</span> › <span>${anno}</span></div>
+    <div class="pagehead"><div><h1>${esc(p.label)} ${anno}</h1><div class="meta">${esc(cc.nome)} · dal ${fmtData(p.da)} al ${fmtData(p.a)} · conto Koinos ${cc.codiceConto ? `<span class="tag">${esc(cc.codiceConto)}</span>` : '<span class="chip bad">da indicare</span>'}</div></div>
+      <div class="row"><button class="btn" data-act="incolla">Incolla da Excel</button><button class="btn primary" data-act="caricaEc">Carica estratto conto</button></div></div>`;
+  if (!per.righe.length) {
+    html += `<div class="empty"><h2>Carica l’estratto conto del periodo</h2>
+      <p>Esporta i movimenti dall’home banking in Excel (.xlsx, .xls) o CSV e caricali qui. In alternativa copia le righe dal foglio Excel e incollale. Al primo caricamento ti chiedo quali colonne contengono data, descrizione e importo; per questo conto le ricorderò.</p>
+      <div class="row"><button class="btn primary" data-act="caricaEc">Carica estratto conto</button><button class="btn" data-act="incolla">Incolla da Excel</button></div>
+      <p class="small muted">Gli estratti in PDF vanno prima convertiti: quasi tutte le banche permettono di scaricare la lista movimenti in Excel o CSV.</p></div>`;
+    html += sezioneEsportazioni(per);
+    return html + '</div>';
+  }
+  const cnt = { da: 0, sugg: 0, inc: 0, ok: 0 }; let ent = 0, usc = 0, reg = 0, man = 0;
+  for (const r of per.righe) { cnt[statoRiga(soc, ctx, r)]++; if (r.importo > 0) ent += r.importo; else usc -= r.importo; if (r.fonte === 'regola') reg++; if (r.fonte === 'manuale') man++; }
+  const daFare = cnt.da + cnt.inc;
+  html += `<div class="stats">
+    <div class="stat"><span class="label">Movimenti</span><b>${per.righe.length}</b></div>
+    <div class="stat"><span class="label">Entrate</span><b class="amt-in">${fmtEur(ent)}</b></div>
+    <div class="stat"><span class="label">Uscite</span><b>${fmtEur(usc)}</b></div>
+    <div class="stat ok"><span class="label">Pronti</span><b>${cnt.ok}</b><span class="small muted">${reg} da regola · ${man} manuali</span></div>
+    <div class="stat ${cnt.sugg ? 'warn' : ''}"><span class="label">Da confermare</span><b>${cnt.sugg}</b></div>
+    <div class="stat ${daFare ? 'bad' : ''}"><span class="label">Da abbinare / incompleti</span><b>${daFare}</b></div>
+  </div>
+  <div class="row" style="justify-content:space-between">
+    <div class="seg" role="group">${[['tutti', 'Tutti', per.righe.length], ['da', 'Da abbinare', daFare], ['sugg', 'Da confermare', cnt.sugg], ['ok', 'Pronti', cnt.ok]].map(([k, l, n]) => `<button class="${S.ui.filtro === k ? 'on' : ''}" data-act="filtro" data-f="${k}">${l} (${n})</button>`).join('')}</div>
+    <div class="row"><input class="inp" style="width:240px" id="cercaMov" data-in="cercaMov" placeholder="Cerca descrizione, conto, importo" value="${esc(S.ui.cerca)}">
+      ${cnt.sugg ? `<button class="btn sm" data-act="confermaSugg">Conferma ${cnt.sugg} suggeriti</button>` : ''}
+      <button class="btn sm" data-act="riapplica" title="Riesegue le regole sulle righe non abbinate a mano">Riapplica regole</button></div>
+  </div>
+  <div id="tblMov">${tabellaMovimenti(soc, ctx, per)}</div>
+  <div id="bulkBar">${barraSelezione()}</div>
+  ${sezioneGenera(soc, cc, per, cnt)}
+  ${sezioneEsportazioni(per)}
+  <div class="row"><button class="btn danger sm" data-act="svuotaPeriodo">Svuota periodo</button><span id="svuotaConferma"></span></div>`;
+  return html + '</div>';
+}
+function tabellaMovimenti(soc, ctx, per) {
+  const righe = righeFiltrate(soc, ctx, per);
+  if (!righe.length) return `<div class="note">Nessun movimento corrisponde al filtro.</div>`;
+  const tutteSel = righe.every((r) => S.ui.sel.has(r.id));
+  return `<div class="tablewrap"><table class="t"><thead><tr>
+    <th style="width:28px"><input type="checkbox" data-ch="selTutte" aria-label="Seleziona tutte" ${tutteSel ? 'checked' : ''}></th>
+    <th>Data</th><th>Valuta</th><th>Descrizione</th><th class="num">Entrate</th><th class="num">Uscite</th><th>Abbinamento</th><th>Stato</th></tr></thead><tbody>
+    ${righe.map((r) => rigaMov(soc, ctx, r)).join('')}</tbody></table></div>`;
+}
+function rigaMov(soc, ctx, r) {
+  const st = statoRiga(soc, ctx, r);
+  const [cls, lab] = STATI[st];
+  let abb = '<span class="muted">—</span>';
+  if (r.abb) {
+    const a = r.abb, c = ctx.caus.get(a.causale);
+    const conto = contoContropartita(soc, ctx, a);
+    const nom = a.nominativo ? ctx.nom.get(a.nominativo) : null;
+    const contoD = conto ? ctx.pdc.get(conto)?.d : '';
+    abb = `<div class="abb"><div class="l1"><span class="tag" title="${esc(c ? c.d : '')}">${esc(a.causale || '?')}</span><span class="small">${esc(c ? c.d : 'Causale sconosciuta')}</span></div>
+      <div class="l2">${nom ? `${esc(nom.d)} <span class="mono">${esc(nom.c)}</span>` : a.nominativo ? `<span class="mono">${esc(a.nominativo)}</span>` : ''}${nom || a.nominativo ? ' · ' : ''}${conto ? `<span class="mono">${esc(conto)}</span> ${esc(contoD || '')}` : ''}${a.partita ? ` · partita <span class="mono">${esc(a.partita)}</span>` : ''}</div>
+      ${st === 'inc' ? `<div class="problem">${esc(problemiRiga(soc, ctx, r).join(' · '))}</div>` : ''}</div>`;
+  }
+  return `<tr class="click stripe-${st} ${S.ui.sel.has(r.id) ? 'sel' : ''}" data-act="editRiga" data-id="${r.id}">
+    <td data-stop="1"><input type="checkbox" data-ch="selRiga" data-id="${r.id}" aria-label="Seleziona" ${S.ui.sel.has(r.id) ? 'checked' : ''}></td>
+    <td class="num">${fmtData(r.data)}</td><td class="num muted">${fmtData(r.valuta)}</td>
+    <td class="descr"><div class="d1">${esc(r.descr)}</div></td>
+    <td class="num amt-in">${r.importo > 0 ? fmtEur(r.importo) : ''}</td><td class="num amt-out">${r.importo < 0 ? fmtEur(-r.importo) : ''}</td>
+    <td>${abb}</td><td><span class="chip ${st === 'ok' && r.fonte === 'manuale' ? 'info' : cls}">${st === 'ok' && r.fonte ? esc(FONTI[r.fonte]) : lab}</span></td></tr>`;
+}
+function barraSelezione() {
+  const n = S.ui.sel.size;
+  if (!n) return '';
+  return `<div class="bulk"><b>${n} selezionati</b><button class="btn sm" data-act="assegnaSel">Abbina selezionati</button><button class="btn sm" data-act="togliSel">Rimuovi abbinamento</button><button class="btn sm" data-act="deselez">Deseleziona</button></div>`;
+}
+function sezioneGenera(soc, cc, per, cnt) {
+  const daFare = cnt.da + cnt.inc + cnt.sugg;
+  if (soc.export.formato === 'primanota') return sezioneGeneraPN(soc, cc, per, daFare);
+  const sepNome = { ';': 'punto e virgola', ',': 'virgola', 'tab': 'tabulazione' }[soc.export.sep] || soc.export.sep;
+  const blocchi = [];
+  if (!cc.codiceConto) blocchi.push('Indica il codice conto Koinos della banca (Modifica conto).');
+  return `<section class="card"><div class="card-h"><h2>File di importazione per Koinos</h2><span class="small muted">Separatore ${sepNome} · ${soc.export.enc === 'cp1252' ? 'Windows-1252' : 'UTF-8'} · ${soc.export.header ? 'con intestazione' : 'senza intestazione'}</span></div>
+    ${daFare ? `<div class="note warn">${daFare} movimenti non sono ancora pronti (da abbinare, incompleti o da confermare). Completali, oppure registrali sul conto transitorio${soc.contoTransitorio ? ` <span class="mono">${esc(soc.contoTransitorio)}</span>` : ''} per riclassificarli dopo in Koinos.</div>` : `<div class="note">Tutti i ${per.righe.length} movimenti sono pronti. Ogni movimento diventa una registrazione con la riga banca e la riga di contropartita.</div>`}
+    ${blocchi.map((b) => `<div class="note bad">${esc(b)}</div>`).join('')}
+    <div class="row">
+      ${daFare ? `<label class="check"><input type="checkbox" id="usaTransitorio" ${soc.contoTransitorio ? '' : 'disabled'}><span>Registra i movimenti non pronti sul conto transitorio${soc.contoTransitorio ? '' : ' (da impostare in Dati di base)'}</span></label>` : ''}
+    </div>
+    <div class="row"><button class="btn" data-act="anteprima" ${blocchi.length ? 'disabled' : ''}>Anteprima registrazioni</button><button class="btn primary" data-act="genera" ${blocchi.length ? 'disabled' : ''}>Genera CSV per Koinos</button></div>
+  </section>`;
+}
+function sezioneGeneraPN(soc, cc, per, daFare) {
+  const mod = soc.export.modello;
+  return `<section class="card"><div class="card-h"><h2>Excel prima nota cassa banca</h2><span class="small muted">${mod ? `Modello Koinos: ${esc(mod.nome)}` : 'Layout standard Koinos'} · <button class="btn ghost sm" data-act="vaiFormato">Cambia formato</button></span></div>
+    <div class="note">Una riga per movimento con data, descrizione operazione, importo entrata o uscita. ${soc.export.descrPN === 'koinos' ? 'Per incassi e pagamenti abbinati la descrizione segue lo schema di Koinos («Incasso cliente Rossi Snc ft 123»), per gli altri movimenti uso la descrizione della regola o della banca: le regole di Koinos completano la registrazione all’importazione.' : 'La descrizione è quella dell’estratto conto.'}</div>
+    ${daFare ? `<div class="note warn">${daFare} movimenti non sono abbinati o sono da confermare: nel foglio avranno la descrizione della banca e li completerai nella prima nota di Koinos.</div>` : ''}
+    ${!mod && !soc.cf ? '<div class="note warn">Indica il codice fiscale della società in Dati di base: Koinos lo confronta con quello dell’archivio aperto.</div>' : ''}
+    <div class="row"><label class="field" style="max-width:220px"><span>Saldo iniziale del periodo (facoltativo)</span><input class="inp num" id="saldoIniziale" data-ch="saldoIniziale" value="${per.saldoIniziale != null ? esc(fmtEur(per.saldoIniziale)) : ''}" placeholder="0,00"></label></div>
+    <div class="row"><button class="btn" data-act="anteprima">Anteprima foglio</button><button class="btn primary" data-act="genera">Genera Excel prima nota</button></div>
+  </section>`;
+}
+function sezioneEsportazioni(per) {
+  if (!per.esportazioni.length) return '';
+  return `<section class="card"><div class="card-h"><h3>File generati</h3></div><div class="tablewrap"><table class="t"><thead><tr><th>Data</th><th>File</th><th class="num">Registrazioni</th><th class="num">Su transitorio</th></tr></thead><tbody>
+    ${per.esportazioni.slice().reverse().map((e) => `<tr><td>${fmtDataOra(e.data)}</td><td class="mono">${esc(e.file)}</td><td class="num">${e.movimenti}</td><td class="num">${e.transitorio || 0}</td></tr>`).join('')}</tbody></table></div></section>`;
+}
+
+/* ---------------------------------------------------- caricamento EC */
+let _import = null;
+function apriMappatura(soc, cc, rows, nomeFile) {
+  if (!rows.length) { toast('Il file non contiene righe.', true); return; }
+  const f = cc.formato;
+  let m;
+  if (f && f.headers) {
+    const hr = f.headerRow < rows.length ? f.headerRow : trovaRigaIntestazione(rows, GUESS_EC);
+    const h = (rows[hr] || []).map((x) => norm(x));
+    const idx = (name) => (name == null || name === '' ? '' : h.indexOf(name));
+    m = { headerRow: hr, modo: f.modo, inverti: f.inverti, data: idx(f.headers.data), valuta: idx(f.headers.valuta), descr: idx(f.headers.descr), descr2: idx(f.headers.descr2), importo: idx(f.headers.importo), dare: idx(f.headers.dare), avere: idx(f.headers.avere) };
+    for (const k of ['data', 'valuta', 'descr', 'descr2', 'importo', 'dare', 'avere']) if (m[k] === -1) m[k] = '';
+    if (m.data === '' || m.descr === '') m = null;
+  }
+  if (!m) {
+    const hr = trovaRigaIntestazione(rows, GUESS_EC);
+    const g = indovinaColonne(rows[hr] || [], GUESS_EC);
+    m = { headerRow: hr, modo: g.importo == null && g.dare != null ? 'dareavere' : 'unico', inverti: false, data: g.data ?? '', valuta: g.valuta ?? '', descr: g.descr ?? '', descr2: g.descr2 ?? '', importo: g.importo ?? '', dare: g.dare ?? '', avere: g.avere ?? '' };
+  }
+  _import = { rows, m, nomeFile };
+  apriModale(htmlMappatura(soc, cc), { wide: true, onClose: () => { _import = null; } });
+}
+function htmlMappatura(soc, cc) {
+  const { rows, m, nomeFile } = _import;
+  const ncol = Math.max(...rows.slice(0, 60).map((r) => r.length));
+  const header = rows[m.headerRow] || [];
+  const opz = (sel, vuota) => `${vuota ? `<option value="">${vuota}</option>` : ''}${Array.from({ length: ncol }, (_, i) => `<option value="${i}" ${String(sel) === String(i) ? 'selected' : ''}>${String.fromCharCode(65 + (i % 26))}${i >= 26 ? Math.floor(i / 26) : ''} · ${esc(str(header[i]).slice(0, 28) || '(vuota)')}</option>`).join('')}`;
+  const mov = costruisciMovimenti(rows, m);
+  const p = periodoDaKey(S.ui.pkey);
+  const fuori = mov.filter((r) => r.data < p.da || r.data > p.a).length;
+  const per = S.per[kPer(soc.id, cc.id, p.key)];
+  const anteprima = rows.slice(m.headerRow, m.headerRow + 8);
+  return `${mHead('Colonne dell’estratto conto', `${esc(nomeFile)} · ${rows.length} righe lette`)}
+  <div class="mb">
+    <div class="grid3">
+      <label class="field"><span>Riga di intestazione</span><select class="inp" id="mHeader" data-ch="mappa" data-k="headerRow">${rows.slice(0, 40).map((r, i) => `<option value="${i}" ${i === m.headerRow ? 'selected' : ''}>Riga ${i + 1}: ${esc(r.map(str).filter(Boolean).join(' | ').slice(0, 60))}</option>`).join('')}</select></label>
+      <label class="field"><span>Data operazione *</span><select class="inp" id="mData" data-ch="mappa" data-k="data">${opz(m.data, 'Scegli colonna')}</select></label>
+      <label class="field"><span>Data valuta</span><select class="inp" id="mValuta" data-ch="mappa" data-k="valuta">${opz(m.valuta, 'Nessuna')}</select></label>
+      <label class="field"><span>Descrizione *</span><select class="inp" id="mDescr" data-ch="mappa" data-k="descr">${opz(m.descr, 'Scegli colonna')}</select></label>
+      <label class="field"><span>Descrizione aggiuntiva</span><select class="inp" id="mDescr2" data-ch="mappa" data-k="descr2">${opz(m.descr2, 'Nessuna')}</select></label>
+      <label class="field"><span>Importi</span><select class="inp" id="mModo" data-ch="mappa" data-k="modo"><option value="unico" ${m.modo === 'unico' ? 'selected' : ''}>Una colonna con il segno</option><option value="dareavere" ${m.modo === 'dareavere' ? 'selected' : ''}>Colonne Dare e Avere separate</option></select></label>
+      ${m.modo === 'dareavere' ? `<label class="field"><span>Uscite (Dare / Addebiti) *</span><select class="inp" id="mDare" data-ch="mappa" data-k="dare">${opz(m.dare, 'Scegli colonna')}</select></label>
+      <label class="field"><span>Entrate (Avere / Accrediti) *</span><select class="inp" id="mAvere" data-ch="mappa" data-k="avere">${opz(m.avere, 'Scegli colonna')}</select></label>`
+      : `<label class="field"><span>Importo *</span><select class="inp" id="mImporto" data-ch="mappa" data-k="importo">${opz(m.importo, 'Scegli colonna')}</select></label>`}
+      <label class="check" style="align-self:end"><input type="checkbox" id="mInverti" data-ch="mappa" data-k="inverti" ${m.inverti ? 'checked' : ''}><span>Inverti il segno (le uscite risultano positive)</span></label>
+    </div>
+    <div><div class="label" style="margin-bottom:6px">File originale</div><div class="tablewrap"><table class="t"><tbody>${anteprima.map((r, i) => `<tr>${Array.from({ length: Math.min(ncol, 10) }, (_, j) => `<td class="small" style="${i === 0 ? 'font-weight:600' : ''}">${esc(str(r[j]).slice(0, 50))}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>
+    <div><div class="label" style="margin-bottom:6px">Come li leggo · ${mov.length} movimenti</div>
+      ${mov.length ? `<div class="tablewrap"><table class="t"><thead><tr><th>Data</th><th>Valuta</th><th>Descrizione</th><th class="num">Entrate</th><th class="num">Uscite</th></tr></thead><tbody>${mov.slice(0, 6).map((r) => `<tr><td class="num">${fmtData(r.data)}</td><td class="num">${fmtData(r.valuta)}</td><td>${esc(r.descr.slice(0, 90))}</td><td class="num amt-in">${r.importo > 0 ? fmtEur(r.importo) : ''}</td><td class="num">${r.importo < 0 ? fmtEur(-r.importo) : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="note bad">Con queste colonne non trovo movimenti: controlla data e importo.</div>'}
+    </div>
+    ${fuori ? `<label class="check"><input type="checkbox" id="mFuori" checked><span>Escludi ${fuori} movimenti con data fuori dal periodo ${esc(p.label)} (${fmtData(p.da)}–${fmtData(p.a)})</span></label>` : ''}
+    ${per.righe.length ? `<div class="field"><span>Il periodo ha già ${per.righe.length} movimenti</span>
+      <label class="check"><input type="radio" name="mMerge" value="sostituisci" checked><span>Sostituisci i movimenti, mantenendo gli abbinamenti delle righe identiche</span></label>
+      <label class="check"><input type="radio" name="mMerge" value="aggiungi"><span>Aggiungi solo i movimenti nuovi (scarta i duplicati)</span></label></div>` : ''}
+  </div>
+  <div class="mf"><button class="btn" data-act="chiudi">Annulla</button><button class="btn primary" data-act="confermaImport" ${mov.length ? '' : 'disabled'}>Importa ${mov.length} movimenti</button></div>`;
+}
+function confermaImport(soc, cc) {
+  const { rows, m, nomeFile } = _import;
+  const p = periodoDaKey(S.ui.pkey);
+  let mov = costruisciMovimenti(rows, m);
+  if ($('#mFuori')?.checked) mov = mov.filter((r) => r.data >= p.da && r.data <= p.a);
+  const merge = document.querySelector('input[name=mMerge]:checked')?.value || 'sostituisci';
+  const per = S.per[kPer(soc.id, cc.id, p.key)];
+  const h = rows[m.headerRow] || [];
+  const nome = (i) => (i === '' || i == null ? '' : norm(h[i]));
+  cc.formato = { headerRow: m.headerRow, modo: m.modo, inverti: m.inverti, headers: { data: nome(m.data), valuta: nome(m.valuta), descr: nome(m.descr), descr2: nome(m.descr2), importo: nome(m.importo), dare: nome(m.dare), avere: nome(m.avere) } };
+  const vecchie = new Map();
+  for (const r of per.righe) { const k = firma(r); if (!vecchie.has(k)) vecchie.set(k, []); vecchie.get(k).push(r); }
+  const ctx = contesto(soc);
+  let nuove = [], tenute = 0, scartate = 0;
+  let ord = merge === 'aggiungi' ? Math.max(0, ...per.righe.map((r) => r.ord || 0)) + 1 : 1;
+  for (const x of mov) {
+    const lst = vecchie.get(firma(x));
+    const old = lst && lst.length ? lst.shift() : null;
+    if (merge === 'aggiungi' && old) { scartate++; continue; }
+    const r = { id: uid(), ord: ord++, data: x.data, valuta: x.valuta, descr: x.descr, importo: x.importo, abb: null, fonte: null, regolaId: null };
+    if (old && old.abb) { r.abb = old.abb; r.fonte = old.fonte; r.regolaId = old.regolaId; tenute++; }
+    else abbinaRiga(soc, ctx, r, cc.id);
+    nuove.push(r);
+  }
+  per.righe = merge === 'aggiungi' ? per.righe.concat(nuove) : nuove;
+  per.file = nomeFile; per.caricato = new Date().toISOString();
+  _modalOnClose = null; _import = null;
+  chiudiModale();
+  salvaPeriodo(soc, cc.id, p.key);
+  const auto = nuove.filter((r) => r.fonte === 'regola').length;
+  toast(`${nuove.length} movimenti importati · ${auto} abbinati da regola${tenute ? ` · ${tenute} abbinamenti mantenuti` : ''}${scartate ? ` · ${scartate} duplicati scartati` : ''}`);
+  render();
+}
+
+/* ----------------------------------------------------- editor riga */
+function opzioniCausali(soc, sel) {
+  const gruppi = [[7, 'Incassi'], [8, 'Pagamenti'], [9, 'Insoluti'], [0, 'Movimenti normali'], [-1, 'Altre']];
+  const nonIva = soc.causali.filter((c) => !c.iva && !TIPI_IVA.has(c.t));
+  return `<option value="">Scegli la causale</option>` + gruppi.map(([t, l]) => {
+    const lst = nonIva.filter((c) => (t === -1 ? ![7, 8, 9, 0].includes(c.t) : c.t === t)).sort((a, b) => (b.u - a.u) || a.c.localeCompare(b.c));
+    if (!lst.length) return '';
+    return `<optgroup label="${l}">${lst.map((c) => `<option value="${esc(c.c)}" ${c.c === sel ? 'selected' : ''}>${esc(c.c)} — ${esc(c.d)}${c.u ? '' : ' (non usata)'}</option>`).join('')}</optgroup>`;
+  }).join('');
+}
+function datalistBase(soc) {
+  return `<datalist id="dlPdc">${(S.pdc[soc.id] || []).map((c) => `<option value="${esc(c.c)}">${esc(c.d)}</option>`).join('')}</datalist>
+  <datalist id="dlNom">${(S.nom[soc.id] || []).map((n) => `<option value="${esc(n.c)}">${esc(n.d)}${n.tipo ? ' · ' + TIPI_NOM[n.tipo] : ''}${n.piva ? ' · ' + esc(n.piva) : ''}</option>`).join('')}</datalist>`;
+}
+function htmlEditor(soc, righe) {
+  const ctx = contesto(soc);
+  const r = righe[0];
+  const multi = righe.length > 1;
+  const a = r.abb || {};
+  const t = tipoCausale(ctx, a.causale);
+  const conPart = CON_PARTITA.has(t);
+  const segni = new Set(righe.map((x) => (x.importo > 0 ? 'E' : 'U')));
+  const segno = segni.size === 1 ? [...segni][0] : '';
+  const tot = righe.reduce((s, x) => s + x.importo, 0);
+  const prob = !multi && r.abb ? problemiRiga(soc, ctx, r) : [];
+  const regola = r.regolaId ? (S.reg[soc.id] || []).find((x) => x.id === r.regolaId) : null;
+  const parole = suggerisciParole(r.descr);
+  return `${mHead(multi ? `Abbina ${righe.length} movimenti` : 'Abbina movimento', multi ? `Totale ${fmtEur(tot)}` : `${fmtData(r.data)} · ${r.importo > 0 ? 'Entrata' : 'Uscita'} di ${fmtEur(Math.abs(r.importo))}`)}
+  <form data-form="salvaAbb">
+    <div class="mb">
+      ${multi ? `<div class="descbox">${righe.slice(0, 6).map((x) => `<div class="d">${fmtData(x.data)} · ${fmtEur(x.importo)} · ${esc(x.descr.slice(0, 110))}</div>`).join('')}${righe.length > 6 ? `<div class="small muted">e altri ${righe.length - 6}</div>` : ''}</div>`
+      : `<div class="descbox"><span class="label">Descrizione in estratto conto</span><div class="d">${esc(r.descr)}</div>${r.fonte ? `<div class="small muted">Abbinamento attuale: ${esc(FONTI[r.fonte])}${regola ? ` · regola «${esc(regola.parole)}»` : ''}</div>` : ''}</div>`}
+      ${prob.length ? `<div class="note bad">${esc(prob.join(' · '))}</div>` : ''}
+      <div class="grid2">
+        <label class="field"><span>Causale *</span><select class="inp" name="causale" id="edCausale" data-ch="edCausale" required>${opzioniCausali(soc, a.causale || '')}</select></label>
+        <label class="field" data-sez="nom"><span>Cliente / fornitore${conPart ? ' *' : ''}</span><input class="inp mono" name="nominativo" id="edNom" list="dlNom" value="${esc(a.nominativo || '')}" placeholder="Codice nominativo"><small id="edNomDesc">${esc(a.nominativo ? ctx.nom.get(a.nominativo)?.d || 'Non in anagrafica' : 'Obbligatorio per incassi e pagamenti')}</small></label>
+        <label class="field"><span id="edContoLab">${conPart ? 'Conto (vuoto = mastro del cliente/fornitore)' : 'Conto di contropartita *'}</span><input class="inp mono" name="conto" id="edConto" list="dlPdc" value="${esc(a.conto || '')}" placeholder="Codice conto"><small id="edContoDesc">${esc(a.conto ? ctx.pdc.get(a.conto)?.d || 'Non nel piano dei conti' : '')}</small></label>
+        <label class="field" data-sez="partita" ${conPart ? '' : 'hidden'}><span>Partita (numero|anno)</span><input class="inp mono" name="partita" id="edPartita" value="${esc(a.partita || (conPart && !multi ? suggerisciPartita(r.descr, r.data) : ''))}" placeholder="Es. 125|2026"><small>${soc.partitaMancante === 'normale' ? 'Se la lasci vuota registro come movimento normale sul conto del cliente/fornitore.' : 'Obbligatoria per incassi e pagamenti. Koinos chiude le scadenze in ordine di data (*).'}</small></label>
+        <label class="field"><span>Descrizione della registrazione</span><input class="inp" name="descr" id="edDescr" maxlength="100" value="${esc(a.descr || '')}" placeholder="Vuota = descrizione della banca"></label>
+        ${soc.tipoCont === 'semplificata' ? `<label class="field" data-sez="registro" ${t === 0 ? '' : 'hidden'}><span>Registro IVA (solo semplificata)</span><select class="inp" name="registro" id="edRegistro"><option value="">Nessuno</option>${soc.registri.map((g) => `<option value="${esc(g.c)}" ${g.c === a.registro ? 'selected' : ''}>${esc(g.c)} — ${esc(g.d)}</option>`).join('')}</select></label>` : ''}
+      </div>
+      <details id="edNuovoNom"><summary class="small" style="cursor:pointer;color:var(--accent)">Cliente o fornitore non in anagrafica? Aggiungilo</summary>
+        <div class="grid3" style="margin-top:10px">
+          <label class="field"><span>Codice</span><input class="inp mono" name="nnCodice" id="nnCodice"></label>
+          <label class="field"><span>Ragione sociale</span><input class="inp" name="nnNome" id="nnNome"></label>
+          <label class="field"><span>Tipo</span><select class="inp" name="nnTipo" id="nnTipo"><option value="C" ${segno === 'E' ? 'selected' : ''}>Cliente</option><option value="F" ${segno === 'U' ? 'selected' : ''}>Fornitore</option><option value="A">Altro</option></select></label>
+          <label class="field"><span>Partita IVA</span><input class="inp mono" name="nnPiva" id="nnPiva"></label>
+          <label class="field"><span>Codice fiscale</span><input class="inp mono" name="nnCf" id="nnCf"></label>
+          <label class="field"><span>Mastro (facoltativo)</span><input class="inp mono" name="nnConto" id="nnConto" list="dlPdc"></label>
+        </div></details>
+      <div class="card" style="background:var(--surface-2);border:0">
+        <label class="check"><input type="checkbox" name="memo" id="edMemo" ${regola && r.fonte === 'regola' ? '' : 'checked'}><span><b>Memorizza come regola</b> per abbinare automaticamente i movimenti simili, anche nei prossimi periodi</span></label>
+        <div class="grid3">
+          <label class="field" style="grid-column: span 2"><span>Parole che la descrizione deve contenere</span><input class="inp mono" name="parole" id="edParole" value="${esc(regola ? regola.parole : parole)}"><small>Tutte le parole devono comparire. Togli numeri e date che cambiano ogni mese.</small></label>
+          <label class="field"><span>Vale per</span><select class="inp" name="segno" id="edSegno"><option value="E" ${segno === 'E' ? 'selected' : ''}>Solo entrate</option><option value="U" ${segno === 'U' ? 'selected' : ''}>Solo uscite</option><option value="" ${!segno ? 'selected' : ''}>Entrate e uscite</option></select></label>
+        </div>
+        <div class="row">
+          ${!multi ? `<label class="check"><input type="checkbox" name="importoFisso" id="edImporto"><span>Solo con importo ${fmtEur(Math.abs(r.importo))}</span></label>` : ''}
+          <label class="check"><input type="checkbox" name="soloCc" id="edSoloCc"><span>Solo per questo conto corrente</span></label>
+        </div>
+      </div>
+      ${datalistBase(soc)}
+    </div>
+    <div class="mf">${!multi && r.abb ? `<button type="button" class="btn danger left" data-act="togliAbb">Rimuovi abbinamento</button>` : ''}<button type="button" class="btn" data-act="chiudi">Annulla</button>${!multi ? `<button class="btn" name="dopo" value="prossimo">Salva e vai al prossimo</button>` : ''}<button class="btn primary" name="dopo" value="chiudi">Salva</button></div>
+  </form>`;
+}
+let _edit = null;
+function apriEditor(soc, ids) {
+  const per = S.per[kPer(soc.id, S.ui.ccId, S.ui.pkey)];
+  const righe = per.righe.filter((r) => ids.includes(r.id));
+  if (!righe.length) return;
+  _edit = { ids };
+  apriModale(htmlEditor(soc, righe), { onClose: () => { _edit = null; } });
+}
+function aggiornaEditorCausale(soc) {
+  const ctx = contesto(soc);
+  const t = tipoCausale(ctx, $('#edCausale').value);
+  const conPart = CON_PARTITA.has(t);
+  const sp = document.querySelector('[data-sez=partita]'); if (sp) sp.hidden = !conPart;
+  const sr = document.querySelector('[data-sez=registro]'); if (sr) sr.hidden = t !== 0;
+  $('#edContoLab').textContent = conPart ? 'Conto (vuoto = mastro del cliente/fornitore)' : 'Conto di contropartita *';
+  if (conPart && !$('#edPartita').value && _edit && _edit.ids.length === 1) {
+    const r = S.per[kPer(soc.id, S.ui.ccId, S.ui.pkey)].righe.find((x) => x.id === _edit.ids[0]);
+    if (r) $('#edPartita').value = suggerisciPartita(r.descr, r.data);
+  }
+}
+function salvaAbbinamento(soc, form, dopo) {
+  const fd = new FormData(form);
+  const ctx0 = contesto(soc);
+  const per = S.per[kPer(soc.id, S.ui.ccId, S.ui.pkey)];
+  const righe = per.righe.filter((r) => _edit.ids.includes(r.id));
+  const nnCodice = str(fd.get('nnCodice')), nnNome = str(fd.get('nnNome'));
+  if (nnCodice || nnNome) {
+    if (!nnCodice || !nnNome) { toast('Per il nuovo nominativo servono codice e ragione sociale.', true); return; }
+    const lst = S.nom[soc.id];
+    if (lst.some((n) => n.c === nnCodice)) { toast(`Il codice ${nnCodice} esiste già in anagrafica.`, true); return; }
+    lst.push({ c: nnCodice, d: nnNome, tipo: fd.get('nnTipo'), piva: str(fd.get('nnPiva')), cf: str(fd.get('nnCf')).toUpperCase(), conto: codiceDa(fd.get('nnConto')), alias: '' });
+    salvaNom(soc);
+  }
+  const a = {
+    causale: str(fd.get('causale')), conto: codiceDa(fd.get('conto')),
+    nominativo: codiceDa(fd.get('nominativo')) || nnCodice, partita: str(fd.get('partita')), descr: str(fd.get('descr')), registro: str(fd.get('registro') || ''),
+  };
+  if (!a.causale) { toast('Scegli la causale.', true); return; }
+  const t = tipoCausale(ctx0, a.causale);
+  if (!CON_PARTITA.has(t)) a.partita = '';
+  let rg = null;
+  if (fd.get('memo')) {
+    const parole = norm(fd.get('parole'));
+    if (!parole) { toast('Indica almeno una parola per la regola, oppure togli la spunta «Memorizza come regola».', true); return; }
+    rg = {
+      id: uid(), parole, segno: str(fd.get('segno')), importo: fd.get('importoFisso') ? Math.abs(righe[0].importo) : null, ccId: fd.get('soloCc') ? S.ui.ccId : '',
+      causale: a.causale, conto: a.conto, nominativo: a.nominativo, partita: '', descr: a.descr, registro: a.registro, origine: 'manuale', creata: new Date().toISOString(),
+    };
+    const lst = S.reg[soc.id];
+    const dup = lst.find((x) => x.parole === rg.parole && x.segno === rg.segno && (x.importo ?? null) === (rg.importo ?? null) && (x.ccId || '') === rg.ccId);
+    if (dup) { Object.assign(dup, { causale: rg.causale, conto: rg.conto, nominativo: rg.nominativo, descr: rg.descr, registro: rg.registro, modificata: rg.creata }); rg = dup; }
+    else lst.push(rg);
+    salvaReg(soc);
+  }
+  for (const r of righe) {
+    r.abb = Object.assign({}, a);
+    if (CON_PARTITA.has(t) && righe.length > 1 && !a.partita) r.abb.partita = suggerisciPartita(r.descr, r.data);
+    r.fonte = 'manuale'; r.regolaId = rg ? rg.id : null;
+  }
+  let altre = 0;
+  if (rg) {
+    const ctx = contesto(soc);
+    const dn = (r) => ' ' + norm(r.descr) + ' ';
+    for (const r of per.righe) {
+      if (_edit.ids.includes(r.id) || r.fonte === 'manuale' || (r.abb && r.fonte === 'regola' && r.regolaId !== rg.id)) continue;
+      if (regolaCorrisponde(rg, r, S.ui.ccId, dn(r)) < 0) continue;
+      r.abb = abbDaRegola(soc, ctx, rg, r); r.fonte = 'regola'; r.regolaId = rg.id; altre++;
+    }
+  }
+  S.ui.sel = new Set();
+  const idCorrente = _edit.ids[0];
+  _modalOnClose = null; _edit = null;
+  chiudiModale();
+  salvaPeriodo(soc, S.ui.ccId, S.ui.pkey);
+  toast(`Abbinamento salvato${rg ? ` · regola «${rg.parole}»` : ''}${altre ? ` applicata ad altri ${altre} movimenti` : ''}`);
+  render();
+  if (dopo === 'prossimo') {
+    const ctx = contesto(soc);
+    const ord = per.righe.slice().sort((x, y) => x.data.localeCompare(y.data) || x.ord - y.ord);
+    const i = ord.findIndex((x) => x.id === idCorrente);
+    const next = ord.slice(i + 1).concat(ord.slice(0, i + 1)).find((x) => statoRiga(soc, ctx, x) !== 'ok');
+    if (next) apriEditor(soc, [next.id]); else toast('Tutti i movimenti del periodo sono pronti.');
+  }
+}
+
+/* ------------------------------------------------- anteprima/genera */
+function htmlAnteprima(soc, cc, ris) {
+  const vis = ris.righe.slice(0, 120);
+  return `${mHead('Anteprima registrazioni', `${ris.movimenti} registrazioni · ${ris.righe.length} righe${ris.nTrans ? ` · ${ris.nTrans} sul conto transitorio` : ''}`)}
+  <div class="mb">${ris.errori.length ? `<div class="note warn">${ris.errori.length} movimenti non pronti sono esclusi da questa anteprima.</div>` : ''}
+    <div class="tablewrap"><table class="t"><thead><tr><th class="num">N. mov</th><th class="num">Riga</th><th>Causale</th><th>Data reg.</th><th>Tipo riga</th><th>Conto</th><th>Nominativo</th><th>Partita</th><th>Descrizione</th><th class="num">Importo</th></tr></thead><tbody>
+    ${vis.map((o) => `<tr><td class="num">${o['N. mov']}</td><td class="num">${o['N. riga']}</td><td class="mono">${esc(o['Causale'])}</td><td class="num">${o['Data registrazione']}</td><td class="num">${o['Tipo riga']}</td><td class="mono">${esc(o['Cod. conto'])}</td><td class="mono">${esc(o['Cod. nominativo'] || '')}</td><td class="mono">${esc(o['Cod. partita'] || '')}</td><td class="small">${esc((o['Descrizione riga'] || '').slice(0, 60))}</td><td class="num">${o['Importo riga']}</td></tr>`).join('')}
+    </tbody></table></div>${ris.righe.length > vis.length ? `<p class="small muted">Mostrate le prime ${vis.length} righe.</p>` : ''}</div>
+  <div class="mf"><button class="btn" data-act="chiudi">Chiudi</button></div>`;
+}
+function descrPrimaNota(soc, ctx, r) {
+  const a = r.abb;
+  if (soc.export.descrPN === 'banca' || !a || r.fonte === 'suggerito') return r.descr;
+  const t = tipoCausale(ctx, a.causale);
+  const nom = a.nominativo ? ctx.nom.get(a.nominativo) : null;
+  const ft = a.partita ? ` ft ${a.partita.split('|')[0]}` : '';
+  if (nom && (t === 7 || t === 9)) return `Incasso cliente ${nom.d}${ft}`;
+  if (nom && t === 8) return `Pagamento fornitore ${nom.d}${ft}`;
+  return a.descr || r.descr;
+}
+function righePrimaNota(soc, per) {
+  const ctx = contesto(soc);
+  return per.righe.slice().sort((a, b) => a.data.localeCompare(b.data) || a.ord - b.ord).map((r) => ({
+    data: soc.export.dataReg === 'valuta' && r.valuta ? r.valuta : r.data,
+    descr: pulisciTesto(descrPrimaNota(soc, ctx, r), 250),
+    ent: r.importo > 0 ? r.importo : null, usc: r.importo < 0 ? -r.importo : null, stato: statoRiga(soc, ctx, r),
+  }));
+}
+const serialeExcel = (iso) => { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d) / 86400000 + 25569; };
+const cellaData = (iso) => ({ t: 'n', v: serialeExcel(iso), z: 'dd/mm/yyyy' });
+const cellaNum = (n) => ({ t: 'n', v: round2(n), z: '#,##0.00' });
+const cellaTesto = (v) => ({ t: 's', v: String(v ?? '') });
+function bytesInBase64(bytes) { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s); }
+function base64InBytes(b64) { const s = atob(b64); const out = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i); return out; }
+function trovaPosizioniModello(wb) {
+  for (const nome of wb.SheetNames) {
+    const ws = wb.Sheets[nome];
+    const celle = Object.keys(ws).filter((k) => k[0] !== '!');
+    const intest = celle.find((k) => norm(ws[k].v) === 'DESCRIZIONE OPERAZIONE');
+    if (!intest) continue;
+    const { r, c } = XLSX.utils.decode_cell(intest);
+    const pos = { foglio: nome, riga: r, descr: c, data: c - 1, ent: c + 1, usc: c + 2, saldo: null };
+    for (const k of celle) {
+      const x = XLSX.utils.decode_cell(k), v = norm(ws[k].v);
+      if (x.r === r && v.includes('DATA')) pos.data = x.c;
+      if (x.r === r && v.includes('ENTRATA')) pos.ent = x.c;
+      if (x.r === r && v.includes('USCITA')) pos.usc = x.c;
+      if (v === 'SALDO INIZIALE') pos.saldo = XLSX.utils.encode_cell({ r: x.r, c: x.c + 1 });
+    }
+    return pos;
+  }
+  return null;
+}
+async function workbookPrimaNota(soc, per) {
+  if (!window.XLSX) throw new Error('Il modulo Excel non è disponibile: controlla la connessione e ricarica la pagina.');
+  const righe = righePrimaNota(soc, per);
+  const saldo = per.saldoIniziale;
+  const enc = (r, c) => XLSX.utils.encode_cell({ r, c });
+  if (soc.export.modello) {
+    const tpl = await Store.get(`tpl_${soc.id}`);
+    if (!tpl) throw new Error('Il modello Koinos non è più in archivio: ricaricalo in Dati di base › Formato file.');
+    const wb = XLSX.read(base64InBytes(tpl.b64), { type: 'array', cellFormula: true, cellNF: true, cellStyles: true });
+    const pos = trovaPosizioniModello(wb);
+    if (!pos) throw new Error('Nel modello non trovo la colonna «Descrizione operazione».');
+    const ws = wb.Sheets[pos.foglio];
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+    for (let R = pos.riga + 1; R <= range.e.r; R++) for (const C of [pos.data, pos.descr, pos.ent, pos.usc]) delete ws[enc(R, C)];
+    righe.forEach((x, i) => {
+      const R = pos.riga + 1 + i;
+      ws[enc(R, pos.data)] = cellaData(x.data); ws[enc(R, pos.descr)] = cellaTesto(x.descr);
+      if (x.ent != null) ws[enc(R, pos.ent)] = cellaNum(x.ent);
+      if (x.usc != null) ws[enc(R, pos.usc)] = cellaNum(x.usc);
+    });
+    range.e.r = Math.max(range.e.r, pos.riga + righe.length);
+    range.e.c = Math.max(range.e.c, pos.data, pos.descr, pos.ent, pos.usc);
+    ws['!ref'] = XLSX.utils.encode_range(range);
+    if (pos.saldo && saldo != null) ws[pos.saldo] = cellaNum(saldo);
+    return { wb, righe, xls: /\.xls$/i.test(tpl.nome) };
+  }
+  const ws = {};
+  const fine = Math.max(9, 8 + righe.length);
+  const tot = righe.reduce((t, x) => { t.e += x.ent || 0; t.u += x.usc || 0; return t; }, { e: 0, u: 0 });
+  Object.assign(ws, {
+    B1: cellaTesto('Movimenti di prima nota'),
+    C3: cellaTesto('Congome e Nome o Denominazione'), D3: cellaTesto('Saldo iniziale'),
+    C4: cellaTesto(soc.nome), D4: cellaTesto('Tot. Entrate'), E4: { t: 'n', f: `SUM(D9:D${fine})`, v: round2(tot.e), z: '#,##0.00' },
+    C5: cellaTesto('Codice Fiscale'), D5: cellaTesto('Tot. Uscite'), E5: { t: 'n', f: `SUM(E9:E${fine})`, v: round2(tot.u), z: '#,##0.00' },
+    C6: cellaTesto(soc.cf || ''), D6: cellaTesto('Saldo Finale'), E6: { t: 'n', f: 'E3+E4-E5', v: round2((saldo || 0) + tot.e - tot.u), z: '#,##0.00' },
+    B8: cellaTesto('Data registrazione'), C8: cellaTesto('Descrizione operazione'), D8: cellaTesto('Importo entrata'), E8: cellaTesto('Importo uscita'),
+  });
+  if (saldo != null) ws.E3 = cellaNum(saldo);
+  righe.forEach((x, i) => {
+    const R = 8 + i;
+    ws[enc(R, 1)] = cellaData(x.data); ws[enc(R, 2)] = cellaTesto(x.descr);
+    if (x.ent != null) ws[enc(R, 3)] = cellaNum(x.ent);
+    if (x.usc != null) ws[enc(R, 4)] = cellaNum(x.usc);
+  });
+  ws['!ref'] = `A1:E${fine}`;
+  ws['!cols'] = [{ wch: 3 }, { wch: 16 }, { wch: 70 }, { wch: 16 }, { wch: 16 }];
+  ws['!merges'] = [{ s: { r: 0, c: 1 }, e: { r: 0, c: 4 } }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Movimenti di prima nota');
+  return { wb, righe, xls: false };
+}
+function htmlAnteprimaPN(soc, righe) {
+  const tot = righe.reduce((t, x) => { t.e += x.ent || 0; t.u += x.usc || 0; return t; }, { e: 0, u: 0 });
+  return `${mHead('Anteprima foglio prima nota', `${righe.length} righe · entrate ${fmtEur(tot.e)} · uscite ${fmtEur(tot.u)}`)}
+  <div class="mb"><div class="tablewrap"><table class="t"><thead><tr><th>Data registrazione</th><th>Descrizione operazione</th><th class="num">Importo entrata</th><th class="num">Importo uscita</th><th>Abbinamento</th></tr></thead><tbody>
+  ${righe.slice(0, 300).map((x) => `<tr><td class="num">${fmtData(x.data)}</td><td>${esc(x.descr)}</td><td class="num amt-in">${x.ent != null ? fmtEur(x.ent) : ''}</td><td class="num">${x.usc != null ? fmtEur(x.usc) : ''}</td><td><span class="chip ${STATI[x.stato][0]}">${STATI[x.stato][1]}</span></td></tr>`).join('')}
+  </tbody></table></div></div><div class="mf"><button class="btn" data-act="chiudi">Chiudi</button></div>`;
+}
+async function generaPrimaNota(soc, cc) {
+  const per = S.per[kPer(soc.id, cc.id, S.ui.pkey)];
+  if (!per.righe.length) { toast('Nessun movimento da esportare.', true); return; }
+  const { wb, righe, xls } = await workbookPrimaNota(soc, per);
+  const usaXls = xls && !(await capDownloads());
+  const file = `PrimaNota_${slug(soc.nome)}_${slug(cc.nome)}_${S.ui.pkey}.${usaXls ? 'xls' : 'xlsx'}`;
+  const dati = new Uint8Array(XLSX.write(wb, { type: 'array', bookType: usaXls ? 'biff8' : 'xlsx' }));
+  const ok = await scarica(file, dati, usaXls ? 'application/vnd.ms-excel' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  if (!ok) return;
+  per.esportazioni.push({ data: new Date().toISOString(), file, movimenti: righe.length, transitorio: 0 });
+  salvaPeriodo(soc, cc.id, S.ui.pkey, { esportato: true });
+  toast(`Foglio generato: ${righe.length} movimenti.`);
+  render();
+}
+async function genera(soc, cc) {
+  if (soc.export.formato === 'primanota') return generaPrimaNota(soc, cc);
+  const per = S.per[kPer(soc.id, cc.id, S.ui.pkey)];
+  const transitorio = !!$('#usaTransitorio')?.checked;
+  const ris = generaTracciato(soc, cc, per, { transitorio });
+  if (ris.errori.length) { toast(`${ris.errori.length} movimenti non sono pronti. Completali o spunta l’opzione del conto transitorio.`, true); S.ui.filtro = 'da'; render(); return; }
+  if (!ris.movimenti) { toast('Nessun movimento da esportare.', true); return; }
+  const file = `Koinos_${slug(soc.nome)}_${slug(cc.nome)}_${S.ui.pkey}.csv`;
+  const dati = soc.export.enc === 'cp1252' ? codificaCp1252(ris.testo) : '\uFEFF' + ris.testo;
+  const ok = await scarica(file, dati, 'text/csv');
+  if (!ok) return;
+  per.esportazioni.push({ data: new Date().toISOString(), file, movimenti: ris.movimenti, transitorio: ris.nTrans });
+  salvaPeriodo(soc, cc.id, S.ui.pkey, { esportato: true });
+  toast(`File generato: ${ris.movimenti} registrazioni.`);
+  render();
+}
+
+/* ============================================================ dati di base */
+const TABELLE = {
+  causali: {
+    titolo: 'Causali', campi: [['c', 'Codice'], ['d', 'Descrizione'], ['t', 'Tipo']],
+    guess: { c: ['IDCAUSALE', 'CODICE', 'CAUSALE', 'COD CAUSALE'], d: ['DESCRIZIONELUNGA', 'DESCRIZIONE LUNGA', 'DESCRIZIONE'], t: ['TPCAUSALE', 'TIPO CAUSALE', 'TIPO'], iva: ['FLIVA'], u: ['USATO'] },
+    lista: (soc) => soc.causali, set: (soc, v) => { soc.causali = v; salvaSoc(soc); },
+  },
+  pdc: {
+    titolo: 'Piano dei conti', campi: [['c', 'Codice conto'], ['d', 'Descrizione']],
+    guess: { c: ['IDCONTO', 'CODICE CONTO', 'COD CONTO', 'CODICE', 'CONTO'], d: ['DESCRIZIONELUNGA', 'DESCRIZIONE', 'DENOMINAZIONE'] },
+    lista: (soc) => S.pdc[soc.id], set: (soc, v) => { S.pdc[soc.id] = v; salvaPdc(soc); },
+  },
+  nom: {
+    titolo: 'Clienti e fornitori', campi: [['c', 'Codice'], ['d', 'Ragione sociale'], ['tipo', 'Tipo'], ['piva', 'Partita IVA'], ['cf', 'Codice fiscale'], ['conto', 'Mastro'], ['alias', 'Altri nomi in banca']],
+    guess: { c: ['IDNOMINATIVO', 'CODICE NOMINATIVO', 'COD NOMINATIVO', 'CODICE'], d: ['RAGIONESOCIALE', 'RAGIONE SOCIALE', 'DENOMINAZIONE', 'NOMINATIVO', 'DESCRIZIONE'], tipo: ['TIPO', 'TPNOMINATIVO', 'CLIENTE FORNITORE'], piva: ['PARTITAIVA', 'PARTITA IVA', 'P IVA', 'PIVA'], cf: ['CODICEFISCALE', 'CODICE FISCALE', 'CF'], conto: ['IDCONTO', 'MASTRO', 'CONTO'] },
+    lista: (soc) => S.nom[soc.id], set: (soc, v) => { S.nom[soc.id] = v; salvaNom(soc); },
+  },
+  registri: {
+    titolo: 'Registri IVA', campi: [['c', 'Codice'], ['d', 'Descrizione'], ['tipo', 'Tipo'], ['note', 'Note']],
+    guess: { c: ['IDREGISTROIVA', 'CODICE REGISTRO', 'CODICE', 'REGISTRO'], d: ['DESCRIZIONE', 'DESCRIZIONELUNGA'], tipo: ['TPREGISTROIVA', 'TIPO REGISTRO', 'TIPO'] },
+    lista: (soc) => soc.registri, set: (soc, v) => { soc.registri = v; salvaSoc(soc); },
+  },
+};
+function valoreCella(tab, k, x) {
+  if (tab === 'causali' && k === 't') return `${x.t ?? ''} · ${TIPI_CAUSALE[x.t] || '?'}${x.iva || TIPI_IVA.has(x.t) ? ' (IVA)' : ''}`;
+  if (tab === 'nom' && k === 'tipo') return TIPI_NOM[x.tipo] || '';
+  if (tab === 'registri' && k === 'tipo') return TIPI_REGISTRO[x.tipo] || x.tipo || '';
+  return x[k] ?? '';
+}
+function viewDati(soc) {
+  const tabs = [['generale', 'Generale'], ['conti', 'Conti correnti', soc.conti.length], ['causali', 'Causali', soc.causali.length], ['pdc', 'Piano dei conti', (S.pdc[soc.id] || []).length], ['nom', 'Clienti e fornitori', (S.nom[soc.id] || []).length], ['registri', 'Registri IVA', soc.registri.length], ['export', 'Formato file']];
+  let html = `<div class="wrap"><div class="pagehead"><div><h1>Dati di base</h1><div class="meta">${esc(soc.nome)} · servono per abbinare i movimenti e compilare il tracciato Koinos</div></div></div>
+    <div class="tabs">${tabs.map(([k, l, n]) => `<button class="${S.ui.datiTab === k ? 'on' : ''}" data-act="datiTab" data-tab="${k}">${l}${n != null ? `<span class="n">${n}</span>` : ''}</button>`).join('')}</div>`;
+  const t = S.ui.datiTab;
+  if (t === 'generale') html += tabGenerale(soc);
+  else if (t === 'conti') html += tabConti(soc);
+  else if (t === 'export') html += tabExport(soc);
+  else html += tabTabella(soc, t);
+  return html + '</div>';
+}
+function campo(id, label, val, extra = '', help = '') {
+  return `<label class="field"><span>${label}</span><input class="inp ${extra.includes('mono') ? 'mono' : ''}" id="g_${id}" data-ch="socCampo" data-k="${id}" value="${esc(val ?? '')}" ${extra.replace('mono', '')}>${help ? `<small>${help}</small>` : ''}</label>`;
+}
+function selCausale(soc, id, label, help) {
+  return `<label class="field"><span>${label}</span><select class="inp" id="g_${id}" data-ch="socCampo" data-k="${id}">${opzioniCausali(soc, soc[id])}</select>${help ? `<small>${help}</small>` : ''}</label>`;
+}
+function tabGenerale(soc) {
+  const pdc = S.pdc[soc.id] || [];
+  const desc = (c) => (c ? (pdc.find((x) => x.c === c)?.d || (pdc.length ? 'Non presente nel piano dei conti' : '')) : '');
+  return `<section class="card"><div class="card-h"><h2>Anagrafica</h2></div><div class="grid3">
+      ${campo('nome', 'Ragione sociale', soc.nome)}
+      ${campo('cf', 'Codice fiscale / Partita IVA', soc.cf, 'mono')}
+      ${campo('codDitta', 'Codice ditta in Koinos', soc.codDitta, 'mono')}
+      <label class="field"><span>Tipo di contabilità</span><select class="inp" id="g_tipoCont" data-ch="socCampo" data-k="tipoCont"><option value="ordinaria" ${soc.tipoCont === 'ordinaria' ? 'selected' : ''}>Ordinaria</option><option value="semplificata" ${soc.tipoCont === 'semplificata' ? 'selected' : ''}>Semplificata</option><option value="professionista" ${soc.tipoCont === 'professionista' ? 'selected' : ''}>Professionista</option></select><small>In semplificata puoi indicare il registro IVA sui movimenti normali.</small></label>
+    </div></section>
+    <section class="card"><div class="card-h"><h2>Conti contabili</h2></div><div class="grid3">
+      ${campo('mastroClienti', 'Mastro clienti', soc.mastroClienti, 'mono list="dlPdc"', desc(soc.mastroClienti) || 'Es. 100101003')}
+      ${campo('mastroFornitori', 'Mastro fornitori', soc.mastroFornitori, 'mono list="dlPdc"', desc(soc.mastroFornitori) || 'Es. 3901010')}
+      ${campo('contoTransitorio', 'Conto transitorio da riclassificare', soc.contoTransitorio, 'mono list="dlPdc"', desc(soc.contoTransitorio) || 'Usato per i movimenti che decidi di non abbinare subito')}
+    </div>${datalistBase(soc)}</section>
+    <section class="card"><div class="card-h"><h2>Causali predefinite</h2></div><div class="grid2">
+      ${selCausale(soc, 'causaleIncasso', 'Incasso da cliente', 'Proposta quando riconosco un cliente nella descrizione.')}
+      ${selCausale(soc, 'causalePagamento', 'Pagamento a fornitore', 'Proposta quando riconosco un fornitore nella descrizione.')}
+      ${selCausale(soc, 'causaleEntrate', 'Entrate varie / transitorio', 'Per le entrate registrate sul conto transitorio o senza partita.')}
+      ${selCausale(soc, 'causaleUscite', 'Uscite varie / transitorio', 'Per le uscite registrate sul conto transitorio o senza partita.')}
+      <label class="field"><span>Incassi e pagamenti senza partita</span><select class="inp" id="g_partitaMancante" data-ch="socCampo" data-k="partitaMancante">
+        <option value="blocca" ${soc.partitaMancante !== 'normale' ? 'selected' : ''}>Chiedi sempre la partita (chiude lo scadenzario)</option>
+        <option value="normale" ${soc.partitaMancante === 'normale' ? 'selected' : ''}>Registra come movimento normale sul conto del cliente/fornitore</option></select>
+        <small>Il tracciato Koinos richiede la partita (numero|anno) per le causali di incasso e pagamento.</small></label>
+    </div></section>
+    <section class="card"><div class="card-h"><h2>Copia da un’altra società</h2></div>
+      <p class="small muted" style="margin:0">Copia causali, piano dei conti, registri IVA e impostazioni da una società già configurata. I conti correnti, le regole e i movimenti non vengono copiati.</p>
+      <div class="row"><select class="inp" id="copiaDa" style="max-width:320px"><option value="">Scegli la società</option>${S.index.societa.filter((s) => s.id !== soc.id).map((s) => `<option value="${s.id}">${esc(s.nome)}</option>`).join('')}</select><button class="btn" data-act="copiaDa">Copia dati di base</button></div></section>
+    <section class="card"><div class="card-h"><h2>Elimina società</h2></div>
+      <p class="small muted" style="margin:0">Elimina la società con conti correnti, regole e tutti i periodi lavorati. Scarica prima un backup.</p>
+      <div class="row"><input class="inp" id="eliminaNome" style="max-width:320px" placeholder="Scrivi «${esc(soc.nome)}» per confermare"><button class="btn danger" data-act="eliminaSoc">Elimina società</button></div></section>`;
+}
+function tabConti(soc) {
+  if (!soc.conti.length) return `<div class="empty"><h2>Nessun conto corrente</h2><p>Aggiungi i conti correnti della società con il relativo codice conto Koinos.</p><button class="btn primary" data-act="nuovoCc">Aggiungi conto corrente</button></div>`;
+  return `<div class="row" style="justify-content:flex-end"><button class="btn primary" data-act="nuovoCc">Aggiungi conto corrente</button></div>
+  <div class="tablewrap"><table class="t"><thead><tr><th>Conto</th><th>Banca</th><th>IBAN</th><th>Conto Koinos</th><th>Anni e periodicità</th><th>Formato estratto</th></tr></thead><tbody>
+  ${soc.conti.map((cc) => `<tr class="click" data-act="modCc" data-cc="${cc.id}"><td><b>${esc(cc.nome)}</b></td><td>${esc(cc.banca)}</td><td class="mono small">${esc(cc.iban)}</td><td>${cc.codiceConto ? `<span class="tag">${esc(cc.codiceConto)}</span>` : '<span class="chip bad">da indicare</span>'}</td>
+    <td class="small">${Object.entries(cc.anni).sort().map(([a, t]) => `${a} ${t === 'T' ? 'trimestrale' : 'mensile'}`).join(' · ')}</td><td class="small muted">${cc.formato ? 'Colonne memorizzate' : 'Al primo caricamento'}</td></tr>`).join('')}</tbody></table></div>`;
+}
+function tabExport(soc) {
+  const e = soc.export;
+  const scelta = `<section class="card"><div class="card-h"><h2>File da generare per Koinos</h2></div>
+    <div class="grid2">
+      <label class="check"><input type="radio" name="formato" id="e_formatoPN" data-ch="expCampo" data-k="formato" value="primanota" ${e.formato === 'primanota' ? 'checked' : ''}><span><b>Excel prima nota cassa banca</b><br><span class="small muted">Il foglio «Movimenti di prima nota» da importare nella Prima nota cassa banca. Le regole di Koinos completano causali e conti.</span></span></label>
+      <label class="check"><input type="radio" name="formato" id="e_formatoCsv" data-ch="expCampo" data-k="formato" value="csv" ${e.formato === 'csv' ? 'checked' : ''}><span><b>CSV tracciato movimenti</b><br><span class="small muted">«Importazione da file di testo movimenti»: registrazioni complete con causale, conti, nominativo e partita.</span></span></label>
+    </div>
+    <label class="field" style="max-width:320px"><span>Data di registrazione</span><select class="inp" id="e_dataReg" data-ch="expCampo" data-k="dataReg"><option value="operazione" ${e.dataReg !== 'valuta' ? 'selected' : ''}>Data operazione (contabile)</option><option value="valuta" ${e.dataReg === 'valuta' ? 'selected' : ''}>Data valuta</option></select></label>
+  </section>`;
+  if (e.formato === 'primanota') {
+    return scelta + `<section class="card"><div class="card-h"><h2>Excel prima nota cassa banca</h2></div>
+    <label class="field" style="max-width:520px"><span>Descrizione operazione</span><select class="inp" id="e_descrPN" data-ch="expCampo" data-k="descrPN">
+      <option value="koinos" ${e.descrPN !== 'banca' ? 'selected' : ''}>Dagli abbinamenti, nello schema di Koinos («Incasso cliente Rossi Snc ft 123»)</option>
+      <option value="banca" ${e.descrPN === 'banca' ? 'selected' : ''}>Descrizione originale dell’estratto conto</option></select>
+      <small>Con la prima opzione, per i movimenti normali uso la «Descrizione della registrazione» indicata nella regola o nell’abbinamento: scrivila come le voci proposte da Koinos (es. «Spese postali (costo)», «Pagamento stipendi (debito)»).</small></label>
+    <div class="card" style="background:var(--surface-2);border:0">
+      <div class="card-h"><h3>Modello creato da Koinos</h3>${e.modello ? `<span class="chip ok">Caricato</span>` : '<span class="chip neutral">Non caricato</span>'}</div>
+      ${e.modello ? `<p class="small" style="margin:0"><span class="mono">${esc(e.modello.nome)}</span> · caricato il ${fmtDataOra(e.modello.caricato)} · foglio «${esc(e.modello.foglio)}», intestazioni alla riga ${e.modello.riga}</p>` : `<p class="small muted" style="margin:0">Senza modello creo il foglio con la stessa impostazione di Koinos (denominazione e codice fiscale in testata, dati dalla riga 9). Per la massima compatibilità carica il file vuoto che Koinos crea con «Crea file Excel di importazione» per questa società: lo riempio mantenendo intestazione e celle di controllo.</p>`}
+      <div class="row"><button class="btn" data-act="caricaModello">${e.modello ? 'Sostituisci modello' : 'Carica modello Koinos'}</button>${e.modello ? '<button class="btn danger" data-act="rimuoviModello">Rimuovi modello</button>' : ''}</div>
+    </div>
+    <div class="note">In Koinos: importa una volta nella «Gestione regole» il file «Regole Excel PN cassa banca (imprese).ric» o «(professionisti).ric», poi usa l’importazione della Prima nota cassa banca applicando il gruppo di regole (passo 3/10). Koinos chiede le credenziali se il codice fiscale del file è diverso da quello dell’archivio aperto.</div>
+  </section>`;
+  }
+  return scelta + `<section class="card"><div class="card-h"><h2>CSV tracciato movimenti</h2></div>
+    <p class="small muted" style="margin:0">In Koinos, in «Importazione da file di testo movimenti», scegli il tipo file Delimited con lo stesso separatore e associa le colonne per nome. Il file contiene tutte le 66 colonne del tracciato, nello stesso ordine del foglio Esempio.</p>
+    <div class="grid3">
+      <label class="field"><span>Separatore</span><select class="inp" id="e_sep" data-ch="expCampo" data-k="sep">${[[';', 'Punto e virgola ;'], ['tab', 'Tabulazione'], [',', 'Virgola ,']].map(([v, l]) => `<option value="${v}" ${e.sep === v ? 'selected' : ''}>${l}</option>`).join('')}</select><small>Con la virgola, le virgole nei testi diventano spazi; gli importi usano sempre la virgola decimale, quindi sconsigliata.</small></label>
+      <label class="field"><span>Codifica caratteri</span><select class="inp" id="e_enc" data-ch="expCampo" data-k="enc"><option value="cp1252" ${e.enc === 'cp1252' ? 'selected' : ''}>Windows-1252 (ANSI)</option><option value="utf8" ${e.enc === 'utf8' ? 'selected' : ''}>UTF-8 con BOM</option></select></label>
+    </div>
+    <label class="check"><input type="checkbox" id="e_header" data-ch="expCampo" data-k="header" ${e.header ? 'checked' : ''}><span>Prima riga con i nomi delle colonne</span></label>
+    <label class="check"><input type="checkbox" id="e_codId" data-ch="expCampo" data-k="codId" ${e.codId ? 'checked' : ''}><span>Compila «Cod. identificativo» con un codice univoco per movimento: Koinos segnala i movimenti già importati</span></label>
+    <div class="note">Ogni movimento bancario diventa una registrazione di due righe: riga 1 con «Tipo riga» 2 sul conto banca (importo positivo per le entrate, negativo per le uscite) e riga 2 di contropartita con importo opposto. Per le causali di incasso, pagamento e insoluto la riga 2 ha «Tipo riga» 0, il nominativo, la partita (numero|anno) e «Scadenze» = *.</div>
+  </section>`;
+}
+function tabTabella(soc, tab) {
+  const def = TABELLE[tab];
+  const lista = def.lista(soc) || [];
+  const q = norm(S.ui.tabCerca);
+  const filtrata = q ? lista.filter((x) => norm(def.campi.map(([k]) => x[k]).join(' ')).includes(q)) : lista;
+  const intro = {
+    causali: 'Precaricate dalla tabella causali che mi hai inviato. Per la banca si usano solo le causali non IVA. Puoi reimportare la tabella esportata da Koinos.',
+    pdc: 'Importa l’export del piano dei conti da Koinos (Excel o CSV): servono almeno codice e descrizione. Lo uso per controllare i conti e per i suggerimenti.',
+    nom: 'Importa l’anagrafica clienti e fornitori: codice nominativo, ragione sociale, partita IVA o codice fiscale. Li riconosco nella descrizione del bonifico per proporre incassi e pagamenti. In «Altri nomi in banca» puoi indicare come compaiono in estratto conto (separati da virgola).',
+    registri: 'I registri IVA della società (codice e tipo), come in Koinos. Servono per le società in semplificata e per i prossimi tracciati IVA.',
+  }[tab];
+  return `<section class="card"><p class="small muted" style="margin:0">${intro}</p>
+    <div class="row" style="justify-content:space-between"><input class="inp" style="max-width:280px" id="tabCerca" data-in="tabCerca" placeholder="Cerca" value="${esc(S.ui.tabCerca)}">
+      <div class="row"><button class="btn" data-act="importaTab" data-tab="${tab}">Importa da Excel/CSV</button><button class="btn" data-act="esportaTab" data-tab="${tab}">Esporta Excel</button><button class="btn primary" data-act="nuovaVoce" data-tab="${tab}">Aggiungi</button></div></div>
+    <div id="tblTab">${tabellaVoci(soc, tab, filtrata)}</div></section>`;
+}
+function tabellaVoci(soc, tab, filtrata) {
+  const def = TABELLE[tab];
+  if (!filtrata.length) return `<div class="note">${S.ui.tabCerca ? 'Nessuna voce corrisponde alla ricerca.' : 'Nessuna voce: importa un file o aggiungi le voci a mano.'}</div>`;
+  const vis = filtrata.slice(0, S.ui.tabLimite);
+  return `<div class="tablewrap"><table class="t"><thead><tr>${def.campi.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead><tbody>
+    ${vis.map((x) => `<tr class="click" data-act="modVoce" data-tab="${tab}" data-c="${esc(x.c)}">${def.campi.map(([k], i) => `<td class="${i === 0 || k === 'conto' || k === 'piva' || k === 'cf' ? 'mono' : ''}">${esc(valoreCella(tab, k, x))}</td>`).join('')}</tr>`).join('')}
+  </tbody></table></div>${filtrata.length > vis.length ? `<div class="row"><span class="small muted">Mostrate ${vis.length} di ${filtrata.length}</span><button class="btn sm" data-act="altreVoci">Mostra altre</button></div>` : `<span class="small muted">${filtrata.length} voci</span>`}`;
+}
+function formVoce(soc, tab, x) {
+  const def = TABELLE[tab];
+  const nuovo = !x;
+  x = x || {};
+  const campi = def.campi.map(([k, l]) => {
+    const id = `v_${k}`;
+    if (tab === 'causali' && k === 't') return `<label class="field"><span>${l}</span><select class="inp" name="t" id="${id}">${Object.entries(TIPI_CAUSALE).map(([v, n]) => `<option value="${v}" ${String(x.t ?? 0) === v ? 'selected' : ''}>${v} · ${n}</option>`).join('')}</select></label>`;
+    if (tab === 'nom' && k === 'tipo') return `<label class="field"><span>${l}</span><select class="inp" name="tipo" id="${id}">${Object.entries(TIPI_NOM).map(([v, n]) => `<option value="${v}" ${x.tipo === v ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`;
+    if (tab === 'registri' && k === 'tipo') return `<label class="field"><span>${l}</span><select class="inp" name="tipo" id="${id}">${Object.entries(TIPI_REGISTRO).map(([v, n]) => `<option value="${v}" ${x.tipo === v ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`;
+    const mono = ['c', 'conto', 'piva', 'cf'].includes(k);
+    return `<label class="field"><span>${l}${k === 'c' || k === 'd' ? ' *' : ''}</span><input class="inp ${mono ? 'mono' : ''}" name="${k}" id="${id}" value="${esc(x[k] ?? '')}" ${k === 'conto' ? 'list="dlPdc"' : ''} ${k === 'c' || k === 'd' ? 'required' : ''}></label>`;
+  }).join('');
+  return `${mHead(nuovo ? `Nuova voce · ${def.titolo}` : `${def.titolo} · ${x.c}`)}
+  <form data-form="salvaVoce" data-tab="${tab}" data-orig="${esc(x.c ?? '')}"><div class="mb"><div class="grid2">${campi}</div>
+    ${tab === 'causali' ? `<label class="check"><input type="checkbox" name="u" id="v_u" ${x.u || nuovo ? 'checked' : ''}><span>Causale usata (proposta per prima negli elenchi)</span></label>` : ''}
+    ${tab === 'nom' ? datalistBase(soc) : ''}</div>
+    <div class="mf">${!nuovo ? `<button type="button" class="btn danger left" data-act="eliminaVoce" data-tab="${tab}" data-c="${esc(x.c)}">Elimina</button>` : ''}<button type="button" class="btn" data-act="chiudi">Annulla</button><button class="btn primary">Salva</button></div></form>`;
+}
+function apriImportTabella(soc, tab, rows, nomeFile) {
+  const def = TABELLE[tab];
+  const hr = trovaRigaIntestazione(rows, def.guess);
+  const g = indovinaColonne(rows[hr] || [], def.guess);
+  _import = { tab, rows, nomeFile, m: Object.assign({ headerRow: hr }, g) };
+  apriModale(htmlImportTabella(soc), { wide: true, onClose: () => { _import = null; } });
+}
+function righeImportTabella() {
+  const { tab, rows, m } = _import;
+  const def = TABELLE[tab];
+  const out = [];
+  for (let i = m.headerRow + 1; i < rows.length; i++) {
+    const r = rows[i] || [];
+    const x = {};
+    for (const [k] of def.campi.concat([['iva'], ['u']])) if (m[k] != null && m[k] !== '') x[k] = str(r[m[k]]);
+    if (!x.c) continue;
+    if (tab === 'causali') {
+      x.t = parseInt(x.t, 10); if (isNaN(x.t)) x.t = 0;
+      x.iva = x.iva != null ? ['1', 'TRUE', 'VERO', 'SI', 'S'].includes(String(x.iva).toUpperCase()) || x.iva === '1.0' : TIPI_IVA.has(x.t);
+      x.u = x.u != null ? !['0', '0.0', 'FALSE', 'NO', 'N', ''].includes(String(x.u).toUpperCase()) : true;
+    }
+    if (tab === 'nom') {
+      const tp = norm(x.tipo);
+      x.tipo = tp.startsWith('F') ? 'F' : tp.startsWith('C') ? 'C' : (tp ? 'A' : 'C');
+      if (x.cf) x.cf = x.cf.toUpperCase();
+    }
+    if (tab === 'registri') {
+      const tp = norm(x.tipo);
+      x.tipo = tp.startsWith('A') || tp === '2' ? 'A' : tp.startsWith('C') || tp === '3' ? 'C' : tp.startsWith('V') || tp === '1' ? 'V' : (x.tipo || '');
+    }
+    out.push(x);
+  }
+  return out;
+}
+function htmlImportTabella(soc) {
+  const { tab, rows, m, nomeFile } = _import;
+  const def = TABELLE[tab];
+  const header = rows[m.headerRow] || [];
+  const ncol = Math.max(...rows.slice(0, 60).map((r) => r.length));
+  const opz = (sel) => `<option value="">Non presente</option>${Array.from({ length: ncol }, (_, i) => `<option value="${i}" ${String(sel) === String(i) ? 'selected' : ''}>${esc(str(header[i]).slice(0, 30) || `Colonna ${i + 1}`)}</option>`).join('')}`;
+  const voci = righeImportTabella();
+  const campiImport = def.campi.concat(tab === 'causali' ? [['iva', 'Flag IVA'], ['u', 'Usata']] : []);
+  return `${mHead(`Importa ${def.titolo.toLowerCase()}`, `${esc(nomeFile)} · ${rows.length} righe`)}
+  <div class="mb"><div class="grid3">
+    <label class="field"><span>Riga di intestazione</span><select class="inp" id="itHeader" data-ch="mappaTab" data-k="headerRow">${rows.slice(0, 40).map((r, i) => `<option value="${i}" ${i === m.headerRow ? 'selected' : ''}>Riga ${i + 1}: ${esc(r.map(str).filter(Boolean).join(' | ').slice(0, 50))}</option>`).join('')}</select></label>
+    ${campiImport.map(([k, l]) => `<label class="field"><span>${l}${k === 'c' || k === 'd' ? ' *' : ''}</span><select class="inp" id="it_${k}" data-ch="mappaTab" data-k="${k}">${opz(m[k])}</select></label>`).join('')}
+  </div>
+  <div><div class="label" style="margin-bottom:6px">Anteprima · ${voci.length} voci</div>
+  ${voci.length ? `<div class="tablewrap"><table class="t"><thead><tr>${def.campi.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead><tbody>${voci.slice(0, 8).map((x) => `<tr>${def.campi.map(([k]) => `<td>${esc(valoreCella(tab, k, x))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : '<div class="note bad">Nessuna voce trovata: scegli almeno la colonna del codice.</div>'}</div>
+  <div class="field"><span>Voci già presenti: ${(def.lista(soc) || []).length}</span>
+    <label class="check"><input type="radio" name="itModo" value="aggiorna" checked><span>Aggiungi le nuove e aggiorna quelle con lo stesso codice</span></label>
+    <label class="check"><input type="radio" name="itModo" value="sostituisci"><span>Sostituisci tutta la tabella</span></label></div>
+  </div>
+  <div class="mf"><button class="btn" data-act="chiudi">Annulla</button><button class="btn primary" data-act="confermaImportTab" ${voci.length ? '' : 'disabled'}>Importa ${voci.length} voci</button></div>`;
+}
+
+/* ============================================================ regole */
+function viewRegole(soc) {
+  const regole = S.reg[soc.id] || [];
+  const ctx = contesto(soc);
+  const usi = new Map(), ultimo = new Map();
+  for (const [k, per] of Object.entries(S.per)) {
+    if (!k.startsWith(`per_${soc.id}_`)) continue;
+    for (const r of per.righe) if (r.regolaId) { usi.set(r.regolaId, (usi.get(r.regolaId) || 0) + 1); if ((ultimo.get(r.regolaId) || '') < r.data) ultimo.set(r.regolaId, r.data); }
+  }
+  const q = norm(S.ui.regCerca);
+  const lst = regole.filter((rg) => !q || norm([rg.parole, rg.causale, rg.conto, rg.nominativo, ctx.nom.get(rg.nominativo)?.d].join(' ')).includes(q))
+    .sort((a, b) => (usi.get(b.id) || 0) - (usi.get(a.id) || 0) || a.parole.localeCompare(b.parole));
+  let test = '';
+  if (S.ui.regTest.trim()) {
+    const fake = { descr: S.ui.regTest, importo: S.ui.regTestSegno === 'U' ? -1 : 1, data: oggiIso() };
+    const rg = trovaRegola(soc, fake, '');
+    test = rg ? `<div class="note">Corrisponde alla regola <b class="mono">${esc(rg.parole)}</b> → ${esc(rg.causale)} ${esc(rg.conto || '')} ${esc(rg.nominativo || '')}</div>` : '<div class="note warn">Nessuna regola corrisponde: il movimento risulterebbe da abbinare.</div>';
+  }
+  const ccNome = (id) => soc.conti.find((c) => c.id === id)?.nome || '';
+  return `<div class="wrap"><div class="pagehead"><div><h1>Regole di abbinamento</h1><div class="meta">${regole.length} regole · si applicano a tutti i periodi e conti della società (salvo limiti indicati)</div></div>
+    <button class="btn primary" data-act="nuovaRegola">Nuova regola</button></div>
+    <section class="card"><div class="card-h"><h3>Prova una descrizione</h3></div>
+      <div class="row"><input class="inp" style="flex:1;min-width:220px" id="regTest" data-in="regTest" placeholder="Incolla la descrizione di un movimento" value="${esc(S.ui.regTest)}">
+      <select class="inp" style="width:auto" id="regTestSegno" data-ch="regTestSegno"><option value="E" ${S.ui.regTestSegno !== 'U' ? 'selected' : ''}>Entrata</option><option value="U" ${S.ui.regTestSegno === 'U' ? 'selected' : ''}>Uscita</option></select></div>
+      <div id="regTestRis">${test}</div></section>
+    <div class="row"><input class="inp" style="max-width:300px" id="regCerca" data-in="regCerca" placeholder="Cerca per parola, causale, conto, nominativo" value="${esc(S.ui.regCerca)}"></div>
+    ${lst.length ? `<div class="tablewrap"><table class="t"><thead><tr><th>Se la descrizione contiene</th><th>Vale per</th><th>Causale</th><th>Contropartita</th><th>Nominativo</th><th class="num">Utilizzi</th><th>Ultimo movimento</th><th>Origine</th></tr></thead><tbody>
+    ${lst.map((rg) => { const c = ctx.caus.get(rg.causale); const nom = ctx.nom.get(rg.nominativo); return `<tr class="click" data-act="modRegola" data-id="${rg.id}">
+      <td><span class="mono"><b>${esc(rg.parole)}</b></span></td>
+      <td class="small">${rg.segno === 'E' ? 'Entrate' : rg.segno === 'U' ? 'Uscite' : 'Tutti'}${rg.importo != null ? ` · ${fmtEur(+rg.importo)}` : ''}${rg.ccId ? ` · ${esc(ccNome(rg.ccId))}` : ''}</td>
+      <td><span class="tag">${esc(rg.causale)}</span> <span class="small muted">${esc(c?.d || '')}</span></td>
+      <td>${rg.conto ? `<span class="mono">${esc(rg.conto)}</span> <span class="small muted">${esc(ctx.pdc.get(rg.conto)?.d || '')}</span>` : '<span class="muted small">Mastro</span>'}</td>
+      <td class="small">${rg.nominativo ? `${esc(nom?.d || '')} <span class="mono">${esc(rg.nominativo)}</span>` : ''}</td>
+      <td class="num">${usi.get(rg.id) || 0}</td><td class="num">${fmtData(ultimo.get(rg.id))}</td><td class="small muted">${rg.origine === 'manuale' ? 'Da abbinamento manuale' : 'Inserita a mano'} · ${fmtData((rg.creata || '').slice(0, 10))}</td></tr>`; }).join('')}
+    </tbody></table></div>` : `<div class="empty"><h2>${regole.length ? 'Nessuna regola corrisponde alla ricerca' : 'Nessuna regola ancora'}</h2><p>Le regole nascono quando abbini a mano un movimento e lasci la spunta «Memorizza come regola». Puoi anche crearle qui.</p></div>`}
+  </div>`;
+}
+function formRegola(soc, rg) {
+  const nuovo = !rg;
+  rg = rg || { parole: '', segno: '', importo: null, ccId: '', causale: '', conto: '', nominativo: '', descr: '', registro: '' };
+  const ctx = contesto(soc);
+  const conPart = CON_PARTITA.has(tipoCausale(ctx, rg.causale));
+  return `${mHead(nuovo ? 'Nuova regola' : 'Modifica regola')}
+  <form data-form="salvaRegola" data-id="${nuovo ? '' : rg.id}"><div class="mb"><div class="grid2">
+    <label class="field" style="grid-column:1/-1"><span>Parole che la descrizione deve contenere *</span><input class="inp mono" name="parole" id="rgParole" required value="${esc(rg.parole)}" autofocus><small>Tutte devono comparire nella descrizione, in qualsiasi ordine. Maiuscole, accenti e punteggiatura non contano.</small></label>
+    <label class="field"><span>Vale per</span><select class="inp" name="segno" id="rgSegno"><option value="" ${!rg.segno ? 'selected' : ''}>Entrate e uscite</option><option value="E" ${rg.segno === 'E' ? 'selected' : ''}>Solo entrate</option><option value="U" ${rg.segno === 'U' ? 'selected' : ''}>Solo uscite</option></select></label>
+    <label class="field"><span>Solo con importo (facoltativo)</span><input class="inp num" name="importo" id="rgImporto" value="${rg.importo != null ? esc(fmtEur(+rg.importo)) : ''}" placeholder="Es. 1.250,00"></label>
+    <label class="field"><span>Conto corrente</span><select class="inp" name="ccId" id="rgCc"><option value="">Tutti i conti</option>${soc.conti.map((c) => `<option value="${c.id}" ${rg.ccId === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select></label>
+    <label class="field"><span>Causale *</span><select class="inp" name="causale" id="rgCausale" required>${opzioniCausali(soc, rg.causale)}</select></label>
+    <label class="field"><span>Conto di contropartita${conPart ? '' : ' *'}</span><input class="inp mono" name="conto" id="rgConto" list="dlPdc" value="${esc(rg.conto)}"><small>Per incassi e pagamenti puoi lasciarlo vuoto: uso il mastro.</small></label>
+    <label class="field"><span>Cliente / fornitore</span><input class="inp mono" name="nominativo" id="rgNom" list="dlNom" value="${esc(rg.nominativo)}"></label>
+    <label class="field"><span>Descrizione della registrazione</span><input class="inp" name="descr" id="rgDescr" maxlength="100" value="${esc(rg.descr)}" placeholder="Vuota = descrizione della banca"></label>
+    ${soc.tipoCont === 'semplificata' ? `<label class="field"><span>Registro IVA</span><select class="inp" name="registro" id="rgRegistro"><option value="">Nessuno</option>${soc.registri.map((g) => `<option value="${esc(g.c)}" ${g.c === rg.registro ? 'selected' : ''}>${esc(g.c)} — ${esc(g.d)}</option>`).join('')}</select></label>` : ''}
+  </div>${datalistBase(soc)}
+  <label class="check"><input type="checkbox" name="riapplica" id="rgRiapplica" checked><span>Applica subito ai movimenti non abbinati dei periodi già caricati</span></label></div>
+  <div class="mf">${!nuovo ? `<button type="button" class="btn danger left" data-act="eliminaRegola" data-id="${rg.id}">Elimina regola</button>` : ''}<button type="button" class="btn" data-act="chiudi">Annulla</button><button class="btn primary">Salva</button></div></form>`;
+}
+
+/* ============================================================ riepilogo */
+function datiRiepilogo(soc) {
+  const ctx = contesto(soc);
+  const f = S.ui.riep;
+  const q = norm(f.testo);
+  const out = [];
+  for (const [chiave] of Object.entries(soc.stati)) {
+    const [ccId, pkey] = chiave.split('|');
+    if (f.cc && f.cc !== ccId) continue;
+    if (f.anno && !pkey.startsWith(f.anno)) continue;
+    const per = S.per[kPer(soc.id, ccId, pkey)];
+    if (!per) continue;
+    const cc = soc.conti.find((c) => c.id === ccId);
+    for (const r of per.righe) {
+      const st = statoRiga(soc, ctx, r);
+      const fonte = r.fonte || 'nessuna';
+      if (f.fonte && f.fonte !== fonte && !(f.fonte === 'aperti' && st !== 'ok')) continue;
+      if (f.causale && (r.abb?.causale || '') !== f.causale) continue;
+      const conto = r.abb ? contoContropartita(soc, ctx, r.abb) : '';
+      const nom = r.abb?.nominativo ? ctx.nom.get(r.abb.nominativo) : null;
+      const riga = { cc: cc?.nome || '?', ccId, pkey, data: r.data, descr: r.descr, importo: r.importo, causale: r.abb?.causale || '', causaleD: ctx.caus.get(r.abb?.causale)?.d || '', conto, contoD: ctx.pdc.get(conto)?.d || '', nominativo: r.abb?.nominativo || '', nominativoD: nom?.d || '', partita: r.abb?.partita || '', fonte, stato: st, regola: r.regolaId ? (S.reg[soc.id] || []).find((x) => x.id === r.regolaId)?.parole || '' : '' };
+      if (q && !norm(Object.values(riga).join(' ')).includes(q)) continue;
+      out.push(riga);
+    }
+  }
+  return out.sort((a, b) => a.data.localeCompare(b.data));
+}
+function viewRiepilogo(soc) {
+  const f = S.ui.riep;
+  const anni = [...new Set(Object.keys(soc.stati).map((k) => k.split('|')[1].slice(0, 4)))].sort();
+  const causaliUsate = [...new Set(Object.entries(S.per).filter(([k]) => k.startsWith(`per_${soc.id}_`)).flatMap(([, p]) => p.righe.map((r) => r.abb?.causale)).filter(Boolean))].sort();
+  return `<div class="wrap"><div class="pagehead"><div><h1>Riepilogo abbinamenti</h1><div class="meta">${esc(soc.nome)} · tutti i movimenti lavorati, con causale, contropartita e origine dell’abbinamento</div></div>
+    <button class="btn" data-act="esportaRiep">Esporta Excel</button></div>
+    <div class="row">
+      <select class="inp" style="width:auto" id="rfCc" data-ch="riep" data-k="cc"><option value="">Tutti i conti</option>${soc.conti.map((c) => `<option value="${c.id}" ${f.cc === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>
+      <select class="inp" style="width:auto" id="rfAnno" data-ch="riep" data-k="anno"><option value="">Tutti gli anni</option>${anni.map((a) => `<option ${f.anno === a ? 'selected' : ''}>${a}</option>`).join('')}</select>
+      <select class="inp" style="width:auto" id="rfFonte" data-ch="riep" data-k="fonte"><option value="">Tutte le origini</option><option value="regola" ${f.fonte === 'regola' ? 'selected' : ''}>Da regola</option><option value="manuale" ${f.fonte === 'manuale' ? 'selected' : ''}>Manuali</option><option value="suggerito" ${f.fonte === 'suggerito' ? 'selected' : ''}>Da confermare</option><option value="aperti" ${f.fonte === 'aperti' ? 'selected' : ''}>Non pronti</option></select>
+      <select class="inp" style="width:auto" id="rfCausale" data-ch="riep" data-k="causale"><option value="">Tutte le causali</option>${causaliUsate.map((c) => `<option ${f.causale === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
+      <input class="inp" style="max-width:240px" id="rfTesto" data-in="riepTesto" placeholder="Cerca" value="${esc(f.testo)}">
+    </div>
+    <div id="riepBody">${corpoRiepilogo(soc)}</div></div>`;
+}
+function corpoRiepilogo(soc) {
+  const dati = datiRiepilogo(soc);
+  if (!dati.length) return `<div class="empty"><h2>Nessun movimento</h2><p>Qui trovi tutti i movimenti abbinati, appena carichi gli estratti conto dei periodi.</p></div>`;
+  const gruppi = new Map();
+  for (const d of dati) {
+    const k = `${d.causale}|${d.conto}|${d.nominativo}`;
+    if (!gruppi.has(k)) gruppi.set(k, { causale: d.causale, causaleD: d.causaleD, conto: d.conto, contoD: d.contoD, nominativo: d.nominativo, nominativoD: d.nominativoD, n: 0, ent: 0, usc: 0, regola: 0, manuale: 0 });
+    const g = gruppi.get(k);
+    g.n++; if (d.importo > 0) g.ent += d.importo; else g.usc -= d.importo; if (d.fonte === 'regola') g.regola++; if (d.fonte === 'manuale') g.manuale++;
+  }
+  const gl = [...gruppi.values()].sort((a, b) => (b.ent + b.usc) - (a.ent + a.usc));
+  const tot = dati.reduce((t, d) => { if (d.importo > 0) t.e += d.importo; else t.u -= d.importo; return t; }, { e: 0, u: 0 });
+  const vis = dati.slice(0, 600);
+  return `<div class="stats"><div class="stat"><span class="label">Movimenti</span><b>${dati.length}</b></div><div class="stat"><span class="label">Entrate</span><b class="amt-in">${fmtEur(tot.e)}</b></div><div class="stat"><span class="label">Uscite</span><b>${fmtEur(tot.u)}</b></div>
+    <div class="stat"><span class="label">Da regola</span><b>${dati.filter((d) => d.fonte === 'regola').length}</b></div><div class="stat"><span class="label">Manuali</span><b>${dati.filter((d) => d.fonte === 'manuale').length}</b></div><div class="stat ${dati.some((d) => d.stato !== 'ok') ? 'bad' : ''}"><span class="label">Non pronti</span><b>${dati.filter((d) => d.stato !== 'ok').length}</b></div></div>
+  <section class="card"><div class="card-h"><h2>Per causale e contropartita</h2></div><div class="tablewrap"><table class="t"><thead><tr><th>Causale</th><th>Contropartita</th><th>Nominativo</th><th class="num">Movimenti</th><th class="num">Entrate</th><th class="num">Uscite</th><th class="num">Da regola</th><th class="num">Manuali</th></tr></thead><tbody>
+    ${gl.map((g) => `<tr><td>${g.causale ? `<span class="tag">${esc(g.causale)}</span> <span class="small muted">${esc(g.causaleD)}</span>` : '<span class="chip bad">Da abbinare</span>'}</td><td>${g.conto ? `<span class="mono">${esc(g.conto)}</span> <span class="small muted">${esc(g.contoD)}</span>` : ''}</td><td class="small">${g.nominativo ? `${esc(g.nominativoD)} <span class="mono">${esc(g.nominativo)}</span>` : ''}</td><td class="num">${g.n}</td><td class="num amt-in">${g.ent ? fmtEur(g.ent) : ''}</td><td class="num">${g.usc ? fmtEur(g.usc) : ''}</td><td class="num">${g.regola}</td><td class="num">${g.manuale}</td></tr>`).join('')}
+  </tbody></table></div></section>
+  <section class="card"><div class="card-h"><h2>Dettaglio movimenti</h2>${dati.length > vis.length ? `<span class="small muted">Mostrati i primi ${vis.length} di ${dati.length}: usa i filtri o esporta in Excel</span>` : ''}</div><div class="tablewrap"><table class="t"><thead><tr><th>Data</th><th>Conto corrente</th><th>Descrizione</th><th class="num">Importo</th><th>Causale</th><th>Contropartita</th><th>Nominativo</th><th>Partita</th><th>Origine</th></tr></thead><tbody>
+    ${vis.map((d) => `<tr class="click" data-act="apriPeriodo" data-cc="${d.ccId}" data-p="${d.pkey}"><td class="num">${fmtData(d.data)}</td><td class="small">${esc(d.cc)}</td><td class="descr small">${esc(d.descr)}</td><td class="num ${d.importo > 0 ? 'amt-in' : ''}">${fmtEur(d.importo)}</td><td>${d.causale ? `<span class="tag">${esc(d.causale)}</span>` : ''}</td><td class="mono small">${esc(d.conto)}</td><td class="small">${esc(d.nominativoD || d.nominativo)}</td><td class="mono small">${esc(d.partita)}</td>
+      <td>${d.stato === 'ok' ? `<span class="chip ${d.fonte === 'regola' ? 'ok' : 'info'}" title="${esc(d.regola)}">${esc(FONTI[d.fonte] || '')}</span>` : `<span class="chip ${STATI[d.stato][0]}">${STATI[d.stato][1]}</span>`}</td></tr>`).join('')}
+  </tbody></table></div></section>`;
+}
+
+/* ============================================================ backup */
+async function creaBackup() {
+  const out = { app: 'emvas-estratti-conto', versione: 1, creato: new Date().toISOString(), societa: [] };
+  for (const s of S.index.societa) {
+    const soc = await caricaSocieta(s.id);
+    if (!soc) continue;
+    await caricaTuttiPeriodi(soc);
+    const periodi = {};
+    for (const k of Object.keys(soc.stati)) { const [cc, p] = k.split('|'); periodi[k] = S.per[kPer(soc.id, cc, p)]; }
+    const modello = soc.export.modello ? await Store.get(`tpl_${soc.id}`) : null;
+    out.societa.push({ soc, pdc: S.pdc[soc.id], nom: S.nom[soc.id], reg: S.reg[soc.id], periodi, modello });
+  }
+  return out;
+}
+async function ripristinaBackup(dati) {
+  for (const b of dati.societa) {
+    const soc = b.soc; migraSocieta(soc);
+    S.soc[soc.id] = soc; S.pdc[soc.id] = b.pdc || []; S.nom[soc.id] = b.nom || []; S.reg[soc.id] = b.reg || [];
+    if (b.modello) Store.save(`tpl_${soc.id}`, b.modello);
+    Store.save(kSoc(soc.id), soc); Store.save(kPdc(soc.id), S.pdc[soc.id]); Store.save(kNom(soc.id), S.nom[soc.id]); Store.save(kReg(soc.id), S.reg[soc.id]);
+    for (const [k, per] of Object.entries(b.periodi || {})) { const [cc, p] = k.split('|'); S.per[kPer(soc.id, cc, p)] = per; Store.save(kPer(soc.id, cc, p), per); }
+    const e = S.index.societa.find((x) => x.id === soc.id);
+    if (e) e.nome = soc.nome; else S.index.societa.push({ id: soc.id, nome: soc.nome });
+  }
+  salvaIndex();
+}
+
+/* ============================================================ esempio */
+function creaEsempio() {
+  const soc = nuovaSocieta({ nome: 'Società di esempio S.r.l. (ESEMPIO)', cf: '01234567890', tipoCont: 'ordinaria' });
+  Object.assign(soc, { mastroClienti: '100101003', mastroFornitori: '3901010', contoTransitorio: '1801999' });
+  const cc = { id: uid(), nome: 'Banca di esempio c/c 001 (ESEMPIO)', banca: 'Banca di esempio', iban: 'IT00X0000000000000000000001', codiceConto: '1201015', anni: { 2026: 'M', 2027: 'M' } };
+  soc.conti.push(cc);
+  S.soc[soc.id] = soc;
+  S.pdc[soc.id] = [['1201015', 'Banca di esempio c/c'], ['100101003', 'Clienti Italia'], ['3901010', 'Fornitori Italia'], ['1801999', 'Transitorio da riclassificare'], ['690101005', 'Spese e commissioni bancarie'], ['690101010', 'Imposta di bollo'], ['4501010', 'Erario c/ritenute e tributi (F24)'], ['4601010', 'Dipendenti c/retribuzioni'], ['690181510', 'Consulenze'], ['1202025', 'Cassa']].map(([c, d]) => ({ c, d }));
+  S.nom[soc.id] = [
+    { c: '00000101', d: 'Rossi Forniture S.r.l. (ESEMPIO)', tipo: 'C', piva: '00000000101', cf: '', conto: '', alias: 'ROSSI FORNITURE' },
+    { c: '00000201', d: 'Energia Esempio S.p.A. (ESEMPIO)', tipo: 'F', piva: '00000000201', cf: '', conto: '', alias: 'ENERGIA ESEMPIO' },
+  ];
+  S.reg[soc.id] = [
+    { id: uid(), parole: 'COMMISSIONI', segno: 'U', importo: null, ccId: '', causale: 'B76', conto: '690101005', nominativo: '', descr: 'Commissioni bancarie', origine: 'manuale', creata: new Date().toISOString() },
+    { id: uid(), parole: 'IMPOSTA BOLLO', segno: 'U', importo: null, ccId: '', causale: 'B76', conto: '690101010', nominativo: '', descr: 'Imposta di bollo', origine: 'manuale', creata: new Date().toISOString() },
+    { id: uid(), parole: 'F24', segno: 'U', importo: null, ccId: '', causale: 'B70', conto: '4501010', nominativo: '', descr: 'Pagamento F24', origine: 'manuale', creata: new Date().toISOString() },
+  ];
+  const mov = [
+    ['2026-01-05', 'BONIFICO A VOSTRO FAVORE DA ROSSI FORNITURE SRL SALDO FT 12/2026', 1830],
+    ['2026-01-09', 'ADDEBITO SDD ENERGIA ESEMPIO SPA FATTURA 8812/2026', -244.56],
+    ['2026-01-16', 'PAGAMENTO DELEGA F24 VIA INTERNET', -1260.4],
+    ['2026-01-27', 'BONIFICO STIPENDI GENNAIO 2026', -3420],
+    ['2026-01-31', 'COMMISSIONI E SPESE TENUTA CONTO', -18.5],
+    ['2026-01-31', 'IMPOSTA BOLLO CONTO CORRENTE', -8.55],
+    ['2026-01-31', 'POS ACQUISTO CANCELLERIA CENTRO UFFICIO', -64.9],
+  ];
+  const per = { righe: [], esportazioni: [] };
+  const ctx = contesto(soc);
+  mov.forEach(([data, descr, importo], i) => { const r = { id: uid(), ord: i + 1, data, valuta: data, descr, importo, abb: null, fonte: null, regolaId: null }; abbinaRiga(soc, ctx, r, cc.id); per.righe.push(r); });
+  S.per[kPer(soc.id, cc.id, '2026-01')] = per;
+  S.index.societa.push({ id: soc.id, nome: soc.nome });
+  salvaIndex(); salvaPdc(soc); salvaNom(soc); salvaReg(soc);
+  salvaPeriodo(soc, cc.id, '2026-01');
+  return soc;
+}
+
+/* ============================================================ eventi */
+let _filePurpose = null;
+function scegliFile(purpose, accept) {
+  _filePurpose = purpose;
+  const fi = $('#fileIn');
+  fi.value = ''; fi.accept = accept;
+  fi.click();
+}
+$('#fileIn').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file || !_filePurpose) return;
+  const purpose = _filePurpose; _filePurpose = null;
+  const soc = socCorrente();
+  try {
+    if (purpose.tipo === 'restore') {
+      const dati = JSON.parse(await file.text());
+      if (dati.app !== 'emvas-estratti-conto' || !Array.isArray(dati.societa)) throw new Error('Il file non è un backup di questa applicazione.');
+      apriModale(`${mHead('Ripristina backup', `${esc(file.name)} · creato il ${fmtDataOra(dati.creato)}`)}<div class="mb"><p style="margin:0">Il backup contiene ${dati.societa.length} società: ${dati.societa.map((s) => esc(s.soc.nome)).join(', ')}.</p><div class="note warn">Le società presenti nel backup sostituiscono quelle con lo stesso identificativo in archivio, compresi periodi e regole. Le altre società restano invariate.</div></div><div class="mf"><button class="btn" data-act="chiudi">Annulla</button><button class="btn primary" data-act="confermaRestore">Ripristina</button></div>`);
+      _restore = dati;
+      return;
+    }
+    if (purpose.tipo === 'modello') {
+      if (!window.XLSX) throw new Error('Il modulo Excel non è disponibile: ricarica la pagina.');
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const pos = trovaPosizioniModello(XLSX.read(bytes, { type: 'array' }));
+      if (!pos) throw new Error('Nel file non trovo la colonna «Descrizione operazione»: carica il foglio creato da Koinos con «Crea file Excel di importazione».');
+      Store.save(`tpl_${soc.id}`, { nome: file.name, b64: bytesInBase64(bytes) });
+      soc.export.modello = { nome: file.name, caricato: new Date().toISOString(), foglio: pos.foglio, riga: pos.riga + 1 };
+      salvaSoc(soc); render(); toast('Modello Koinos caricato.');
+      return;
+    }
+    const rows = await leggiFile(file);
+    if (purpose.tipo === 'ec') apriMappatura(soc, soc.conti.find((c) => c.id === S.ui.ccId), rows, file.name);
+    else if (purpose.tipo === 'tab') apriImportTabella(soc, purpose.tab, rows, file.name);
+  } catch (err) { console.error(err); toast(err.message || 'File non leggibile.', true); }
+});
+let _restore = null;
+
+const AZIONI = {
+  chiudi: () => chiudiModale(),
+  apriSoc: async (el) => { const s = await caricaSocieta(el.dataset.id); if (!s) { toast('Società non trovata in archivio.', true); return; } vai({ socId: el.dataset.id, view: 'periodi' }); },
+  vai: (el) => vai({ view: el.dataset.view }),
+  nuovaSoc: () => apriModale(`${mHead('Nuova società')}<form data-form="nuovaSoc"><div class="mb"><div class="grid2">
+      <label class="field" style="grid-column:1/-1"><span>Ragione sociale *</span><input class="inp" name="nome" id="nsNome" required autofocus></label>
+      <label class="field"><span>Codice fiscale / Partita IVA</span><input class="inp mono" name="cf" id="nsCf"></label>
+      <label class="field"><span>Tipo di contabilità</span><select class="inp" name="tipoCont" id="nsTipo"><option value="ordinaria">Ordinaria</option><option value="semplificata">Semplificata</option><option value="professionista">Professionista</option></select></label>
+      ${S.index.societa.length ? `<label class="field" style="grid-column:1/-1"><span>Copia i dati di base da</span><select class="inp" name="copia" id="nsCopia"><option value="">Nessuna: parti dalla tabella causali standard</option>${S.index.societa.map((s) => `<option value="${s.id}">${esc(s.nome)}</option>`).join('')}</select><small>Copia causali, piano dei conti, registri IVA e impostazioni.</small></label>` : ''}
+    </div></div><div class="mf"><button type="button" class="btn" data-act="chiudi">Annulla</button><button class="btn primary">Crea società</button></div></form>`),
+  demo: async () => { const soc = creaEsempio(); vai({ socId: soc.id, view: 'periodi' }); toast('Società di esempio creata: apri Gennaio 2026 per vedere gli abbinamenti.'); },
+  nuovoCc: () => apriModale(formConto(socCorrente(), null)),
+  modCc: (el) => { const soc = socCorrente(); apriModale(formConto(soc, soc.conti.find((c) => c.id === el.dataset.cc))); },
+  eliminaCc: (el) => {
+    const soc = socCorrente(); const id = el.dataset.cc;
+    if (Object.keys(soc.stati).some((k) => k.startsWith(id + '|'))) { $('#ccElimina').innerHTML = '<div class="note bad">Il conto ha periodi lavorati: svuota prima i periodi, oppure lascialo in archivio.</div>'; return; }
+    if (el.dataset.ok) { soc.conti = soc.conti.filter((c) => c.id !== id); salvaSoc(soc); chiudiModale(); render(); toast('Conto eliminato.'); return; }
+    el.dataset.ok = '1'; el.textContent = 'Conferma eliminazione';
+  },
+  anno: (el) => { S.ui.anno[el.dataset.cc] = +el.dataset.anno; salvaUi(); render(); },
+  aggAnno: (el) => { const soc = socCorrente(); const cc = soc.conti.find((c) => c.id === el.dataset.cc); const anni = Object.keys(cc.anni).map(Number); const n = Math.max(...anni) + 1; cc.anni[n] = cc.anni[Math.max(...anni)]; S.ui.anno[cc.id] = n; salvaSoc(soc); render(); toast(`Anno ${n} aggiunto.`); },
+  periodicita: (el) => { const soc = socCorrente(); const cc = soc.conti.find((c) => c.id === el.dataset.cc); cc.anni[el.dataset.anno] = el.dataset.tipo; salvaSoc(soc); render(); },
+  apriPeriodo: (el) => vai({ view: 'periodo', ccId: el.dataset.cc, pkey: el.dataset.p }),
+  caricaEc: () => scegliFile({ tipo: 'ec' }, '.xlsx,.xls,.xlsm,.ods,.csv,.txt'),
+  incolla: () => apriModale(`${mHead('Incolla movimenti', 'Copia le righe dal foglio Excel della banca, intestazione compresa, e incollale qui')}<div class="mb"><textarea class="inp" id="incollaTxt" rows="12" placeholder="Data&#9;Valuta&#9;Descrizione&#9;Importo" autofocus></textarea></div><div class="mf"><button class="btn" data-act="chiudi">Annulla</button><button class="btn primary" data-act="incollaOk">Continua</button></div>`, { wide: true }),
+  incollaOk: () => { const t = $('#incollaTxt').value; if (!t.trim()) { toast('Incolla almeno una riga.', true); return; } const soc = socCorrente(); chiudiModale(); apriMappatura(soc, soc.conti.find((c) => c.id === S.ui.ccId), righeDaIncolla(t), 'Testo incollato'); },
+  confermaImport: () => { const soc = socCorrente(); confermaImport(soc, soc.conti.find((c) => c.id === S.ui.ccId)); },
+  filtro: (el) => { S.ui.filtro = el.dataset.f; render(); },
+  editRiga: (el, ev) => { if (ev.target.closest('[data-stop]')) return; apriEditor(socCorrente(), [el.dataset.id]); },
+  assegnaSel: () => apriEditor(socCorrente(), [...S.ui.sel]),
+  deselez: () => { S.ui.sel = new Set(); render(); },
+  togliSel: () => { const soc = socCorrente(); const per = S.per[kPer(soc.id, S.ui.ccId, S.ui.pkey)]; for (const r of per.righe) if (S.ui.sel.has(r.id)) { r.abb = null; r.fonte = null; r.regolaId = null; } S.ui.sel = new Set(); salvaPeriodo(soc, S.ui.ccId, S.ui.pkey); render(); },
+  togliAbb: () => { const soc = socCorrente(); const per = S.per[kPer(soc.id, S.ui.ccId, S.ui.pkey)]; for (const r of per.righe) if (_edit.ids.includes(r.id)) { r.abb = null; r.fonte = null; r.regolaId = null; } chiudiModale(); salvaPeriodo(soc, S.ui.ccId, S.ui.pkey); render(); },
+  confermaSugg: () => { const soc = socCorrente(); const per = S.per[kPer(soc.id, S.ui.ccId, S.ui.pkey)]; let n = 0; for (const r of per.righe) if (r.fonte === 'suggerito') { r.fonte = 'manuale'; n++; } salvaPeriodo(soc, S.ui.ccId, S.ui.pkey); render(); toast(`${n} suggerimenti confermati.`); },
+  riapplica: () => { const soc = socCorrente(); const per = S.per[kPer(soc.id, S.ui.ccId, S.ui.pkey)]; const n = riapplica(soc, per, S.ui.ccId, false); salvaPeriodo(soc, S.ui.ccId, S.ui.pkey); render(); toast(n ? `${n} movimenti aggiornati dalle regole.` : 'Nessun cambiamento.'); },
+  svuotaPeriodo: (el) => {
+    if (!el.dataset.ok) { el.dataset.ok = '1'; el.textContent = 'Conferma: elimina tutti i movimenti del periodo'; return; }
+    const soc = socCorrente(); const per = S.per[kPer(soc.id, S.ui.ccId, S.ui.pkey)]; per.righe = []; salvaPeriodo(soc, S.ui.ccId, S.ui.pkey); render(); toast('Periodo svuotato.');
+  },
+  anteprima: () => { const soc = socCorrente(); const cc = soc.conti.find((c) => c.id === S.ui.ccId); if (soc.export.formato === 'primanota') { apriModale(htmlAnteprimaPN(soc, righePrimaNota(soc, S.per[kPer(soc.id, cc.id, S.ui.pkey)])), { wide: true }); return; } const ris = generaTracciato(soc, cc, S.per[kPer(soc.id, cc.id, S.ui.pkey)], { transitorio: !!$('#usaTransitorio')?.checked }); apriModale(htmlAnteprima(soc, cc, ris), { wide: true }); },
+  genera: () => { const soc = socCorrente(); genera(soc, soc.conti.find((c) => c.id === S.ui.ccId)); },
+  datiTab: (el) => vai({ datiTab: el.dataset.tab }),
+  importaTab: (el) => scegliFile({ tipo: 'tab', tab: el.dataset.tab }, '.xlsx,.xls,.xlsm,.ods,.csv,.txt'),
+  esportaTab: async (el) => {
+    if (!window.XLSX) { toast('Il modulo Excel non è disponibile: ricarica la pagina.', true); return; }
+    const soc = socCorrente(); const def = TABELLE[el.dataset.tab];
+    const aoa = [def.campi.map(([, l]) => l)].concat((def.lista(soc) || []).map((x) => def.campi.map(([k]) => valoreCella(el.dataset.tab, k, x))));
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), def.titolo.slice(0, 30));
+    await scarica(`${slug(def.titolo)}_${slug(soc.nome)}.xlsx`, new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  },
+  confermaImportTab: () => {
+    const soc = socCorrente(); const { tab } = _import; const def = TABELLE[tab];
+    const voci = righeImportTabella();
+    const modo = document.querySelector('input[name=itModo]:checked')?.value;
+    let lista = modo === 'sostituisci' ? [] : (def.lista(soc) || []).slice();
+    const idx = new Map(lista.map((x, i) => [x.c, i]));
+    for (const v of voci) { if (idx.has(v.c)) lista[idx.get(v.c)] = Object.assign({}, lista[idx.get(v.c)], v); else { idx.set(v.c, lista.length); lista.push(v); } }
+    def.set(soc, lista);
+    _modalOnClose = null; _import = null; chiudiModale(); render(); toast(`${voci.length} voci importate in ${def.titolo.toLowerCase()}.`);
+  },
+  nuovaVoce: (el) => apriModale(formVoce(socCorrente(), el.dataset.tab, null)),
+  modVoce: (el) => { const soc = socCorrente(); const tab = el.dataset.tab; apriModale(formVoce(soc, tab, (TABELLE[tab].lista(soc) || []).find((x) => x.c === el.dataset.c))); },
+  eliminaVoce: (el) => { const soc = socCorrente(); const def = TABELLE[el.dataset.tab]; def.set(soc, (def.lista(soc) || []).filter((x) => x.c !== el.dataset.c)); chiudiModale(); render(); toast('Voce eliminata.'); },
+  altreVoci: () => { S.ui.tabLimite += 500; render(); },
+  copiaDa: async () => {
+    const id = $('#copiaDa').value; if (!id) { toast('Scegli la società da cui copiare.', true); return; }
+    const soc = socCorrente(); const src = await caricaSocieta(id);
+    copiaDatiBase(src, soc); render(); toast(`Dati di base copiati da ${src.nome}.`);
+  },
+  eliminaSoc: () => {
+    const soc = socCorrente();
+    if ($('#eliminaNome').value.trim() !== soc.nome) { toast('Scrivi esattamente la ragione sociale per confermare.', true); return; }
+    for (const k of Object.keys(soc.stati)) { const [cc, p] = k.split('|'); Store.remove(kPer(soc.id, cc, p)); delete S.per[kPer(soc.id, cc, p)]; }
+    [kSoc, kPdc, kNom, kReg].forEach((f) => Store.remove(f(soc.id)));
+    Store.remove(`tpl_${soc.id}`);
+    S.index.societa = S.index.societa.filter((x) => x.id !== soc.id); salvaIndex();
+    delete S.soc[soc.id];
+    vai({ socId: null, view: 'home' }); toast('Società eliminata.');
+  },
+  nuovaRegola: () => apriModale(formRegola(socCorrente(), null)),
+  modRegola: (el) => { const soc = socCorrente(); apriModale(formRegola(soc, (S.reg[soc.id] || []).find((x) => x.id === el.dataset.id))); },
+  eliminaRegola: (el) => {
+    if (!el.dataset.ok) { el.dataset.ok = '1'; el.textContent = 'Conferma eliminazione'; return; }
+    const soc = socCorrente(); S.reg[soc.id] = S.reg[soc.id].filter((x) => x.id !== el.dataset.id); salvaReg(soc); chiudiModale(); render(); toast('Regola eliminata. I movimenti già abbinati restano invariati.');
+  },
+  esportaRiep: async () => {
+    if (!window.XLSX) { toast('Il modulo Excel non è disponibile: ricarica la pagina.', true); return; }
+    const soc = socCorrente(); const dati = datiRiepilogo(soc);
+    const aoa = [['Conto corrente', 'Periodo', 'Data', 'Descrizione', 'Importo', 'Causale', 'Descrizione causale', 'Contropartita', 'Descrizione conto', 'Cod. nominativo', 'Nominativo', 'Partita', 'Origine', 'Regola', 'Stato']]
+      .concat(dati.map((d) => [d.cc, d.pkey, fmtData(d.data), d.descr, d.importo, d.causale, d.causaleD, d.conto, d.contoD, d.nominativo, d.nominativoD, d.partita, FONTI[d.fonte] || '', d.regola, STATI[d.stato][1]]));
+    const regole = [['Parole', 'Vale per', 'Importo', 'Conto corrente', 'Causale', 'Contropartita', 'Nominativo', 'Descrizione', 'Creata']].concat((S.reg[soc.id] || []).map((r) => [r.parole, r.segno === 'E' ? 'Entrate' : r.segno === 'U' ? 'Uscite' : 'Tutti', r.importo ?? '', soc.conti.find((c) => c.id === r.ccId)?.nome || 'Tutti', r.causale, r.conto, r.nominativo, r.descr, fmtData((r.creata || '').slice(0, 10))]));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Movimenti');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(regole), 'Regole');
+    await scarica(`Riepilogo_abbinamenti_${slug(soc.nome)}.xlsx`, new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  },
+  backup: async () => {
+    if (!S.index.societa.length) { toast('Non ci sono ancora dati da salvare.'); return; }
+    toast('Preparo il backup…');
+    const dati = await creaBackup();
+    const d = new Date();
+    await scarica(`backup_estratti_conto_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.json`, JSON.stringify(dati), 'application/json');
+  },
+  ripristina: () => scegliFile({ tipo: 'restore' }, '.json'),
+  vaiFormato: () => vai({ view: 'dati', datiTab: 'export' }),
+  fbGoogle: async () => {
+    const p = new firebase.auth.GoogleAuthProvider();
+    if (Firebase.conf.dominio) p.setCustomParameters({ hd: Firebase.conf.dominio });
+    try { await Firebase.auth.signInWithPopup(p); } catch (e) { if (e.code !== 'auth/popup-closed-by-user') toast('Accesso non riuscito: ' + (e.message || e.code), true); }
+  },
+  fbEsci: async () => { await Store.flush(); await Firebase.auth.signOut(); location.reload(); },
+  archivio: () => apriModale(htmlArchivio()),
+  fbScollega: () => { try { localStorage.removeItem(FB_KEY); } catch (e) { /* facoltativo */ } location.reload(); },
+  fbMigra: async (el) => {
+    el.disabled = true; el.textContent = 'Copia in corso…';
+    const idb = await Store.apriIdb();
+    const tx = (fn) => new Promise((res, rej) => { const rq = fn(idb.transaction('kv', 'readonly').objectStore('kv')); rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error); });
+    const chiavi = await tx((st) => st.getAllKeys());
+    let n = 0;
+    for (const k of chiavi) {
+      const v = await tx((st) => st.get(k));
+      if (k === 'index') { for (const x of v.societa || []) if (!S.index.societa.some((y) => y.id === x.id)) S.index.societa.push(x); salvaIndex(); }
+      else { Store.save(k, v); n++; }
+    }
+    await Store.flush();
+    S.soc = {}; S.per = {};
+    chiudiModale(); toast(`Copiati su Firebase ${n} documenti dall’archivio del browser.`); render();
+  },
+  caricaModello: () => scegliFile({ tipo: 'modello' }, '.xls,.xlsx,.xlsm'),
+  rimuoviModello: () => { const soc = socCorrente(); delete soc.export.modello; Store.remove(`tpl_${soc.id}`); salvaSoc(soc); render(); toast('Modello rimosso: userò il layout standard.'); },
+  confermaRestore: async () => { const d = _restore; _restore = null; chiudiModale(); await ripristinaBackup(d); toast(`Backup ripristinato: ${d.societa.length} società.`); render(); },
+};
+function copiaDatiBase(src, soc) {
+  soc.causali = structuredClone(src.causali); soc.registri = structuredClone(src.registri);
+  for (const k of ['mastroClienti', 'mastroFornitori', 'contoTransitorio', 'causaleIncasso', 'causalePagamento', 'causaleEntrate', 'causaleUscite', 'partitaMancante']) soc[k] = src[k];
+  soc.export = structuredClone(src.export);
+  delete soc.export.modello;
+  S.pdc[soc.id] = structuredClone(S.pdc[src.id] || []);
+  salvaSoc(soc); salvaPdc(soc);
+}
+
+const CAMBI = {
+  selRiga: (el) => { if (el.checked) S.ui.sel.add(el.dataset.id); else S.ui.sel.delete(el.dataset.id); el.closest('tr').classList.toggle('sel', el.checked); $('#bulkBar').innerHTML = barraSelezione(); },
+  selTutte: (el) => {
+    const soc = socCorrente(); const per = S.per[kPer(soc.id, S.ui.ccId, S.ui.pkey)];
+    for (const r of righeFiltrate(soc, contesto(soc), per)) { if (el.checked) S.ui.sel.add(r.id); else S.ui.sel.delete(r.id); }
+    $('#tblMov').innerHTML = tabellaMovimenti(soc, contesto(soc), per); $('#bulkBar').innerHTML = barraSelezione();
+  },
+  mappa: (el) => {
+    const soc = socCorrente(); const k = el.dataset.k;
+    _import.m[k] = k === 'inverti' ? el.checked : k === 'headerRow' ? +el.value : k === 'modo' ? el.value : (el.value === '' ? '' : +el.value);
+    if (k === 'headerRow') { const g = indovinaColonne(_import.rows[_import.m.headerRow] || [], GUESS_EC); Object.assign(_import.m, { data: g.data ?? '', valuta: g.valuta ?? '', descr: g.descr ?? '', descr2: g.descr2 ?? '', importo: g.importo ?? '', dare: g.dare ?? '', avere: g.avere ?? '' }); }
+    $('#modalCard').innerHTML = htmlMappatura(soc, soc.conti.find((c) => c.id === S.ui.ccId));
+  },
+  mappaTab: (el) => {
+    const k = el.dataset.k;
+    _import.m[k] = k === 'headerRow' ? +el.value : (el.value === '' ? '' : +el.value);
+    if (k === 'headerRow') Object.assign(_import.m, indovinaColonne(_import.rows[_import.m.headerRow] || [], TABELLE[_import.tab].guess));
+    $('#modalCard').innerHTML = htmlImportTabella(socCorrente());
+  },
+  edCausale: () => aggiornaEditorCausale(socCorrente()),
+  socCampo: (el) => {
+    const soc = socCorrente(); const k = el.dataset.k;
+    let v = el.value; if (['mastroClienti', 'mastroFornitori', 'contoTransitorio'].includes(k)) v = codiceDa(v);
+    if (k === 'nome' && !v.trim()) { toast('La ragione sociale non può essere vuota.', true); el.value = soc.nome; return; }
+    soc[k] = typeof v === 'string' ? v.trim() : v; salvaSoc(soc);
+    if (k === 'nome' || k === 'tipoCont') renderSide();
+    if (['mastroClienti', 'mastroFornitori', 'contoTransitorio', 'partitaMancante'].includes(k)) aggiornaStati(soc);
+    toast('Salvato.');
+  },
+  expCampo: (el) => { const soc = socCorrente(); soc.export[el.dataset.k] = el.type === 'checkbox' ? el.checked : el.value; salvaSoc(soc); if (el.dataset.k === 'formato') render(); toast('Salvato.'); },
+  saldoIniziale: (el) => {
+    const soc = socCorrente(); const per = S.per[kPer(soc.id, S.ui.ccId, S.ui.pkey)];
+    const v = el.value.trim() ? parseNum(el.value) : null;
+    if (el.value.trim() && v == null) { toast('Saldo non valido: scrivi un importo come 1.250,00', true); return; }
+    per.saldoIniziale = v; el.value = v != null ? fmtEur(v) : ''; salvaPeriodo(soc, S.ui.ccId, S.ui.pkey, { mantieni: true });
+  },
+  riep: (el) => { S.ui.riep[el.dataset.k] = el.value; $('#riepBody').innerHTML = corpoRiepilogo(socCorrente()); },
+  regTestSegno: (el) => { S.ui.regTestSegno = el.value; render(); },
+};
+async function aggiornaStati(soc) {
+  await caricaTuttiPeriodi(soc);
+  for (const k of Object.keys(soc.stati)) { const [cc, p] = k.split('|'); salvaPeriodo(soc, cc, p, { mantieni: true }); }
+}
+const INPUT = {
+  cercaMov: (el) => { S.ui.cerca = el.value; const soc = socCorrente(); $('#tblMov').innerHTML = tabellaMovimenti(soc, contesto(soc), S.per[kPer(soc.id, S.ui.ccId, S.ui.pkey)]); },
+  tabCerca: (el) => {
+    S.ui.tabCerca = el.value; S.ui.tabLimite = 200;
+    const soc = socCorrente(); const tab = S.ui.datiTab; const def = TABELLE[tab]; const q = norm(el.value);
+    const lista = def.lista(soc) || [];
+    $('#tblTab').innerHTML = tabellaVoci(soc, tab, q ? lista.filter((x) => norm(def.campi.map(([k]) => x[k]).join(' ')).includes(q)) : lista);
+  },
+  regCerca: debounce((el) => { S.ui.regCerca = el.value; rerenderMantenendoFocus(); }, 250),
+  regTest: debounce((el) => { S.ui.regTest = el.value; rerenderMantenendoFocus(); }, 250),
+  riepTesto: debounce((el) => { S.ui.riep.testo = el.value; $('#riepBody').innerHTML = corpoRiepilogo(socCorrente()); }, 250),
+};
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+async function rerenderMantenendoFocus() {
+  const id = document.activeElement?.id; const pos = document.activeElement?.selectionStart;
+  await render();
+  if (id) { const el = document.getElementById(id); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (e) { /* select */ } } }
+}
+function htmlArchivio() {
+  const m = Store.mode;
+  let corpo;
+  if (m === 'cloud') corpo = `<p style="margin:0">Questa pagina è pubblicata su claude.ai e salva i dati nell’archivio della pagina. Il database Firebase si usa con la versione dell’app pubblicata su Firebase Hosting (vedi FIREBASE.md nel repository): per spostare i dati usa «Scarica backup» qui e «Ripristina backup» là.</p>`;
+  else if (m === 'firebase') corpo = `<div class="grid2"><div class="field"><span>Progetto Firebase</span><b class="mono">${esc(Firebase.conf.config.projectId)}</b></div><div class="field"><span>Utente</span><b>${esc(Firebase.user?.email || '')}</b></div></div>
+    <p class="small muted" style="margin:0">Tutti gli utenti autorizzati vedono e modificano lo stesso archivio. Se due persone lavorano sullo stesso periodo nello stesso momento, vale l’ultimo salvataggio.</p>
+    <div class="row"><button class="btn" data-act="fbMigra">Copia su Firebase i dati salvati in questo browser</button>${Firebase.conf.origine === 'browser' ? '<button class="btn danger" data-act="fbScollega">Scollega Firebase da questo browser</button>' : ''}<button class="btn" data-act="fbEsci">Esci</button></div>`;
+  else corpo = `<p style="margin:0">Ora i dati sono salvati ${m === 'browser' ? 'solo in questo browser' : 'solo in memoria'}. Per usare un database Firebase condiviso dallo studio incolla qui la configurazione dell’app web (Console Firebase › Impostazioni progetto › Le tue app › Configurazione SDK).</p>
+    <form data-form="fbConfig"><div class="mb" style="padding:0">
+      <label class="field"><span>Configurazione Firebase</span><textarea class="inp" name="snippet" id="fbSnippet" rows="9" placeholder="const firebaseConfig = {&#10;  apiKey: &quot;…&quot;,&#10;  authDomain: &quot;…&quot;,&#10;  projectId: &quot;…&quot;,&#10;  …&#10;};" required></textarea></label>
+      <label class="field" style="max-width:320px"><span>Dominio email autorizzato</span><input class="inp" name="dominio" id="fbDominio" value="emvas.tax"><small>Solo gli account con questo dominio possono accedere. Vuoto = qualsiasi account (sconsigliato).</small></label>
+      <div class="row"><button class="btn primary">Collega Firebase</button></div></div></form>
+    <p class="small muted" style="margin:0">L’accesso con Google o via email funziona solo con la pagina aperta da un indirizzo web autorizzato in Firebase (per esempio Firebase Hosting), non da un file sul computer.</p>`;
+  return `${mHead('Archivio dati')}<div class="mb">${corpo}</div><div class="mf"><button class="btn" data-act="chiudi">Chiudi</button></div>`;
+}
+const FORMS = {
+  fbConfig: (form) => {
+    const fd = new FormData(form);
+    const config = leggiSnippetFirebase(fd.get('snippet'));
+    if (!config) { toast('Non riesco a leggere la configurazione: incolla il blocco con apiKey, authDomain e projectId.', true); return; }
+    try { localStorage.setItem(FB_KEY, JSON.stringify({ config, dominio: str(fd.get('dominio')).replace(/^@/, '') })); } catch (e) { toast('Il browser non permette di salvare la configurazione.', true); return; }
+    location.reload();
+  },
+  fbLink: async (form) => {
+    const email = str(new FormData(form).get('email')).toLowerCase();
+    const d = (Firebase.conf.dominio || '').toLowerCase();
+    if (d && !email.endsWith('@' + d)) { toast(`Usa un indirizzo @${d}.`, true); return; }
+    try {
+      await Firebase.auth.sendSignInLinkToEmail(email, { url: location.origin + location.pathname, handleCodeInApp: true });
+      try { localStorage.setItem('emvas-email-link', email); } catch (e) { /* facoltativo */ }
+      toast(`Ti ho inviato il link di accesso a ${email}.`);
+    } catch (e) { toast('Invio non riuscito: ' + (e.message || e.code), true); }
+  },
+  nuovaSoc: (form) => {
+    const fd = new FormData(form);
+    const soc = nuovaSocieta({ nome: str(fd.get('nome')), cf: str(fd.get('cf')).toUpperCase(), tipoCont: fd.get('tipoCont') });
+    S.soc[soc.id] = soc; S.pdc[soc.id] = []; S.nom[soc.id] = []; S.reg[soc.id] = [];
+    S.index.societa.push({ id: soc.id, nome: soc.nome }); salvaIndex();
+    const fine = () => { salvaSoc(soc); salvaPdc(soc); salvaNom(soc); salvaReg(soc); chiudiModale(); vai({ socId: soc.id, view: 'dati', datiTab: 'generale' }); toast('Società creata: completa i dati di base e aggiungi i conti correnti.'); };
+    if (fd.get('copia')) caricaSocieta(fd.get('copia')).then((s) => { if (s) copiaDatiBase(s, soc); fine(); }); else fine();
+  },
+  salvaCc: (form) => {
+    const soc = socCorrente(); const fd = new FormData(form); const id = form.dataset.cc;
+    const dati = { nome: str(fd.get('nome')), banca: str(fd.get('banca')), iban: str(fd.get('iban')).replace(/\s/g, '').toUpperCase(), codiceConto: codiceDa(fd.get('codiceConto')) };
+    if (id) Object.assign(soc.conti.find((c) => c.id === id), dati);
+    else soc.conti.push(Object.assign({ id: uid(), anni: { [fd.get('anno')]: fd.get('tipo') } }, dati));
+    salvaSoc(soc); chiudiModale(); render(); toast('Conto corrente salvato.');
+  },
+  salvaAbb: (form, ev) => salvaAbbinamento(socCorrente(), form, ev.submitter?.value || 'chiudi'),
+  salvaVoce: (form) => {
+    const soc = socCorrente(); const tab = form.dataset.tab; const def = TABELLE[tab]; const fd = new FormData(form);
+    const x = {}; for (const [k] of def.campi) x[k] = str(fd.get(k));
+    if (tab === 'causali') { x.t = +x.t; x.iva = TIPI_IVA.has(x.t); x.u = !!fd.get('u'); }
+    if (tab === 'nom') { x.cf = x.cf.toUpperCase(); x.conto = codiceDa(x.conto); }
+    const lista = (def.lista(soc) || []).slice(); const orig = form.dataset.orig;
+    if (x.c !== orig && lista.some((v) => v.c === x.c)) { toast(`Il codice ${x.c} esiste già.`, true); return; }
+    const i = orig ? lista.findIndex((v) => v.c === orig) : -1;
+    if (i >= 0) lista[i] = Object.assign({}, lista[i], x); else lista.push(x);
+    def.set(soc, lista); chiudiModale(); render(); toast('Salvato.');
+  },
+  salvaRegola: async (form) => {
+    const soc = socCorrente(); const fd = new FormData(form); const id = form.dataset.id;
+    const imp = str(fd.get('importo')) ? Math.abs(parseNum(fd.get('importo'))) : null;
+    const dati = { parole: norm(fd.get('parole')), segno: str(fd.get('segno')), importo: imp == null || isNaN(imp) ? null : imp, ccId: str(fd.get('ccId')), causale: str(fd.get('causale')), conto: codiceDa(fd.get('conto')), nominativo: codiceDa(fd.get('nominativo')), descr: str(fd.get('descr')), registro: str(fd.get('registro') || '') };
+    if (!dati.parole) { toast('Indica almeno una parola.', true); return; }
+    const lst = S.reg[soc.id];
+    let rg;
+    if (id) { rg = lst.find((x) => x.id === id); Object.assign(rg, dati, { modificata: new Date().toISOString() }); }
+    else { rg = Object.assign({ id: uid(), partita: '', origine: 'regole', creata: new Date().toISOString() }, dati); lst.push(rg); }
+    salvaReg(soc);
+    let n = 0;
+    if (fd.get('riapplica')) {
+      await caricaTuttiPeriodi(soc);
+      for (const k of Object.keys(soc.stati)) {
+        const [cc, p] = k.split('|'); const per = S.per[kPer(soc.id, cc, p)];
+        if (per.esportazioni.length && soc.stati[k].exp) continue;
+        const m = riapplica(soc, per, cc, true); if (m) { n += m; salvaPeriodo(soc, cc, p); }
+      }
+    }
+    chiudiModale(); render(); toast(`Regola salvata${n ? ` e applicata a ${n} movimenti` : ''}.`);
+  },
+};
+
+document.addEventListener('click', async (e) => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  if (el.tagName === 'TR' && e.target.closest('input,select,textarea,label,a')) return;
+  const fn = AZIONI[el.dataset.act];
+  if (!fn) return;
+  e.preventDefault();
+  try { await fn(el, e); } catch (err) { console.error(err); toast(err.message || String(err), true); }
+});
+document.addEventListener('change', (e) => { const el = e.target.closest('[data-ch]'); if (el && CAMBI[el.dataset.ch]) CAMBI[el.dataset.ch](el, e); });
+document.addEventListener('input', (e) => { const el = e.target.closest('[data-in]'); if (el && INPUT[el.dataset.in]) INPUT[el.dataset.in](el, e); });
+document.addEventListener('submit', (e) => {
+  const form = e.target.closest('[data-form]');
+  if (!form) return;
+  e.preventDefault();
+  try { FORMS[form.dataset.form](form, e); } catch (err) { console.error(err); toast(err.message || String(err), true); }
+});
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'edConto' || e.target.id === 'edNom') {
+    const soc = socCorrente(); const ctx = contesto(soc); const v = codiceDa(e.target.value);
+    if (e.target.id === 'edConto') $('#edContoDesc').textContent = v ? (ctx.pdc.get(v)?.d || (ctx.pdc.size ? 'Non nel piano dei conti' : '')) : '';
+    else $('#edNomDesc').textContent = v ? (ctx.nom.get(v)?.d || 'Non in anagrafica') : 'Obbligatorio per incassi e pagamenti';
+  }
+});
+
+/* ============================================================ avvio */
+async function avvio() {
+  await Store.init();
+  const pill = $('#storagePill');
+  pill.classList.add(Store.mode);
+  $('#storageTxt').textContent = { cloud: 'Archivio online', firebase: `Firebase · ${Firebase.user?.email || ''}`, browser: 'Archivio in questo browser', memoria: 'Dati non salvati' }[Store.mode];
+  pill.title = { cloud: 'I dati sono salvati nell’archivio della pagina su claude.ai', firebase: 'I dati sono nel database Firebase dello studio', browser: 'I dati restano in questo browser: scarica backup regolari', memoria: 'Il browser non permette il salvataggio: scarica un backup prima di chiudere' }[Store.mode];
+  try { S.index = (await Store.get('index')) || { societa: [] }; } catch (e) { toast('Archivio non raggiungibile: ' + (e.message || e.code), true); }
+  const u = leggiUi();
+  if (u) Object.assign(S.ui, u, { sel: new Set() });
+  if (S.ui.socId && S.index.societa.some((s) => s.id === S.ui.socId)) { try { await caricaSocieta(S.ui.socId); } catch (e) { S.ui.socId = null; } }
+  else if (S.index.societa.length === 1) { await caricaSocieta(S.index.societa[0].id); S.ui.socId = S.index.societa[0].id; S.ui.view = 'periodi'; }
+  else S.ui.socId = null;
+  if (!S.soc[S.ui.socId]) { S.ui.socId = null; S.ui.view = 'home'; }
+  Store.notify();
+  await render();
+}
+avvio();
+
+</script>
