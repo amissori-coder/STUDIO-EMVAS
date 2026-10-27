@@ -8,10 +8,23 @@ attività, email Gmail, chat interna, team/assenze, notifiche) e portale clienti
 - **Tailwind CSS v4** (`@import "tailwindcss"` in `src/app/globals.css`), icone `lucide-react`.
 - **Prisma 6 + SQLite** (`prisma/schema.prisma`, file DB in `data/emvas.db`). Nessun enum nativo:
   i valori ammessi e le etichette italiane sono in `src/lib/constants.ts`.
+- **Migrazioni versionate** in `prisma/migrations`. Lo schema si applica con `prisma migrate deploy`,
+  mai con `prisma db push`: db push confronta schema e database e adatta le tabelle da sé, quindi su un
+  aggiornamento che rinomina o rimuove una colonna può cancellare dati senza chiedere nulla.
+  `20260101000000_init` è la baseline (lo schema in uso fino all'introduzione delle migrazioni, marcata
+  come applicata senza toccare i dati). Un database preesistente creato con db push si allinea una volta
+  sola con `npx prisma migrate resolve --applied 20260101000000_init`.
+  `docker-entrypoint.sh` esegue `migrate deploy` all'avvio e **non avvia l'applicazione** se falla:
+  meglio non partire che partire su uno schema incerto.
 - Autenticazione propria: cookie JWT (`jose`) + password `bcryptjs`; OAuth Google per login staff e Gmail.
 - `swr` per polling client (chat, notifiche), `zod` v4 per validazione, `date-fns` v4 (locale `it`).
 - Notifiche: in-app (tabella `Notification`) + Web Push (`web-push`, VAPID) + email SMTP opzionale.
 - Cron interno con `node-cron` avviato da `src/instrumentation.ts` (`src/lib/cron/scheduler.ts`).
+  Ogni esecuzione è tracciata nella tabella `JobRun` (nome, inizio, fine, esito, origine), che fa anche da
+  lucchetto contro due esecuzioni sovrapposte dello stesso job: senza di essa un'esecuzione mancata brucia
+  in silenzio i promemoria del giorno e il pannello Impostazioni continua a dichiarare "Attivo".
+- 2FA facoltativa per utente con codice a tempo (TOTP, RFC 6238, implementato con `node:crypto`):
+  campi `User.totpSecret` / `totpAttivo` / `totpRecupero` / `totpConfermato`.
 
 ## Regole Next.js 16 (IMPORTANTI)
 - `params` e `searchParams` sono **Promise**: `const { id } = await props.params`. Usa i tipi globali
@@ -120,12 +133,23 @@ Le notifiche create dai job usano questi link (`/attivita/[id]`, `/email/[id]`, 
 - Notifiche: alla creazione/assegnazione di un'attività notifica l'assegnatario (`ATTIVITA_ASSEGNATA`);
   nuovo messaggio chat → referente cliente + utenti menzionati (`@Nome`); documento caricato dal cliente → referente;
   richiesta assenza → admin; esito assenza → richiedente.
-- Non modificare `prisma/schema.prisma` senza coordinamento: se serve un campo, segnalalo.
+- Non modificare `prisma/schema.prisma` senza coordinamento: se serve un campo, segnalalo. Ogni modifica
+  dello schema richiede una migrazione (`npm run db:migrate:nuova -- --name <descrizione>`) committata
+  insieme al codice: lo schema non si applica più con db push.
+- Elenchi paginati: l'`orderBy` deve avere un criterio di spareggio stabile (`{ id: "desc" }` in coda),
+  altrimenti fra una pagina e l'altra le righe si duplicano o scompaiono.
+- Le scritture "leggi-poi-scrivi" (calcolo di un `ordine`, generazione di attività) vanno in
+  `prisma.$transaction`: due operazioni contemporanee producono altrimenti dati incoerenti.
+- Una notifica non recapitata non va contata come recapitata: `notify()` scarta l'utente non attivo, quindi
+  chi segna "già avvisato" deve verificare che qualcuno sia stato davvero raggiunto, e ricadere sul
+  referente del cliente e poi sugli amministratori.
 - Cartelle documenti: alla creazione di un cliente si creano le `CARTELLE_DEFAULT`.
 
 ## Comandi
 ```
-npm run setup          # prisma generate + db push + seed
+npm run setup          # prisma generate + migrate deploy + seed
+npm run db:migrate:stato  # stato delle migrazioni applicate
+npm run db:migrate:nuova -- --name <descrizione>   # nuova migrazione (sviluppo)
 npm run db:seed:demo   # dati dimostrativi
 npm run dev            # http://localhost:3000
 npm run typecheck && npm run lint && npm run build
