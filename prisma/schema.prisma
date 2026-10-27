@@ -15,22 +15,26 @@ datasource db {
 // Utenti (staff dello studio e utenti dei clienti per il portale)
 // ---------------------------------------------------------------------------
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  nome          String
-  passwordHash  String?
-  ruolo         String // ADMIN | COLLABORATORE | CLIENTE
-  attivo        Boolean   @default(true)
-  colore        String    @default("#2563eb")
-  telefono      String?
-  notificaEmail Boolean   @default(true)
-  notificaPush  Boolean   @default(true)
-  inviteToken   String?   @unique
-  inviteExpires DateTime?
-  lastLoginAt   DateTime?
-  sessionVersion Int      @default(0) // incrementato al reset password: invalida le sessioni esistenti
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  email          String    @unique
+  nome           String
+  passwordHash   String?
+  ruolo          String // ADMIN | COLLABORATORE | CLIENTE
+  attivo         Boolean   @default(true)
+  colore         String    @default("#2563eb")
+  telefono       String?
+  notificaEmail  Boolean   @default(true)
+  notificaPush   Boolean   @default(true)
+  inviteToken    String?   @unique
+  inviteExpires  DateTime?
+  lastLoginAt    DateTime?
+  sessionVersion Int       @default(0) // incrementato al reset password: invalida le sessioni esistenti
+  totpSecret     String? // segreto TOTP in base32, presente solo quando la 2FA è configurata
+  totpAttivo     Boolean   @default(false) // la 2FA è richiesta all'accesso
+  totpRecupero   String? // codici di recupero usa-e-getta, hash SHA-256 separati da virgola
+  totpConfermato DateTime? // quando l'utente ha completato l'attivazione
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   googleAccount      GoogleAccount?
   clientiRiferimento Client[]           @relation("ClientReferente")
@@ -404,4 +408,24 @@ model AuditLog {
 
   @@index([entita, entitaId])
   @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Registro delle esecuzioni dei job pianificati
+// ---------------------------------------------------------------------------
+// Serve a due cose: (1) sapere se e quando un job è davvero girato, così che
+// un'esecuzione mancata si veda invece di bruciare in silenzio i promemoria di
+// quel giorno; (2) impedire due esecuzioni sovrapposte dello stesso job
+// (lucchetto acquisito con un update condizionato atomico).
+model JobRun {
+  id         String    @id @default(cuid())
+  nome       String // daily | gmail
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  esito      String? // OK | ERRORE
+  dettagli   String?
+  origine    String // CRON | MANUALE | HTTP
+
+  @@index([nome, startedAt])
+  @@index([startedAt])
 }

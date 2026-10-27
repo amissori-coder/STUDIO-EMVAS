@@ -50,3 +50,7 @@ next-env.d.ts
 
 # stato locale di Claude Code (worktree degli agenti)
 /.claude/
+
+# database SQLite di sviluppo creato da prisma migrate dev
+prisma/*.db
+prisma/*.db-journal
