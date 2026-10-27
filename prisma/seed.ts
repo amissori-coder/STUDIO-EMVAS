@@ -8,14 +8,15 @@ import { CATALOGO_ADEMPIMENTI } from "../src/lib/adempimenti/catalogo";
 import { CARTELLE_DEFAULT } from "../src/lib/constants";
 
 // Il seed può essere eseguito a mano (npm run db:seed) con le variabili scritte solo nel file .env,
-// oppure dal contenitore Docker, dove arrivano già dall'ambiente. Caricare il file quando manca
-// DATABASE_URL evita un errore poco comprensibile di Prisma.
-if (!process.env.DATABASE_URL) {
-  try {
-    process.loadEnvFile();
-  } catch {
-    // nessun file .env: le variabili devono essere già presenti nell'ambiente
-  }
+// oppure dal contenitore Docker, dove arrivano già dall'ambiente. Il file va caricato SEMPRE, non
+// solo quando manca DATABASE_URL: con DATABASE_URL esportato nell'ambiente e tutto il resto nel .env
+// il seed ignorava in silenzio ADMIN_EMAIL e ADMIN_PASSWORD e creava un amministratore
+// admin@studio.local con una password casuale, stampata una volta sola a video.
+// process.loadEnvFile() non sovrascrive le variabili già presenti, quindi l'ambiente vince sul file.
+try {
+  process.loadEnvFile();
+} catch {
+  // nessun file .env: le variabili devono essere già presenti nell'ambiente
 }
 
 const prisma = new PrismaClient();
