@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { EsciForm } from "./EsciForm";
 import { useState } from "react";
 import { Menu, X, LogOut } from "lucide-react";
 import { MOBILE_PRIMARY, NAV_ITEMS } from "@/components/layout/nav";
@@ -56,12 +57,12 @@ export function MobileNav({ user }: { user: CurrentUser }) {
                   </Link>
                 );
               })}
-              <form action="/api/auth/logout" method="post" className="contents">
+              <EsciForm className="contents">
                 <button type="submit" className="flex flex-col items-center gap-1 rounded-xl bg-slate-50 px-2 py-3 text-xs font-medium text-red-600 hover:bg-red-50">
                   <LogOut className="h-5 w-5" />
                   Esci
                 </button>
-              </form>
+              </EsciForm>
             </div>
           </div>
         </div>

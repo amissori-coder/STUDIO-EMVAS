@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { EsciForm } from "./EsciForm";
 import { NAV_ITEMS } from "@/components/layout/nav";
 import type { CurrentUser } from "@/lib/auth/guards";
 import { cn } from "@/lib/utils";
@@ -44,11 +45,11 @@ export function Sidebar({ user }: { user: CurrentUser }) {
             <p className="truncate text-sm font-medium text-slate-900">{user.nome}</p>
             <p className="truncate text-xs text-slate-500">{RUOLI[user.ruolo]}</p>
           </div>
-          <form action="/api/auth/logout" method="post">
+          <EsciForm>
             <button type="submit" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900" title="Esci" aria-label="Esci">
               <LogOut className="h-4 w-4" />
             </button>
-          </form>
+          </EsciForm>
         </div>
       </div>
     </aside>

@@ -5,6 +5,7 @@ import { requireClientUser } from "@/lib/auth/guards";
 import { Avatar } from "@/components/ui/Avatar";
 import { ClientSwitcher } from "@/modules/portale/ClientSwitcher";
 import { getPortalClients, getPortalFolderClientMap, getStudioContactEmail, resolvePortalClient } from "@/modules/portale/service";
+import { EsciForm } from "@/components/layout/EsciForm";
 
 export default async function PortaleLayout({ children }: { children: ReactNode }) {
   const user = await requireClientUser();
@@ -31,11 +32,11 @@ export default async function PortaleLayout({ children }: { children: ReactNode 
               {user.nome}
             </span>
             <Avatar nome={user.nome} colore={user.colore} size="sm" />
-            <form action="/api/auth/logout" method="post">
+            <EsciForm>
               <button type="submit" className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100" title="Esci" aria-label="Esci">
                 <LogOut className="h-5 w-5" />
               </button>
-            </form>
+            </EsciForm>
           </div>
         </div>
       </header>
