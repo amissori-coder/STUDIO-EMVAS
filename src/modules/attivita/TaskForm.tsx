@@ -1,5 +1,5 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
 import { SubmitButton } from "@/components/ui/SubmitButton";
@@ -35,17 +35,35 @@ export function TaskForm({
   onSuccess,
   onCancel,
   cancelHref,
+  collegati,
 }: {
   action: (prev: ActionResult, formData: FormData) => Promise<ActionResult>;
   valori: TaskFormValues;
   clienti: { id: string; denominazione: string }[];
-  utenti: { id: string; nome: string }[];
+  utenti: { id: string; nome: string; attivo?: boolean }[];
   templates: OpzioneTemplate[];
   submitLabel: string;
   onSuccess?: () => void;
   onCancel?: () => void;
   cancelHref?: string;
+  /** email e documenti già collegati all'attività: cambiando cliente vengono scollegati */
+  collegati?: { email: number; documenti: number };
 }) {
+  const [clienteScelto, setClienteScelto] = useState(valori.clientId ?? "");
+  const cambioCliente = !!valori.id && clienteScelto !== (valori.clientId ?? "");
+  const daScollegare = [
+    collegati?.email ? (collegati.email === 1 ? "1 email" : `${collegati.email} email`) : null,
+    collegati?.documenti ? (collegati.documenti === 1 ? "1 documento" : `${collegati.documenti} documenti`) : null,
+  ].filter(Boolean);
+  const totaleCollegati = (collegati?.email ?? 0) + (collegati?.documenti ?? 0);
+  const verboScollegati =
+    totaleCollegati === 1
+      ? collegati?.email
+        ? "verrà scollegata"
+        : "verrà scollegato"
+      : collegati?.documenti
+        ? "verranno scollegati"
+        : "verranno scollegate";
   const [state, formAction] = useActionState<ActionResult, FormData>(async (prev, fd) => {
     const r = await action(prev, fd);
     if (r.ok) onSuccess?.();
@@ -71,7 +89,7 @@ export function TaskForm({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Cliente" htmlFor="clientId" hint="Facoltativo: lascia vuoto per attività interne allo studio.">
-          <Select id="clientId" name="clientId" defaultValue={valori.clientId ?? ""}>
+          <Select id="clientId" name="clientId" value={clienteScelto} onChange={(e) => setClienteScelto(e.target.value)}>
             <option value="">— Nessun cliente (interna) —</option>
             {clienti.map((c) => (
               <option key={c.id} value={c.id}>
@@ -80,6 +98,12 @@ export function TaskForm({
             ))}
           </Select>
         </Field>
+        {cambioCliente && daScollegare.length > 0 && (
+          <p className="text-sm text-amber-700 sm:col-span-2">
+            Cambiando cliente, {daScollegare.join(" e ")} del cliente attuale {verboScollegati} da questa attività:{" "}
+            {totaleCollegati === 1 ? "resta" : "restano"} nella scheda del cliente attuale.
+          </p>
+        )}
         <Field label="Scadenza *" htmlFor="scadenza">
           <Input id="scadenza" name="scadenza" type="date" required defaultValue={valori.scadenza ?? ""} />
         </Field>
@@ -98,6 +122,7 @@ export function TaskForm({
             {utenti.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.nome}
+                {u.attivo === false ? " (disattivato)" : ""}
               </option>
             ))}
           </Select>

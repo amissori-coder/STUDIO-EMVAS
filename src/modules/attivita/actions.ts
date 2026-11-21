@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { conSessione } from "@/lib/auth/sessione-scaduta";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notifications";
 import { AuthError, isAdmin, requireStaffAction } from "@/lib/auth/guards";
@@ -57,7 +58,13 @@ function revalidateTask(task: { id: string; clientId: string | null }) {
   }
 }
 
-async function validaRiferimenti(input: { clientId?: string; assigneeId?: string; templateId?: string }) {
+/**
+ * `assegnatarioAttuale`: chi è già assegnatario dell'attività. Resta accettato anche se nel frattempo
+ * è stato disattivato, altrimenti un'attività sua non si potrebbe più salvare — nemmeno per spostarne
+ * la scadenza o per riassegnarla, cioè proprio le due cose che servono. Si rifiuta solo l'assegnazione
+ * NUOVA a una persona disattivata.
+ */
+async function validaRiferimenti(input: { clientId?: string; assigneeId?: string; templateId?: string }, assegnatarioAttuale?: string | null) {
   const clientId = input.clientId || null;
   const assigneeId = input.assigneeId || null;
   const templateId = input.templateId || null;
@@ -67,7 +74,8 @@ async function validaRiferimenti(input: { clientId?: string; assigneeId?: string
   }
   if (assigneeId) {
     const u = await prisma.user.findUnique({ where: { id: assigneeId }, select: { id: true, ruolo: true, attivo: true } });
-    if (!u || !u.attivo || u.ruolo === "CLIENTE") return { error: "Assegnatario non valido." } as const;
+    if (!u || u.ruolo === "CLIENTE") return { error: "Assegnatario non valido." } as const;
+    if (!u.attivo && assigneeId !== assegnatarioAttuale) return { error: "Questo collaboratore è stato disattivato: scegli un'altra persona." } as const;
   }
   if (templateId) {
     const t = await prisma.adempimentoTemplate.findUnique({ where: { id: templateId }, select: { id: true } });
@@ -155,8 +163,24 @@ export async function aggiornaTask(_prev: ActionResult, formData: FormData): Pro
     if (!parsed.success) return { error: primoErrore(parsed.error) };
     const scadenza = parseDateInput(parsed.data.scadenza);
     if (!scadenza) return { error: "Data di scadenza non valida." };
-    const rif = await validaRiferimenti(parsed.data);
+    const rif = await validaRiferimenti(parsed.data, esistente.assigneeId);
     if ("error" in rif) return { error: rif.error };
+
+    // Cambiando il cliente, email e documenti collegati all'attività restano del cliente precedente: si
+    // scollegano dall'attività, altrimenti comparirebbero sotto il cliente nuovo.
+    const cambiaCliente = rif.clientId !== esistente.clientId;
+    const [emailScollegate, documentiScollegati] = cambiaCliente
+      ? await prisma.$transaction([
+          prisma.emailMessage.updateMany({
+            where: { taskId: id, clientId: rif.clientId ? { not: rif.clientId } : { not: null } },
+            data: { taskId: null },
+          }),
+          prisma.document.updateMany({
+            where: { taskId: id, ...(rif.clientId ? { clientId: { not: rif.clientId } } : {}) },
+            data: { taskId: null },
+          }),
+        ])
+      : [{ count: 0 }, { count: 0 }];
 
     const task = await prisma.task.update({
       where: { id },
@@ -176,7 +200,17 @@ export async function aggiornaTask(_prev: ActionResult, formData: FormData): Pro
       },
       include: { client: { select: { denominazione: true } } },
     });
-    await audit({ userId: user.id, azione: "TASK_MODIFICATA", entita: "Task", entitaId: task.id, dettagli: { prima: { titolo: esistente.titolo, scadenza: esistente.scadenza, assigneeId: esistente.assigneeId, priorita: esistente.priorita }, dopo: { titolo: task.titolo, scadenza: task.scadenza, assigneeId: task.assigneeId, priorita: task.priorita } } });
+    await audit({
+      userId: user.id,
+      azione: "TASK_MODIFICATA",
+      entita: "Task",
+      entitaId: task.id,
+      dettagli: {
+        prima: { titolo: esistente.titolo, scadenza: esistente.scadenza, assigneeId: esistente.assigneeId, priorita: esistente.priorita, clientId: esistente.clientId },
+        dopo: { titolo: task.titolo, scadenza: task.scadenza, assigneeId: task.assigneeId, priorita: task.priorita, clientId: task.clientId },
+        ...(cambiaCliente ? { emailScollegate: emailScollegate.count, documentiScollegati: documentiScollegati.count } : {}),
+      },
+    });
     if (task.assigneeId !== esistente.assigneeId) await notificaAssegnazione(task, user.id, task.client?.denominazione, false);
     revalidateTask(task);
     if (esistente.clientId && esistente.clientId !== task.clientId) revalidatePath(`/clienti/${esistente.clientId}`);
@@ -224,16 +258,28 @@ export async function cambiaStato(_prev: ActionResult, formData: FormData): Prom
 
 /** Azione rapida: completa (form inline). */
 export async function completaTaskRapida(formData: FormData) {
+  return conSessione(() => completaTaskRapidaInterna(formData));
+}
+
+async function completaTaskRapidaInterna(formData: FormData) {
   await cambiaStatoInterno(fd(formData, "id"), "COMPLETATA");
 }
 
 /** Azione rapida: prendi in carico (assegna a me + IN_CORSO). */
 export async function prendiInCaricoRapida(formData: FormData) {
+  return conSessione(() => prendiInCaricoRapidaInterna(formData));
+}
+
+async function prendiInCaricoRapidaInterna(formData: FormData) {
   await cambiaStatoInterno(fd(formData, "id"), "IN_CORSO", { prendiInCarico: true });
 }
 
 /** Azione rapida: riapri (torna DA_FARE). */
 export async function riapriTaskRapida(formData: FormData) {
+  return conSessione(() => riapriTaskRapidaInterna(formData));
+}
+
+async function riapriTaskRapidaInterna(formData: FormData) {
   await cambiaStatoInterno(fd(formData, "id"), "DA_FARE");
 }
 
@@ -244,9 +290,9 @@ export async function riassegnaTask(_prev: ActionResult, formData: FormData): Pr
     const assigneeId = fd(formData, "assigneeId") || null;
     const esistente = await prisma.task.findUnique({ where: { id }, include: { client: { select: { denominazione: true } } } });
     if (!esistente) return { error: "Attività non trovata." };
-    const rif = await validaRiferimenti({ assigneeId: assigneeId ?? "" });
-    if ("error" in rif) return { error: rif.error };
     if (esistente.assigneeId === assigneeId) return { ok: true };
+    const rif = await validaRiferimenti({ assigneeId: assigneeId ?? "" }, esistente.assigneeId);
+    if ("error" in rif) return { error: rif.error };
     const task = await prisma.task.update({ where: { id }, data: { assigneeId, lastReminderKind: null, lastReminderAt: null } });
     await audit({ userId: user.id, azione: "TASK_RIASSEGNATA", entita: "Task", entitaId: id, dettagli: { da: esistente.assigneeId, a: assigneeId } });
     await notificaAssegnazione(task, user.id, esistente.client?.denominazione, false);
@@ -274,6 +320,10 @@ export async function salvaNote(_prev: ActionResult, formData: FormData): Promis
 }
 
 export async function eliminaTask(formData: FormData) {
+  return conSessione(() => eliminaTaskInterna(formData));
+}
+
+async function eliminaTaskInterna(formData: FormData) {
   const user = await requireStaffAction();
   const id = fd(formData, "id");
   const task = await prisma.task.findUnique({ where: { id }, select: { id: true, titolo: true, clientId: true, createdById: true } });

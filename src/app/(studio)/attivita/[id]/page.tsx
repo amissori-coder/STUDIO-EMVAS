@@ -74,7 +74,15 @@ export default async function DettaglioAttivitaPage(props: PageProps<"/attivita/
             )}
           </span>
         }
-        actions={<TaskEditModal valori={valoriForm} clienti={clienti} utenti={utenti} templates={templates} />}
+        actions={
+          <TaskEditModal
+            valori={valoriForm}
+            clienti={clienti}
+            utenti={utenti}
+            templates={templates}
+            collegati={{ email: task.emails.length, documenti: task.documenti.length }}
+          />
+        }
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

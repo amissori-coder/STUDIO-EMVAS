@@ -11,6 +11,7 @@ import { buildTaskQuery, ORDINAMENTI, PERIODI, type TaskFilters as Filtri } from
 export interface OpzioneUtente {
   id: string;
   nome: string;
+  attivo?: boolean;
 }
 export interface OpzioneCliente {
   id: string;
@@ -119,6 +120,7 @@ export function TaskFilters({
               .map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.nome}
+                  {u.attivo === false ? " (disattivato)" : ""}
                 </option>
               ))}
           </Select>

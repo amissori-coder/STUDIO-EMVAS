@@ -51,7 +51,7 @@ export function StatoButtons({ id, stato, compact = false, className }: { id: st
   );
 }
 
-export function RiassegnaForm({ id, assigneeId, utenti }: { id: string; assigneeId: string | null; utenti: { id: string; nome: string }[] }) {
+export function RiassegnaForm({ id, assigneeId, utenti }: { id: string; assigneeId: string | null; utenti: { id: string; nome: string; attivo?: boolean }[] }) {
   const [state, action] = useActionState<ActionResult, FormData>(riassegnaTask, {});
   return (
     <form action={action} className="space-y-2">
@@ -62,6 +62,7 @@ export function RiassegnaForm({ id, assigneeId, utenti }: { id: string; assignee
           {utenti.map((u) => (
             <option key={u.id} value={u.id}>
               {u.nome}
+              {u.attivo === false ? " (disattivato)" : ""}
             </option>
           ))}
         </Select>

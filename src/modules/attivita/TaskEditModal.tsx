@@ -12,12 +12,14 @@ export function TaskEditModal({
   utenti,
   templates,
   className,
+  collegati,
 }: {
   valori: TaskFormValues;
   clienti: { id: string; denominazione: string }[];
-  utenti: { id: string; nome: string }[];
+  utenti: { id: string; nome: string; attivo?: boolean }[];
   templates: OpzioneTemplate[];
   className?: string;
+  collegati?: { email: number; documenti: number };
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -34,6 +36,7 @@ export function TaskEditModal({
             utenti={utenti}
             templates={templates}
             submitLabel="Salva modifiche"
+            collegati={collegati}
             onSuccess={() => setOpen(false)}
             onCancel={() => setOpen(false)}
           />

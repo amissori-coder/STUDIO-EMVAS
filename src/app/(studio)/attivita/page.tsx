@@ -62,7 +62,16 @@ export default async function AttivitaPage(props: PageProps<"/attivita">) {
   const [{ tasks: visibili, totale, pagine, pagina }, templateFiltro, utenti, clienti, nScadute, nOggi, nSettimana] = await Promise.all([
     caricaPaginaTasks(where, filtri.ordina, filtri.pagina),
     filtri.template ? prisma.adempimentoTemplate.findUnique({ where: { id: filtri.template }, select: { nome: true } }) : null,
-    prisma.user.findMany({ where: { ruolo: { in: ["ADMIN", "COLLABORATORE"] }, attivo: true }, select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
+    // il collaboratore su cui si sta filtrando resta fra le opzioni anche se disattivato: altrimenti il menu
+    // direbbe «Chiunque» mentre l'elenco è filtrato su di lui
+    prisma.user.findMany({
+      where: {
+        ruolo: { in: ["ADMIN", "COLLABORATORE"] },
+        OR: [{ attivo: true }, ...(filtri.assegnatario && !["me", "nessuno"].includes(filtri.assegnatario) ? [{ id: filtri.assegnatario }] : [])],
+      },
+      select: { id: true, nome: true, attivo: true },
+      orderBy: { nome: "asc" },
+    }),
     prisma.client.findMany({ where: { OR: [{ attivo: true }, ...(filtri.cliente ? [{ id: filtri.cliente }] : [])] }, select: { id: true, denominazione: true }, orderBy: { denominazione: "asc" } }),
     prisma.task.count({ where: { stato: { in: STATI_TASK_APERTI }, scadenza: { lt: oggi } } }),
     prisma.task.count({ where: { stato: { in: STATI_TASK_APERTI }, scadenza: { gte: oggi, lte: endOfDayLocal(oggi) } } }),

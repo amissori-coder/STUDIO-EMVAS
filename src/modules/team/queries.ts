@@ -29,13 +29,15 @@ export interface StaffRow {
   hasPassword: boolean;
   taskAperte: number;
   taskScadute: number;
+  /** clienti di cui è referente: alla disattivazione vanno passati a qualcuno */
+  clientiReferente: number;
   /** assenza approvata che copre oggi */
   assenzaOggi: { tipo: string; dataFine: string; fineLabel: string } | null;
 }
 
 export async function listStaff(): Promise<StaffRow[]> {
   const oggi = startOfDayLocal(new Date());
-  const [users, aperte, scadute, assenze] = await Promise.all([
+  const [users, aperte, scadute, assenze, referenze] = await Promise.all([
     prisma.user.findMany({
       where: { ruolo: { in: RUOLI_STAFF } },
       include: { googleAccount: { select: { googleEmail: true } } },
@@ -52,7 +54,9 @@ export async function listStaff(): Promise<StaffRow[]> {
       select: { userId: true, tipo: true, dataFine: true },
       orderBy: { dataFine: "desc" },
     }),
+    prisma.client.groupBy({ by: ["referenteId"], where: { referenteId: { not: null } }, _count: { _all: true } }),
   ]);
+  const referenzeMap = new Map(referenze.map((r) => [r.referenteId, r._count._all]));
   const aperteMap = new Map(aperte.map((r) => [r.assigneeId, r._count._all]));
   const scaduteMap = new Map(scadute.map((r) => [r.assigneeId, r._count._all]));
   const assenzaMap = new Map<string, { tipo: string; dataFine: string; fineLabel: string }>();
@@ -75,6 +79,7 @@ export async function listStaff(): Promise<StaffRow[]> {
     hasPassword: !!u.passwordHash,
     taskAperte: aperteMap.get(u.id) ?? 0,
     taskScadute: scaduteMap.get(u.id) ?? 0,
+    clientiReferente: referenzeMap.get(u.id) ?? 0,
     assenzaOggi: assenzaMap.get(u.id) ?? null,
   }));
 }

@@ -10,7 +10,7 @@ import { createSession } from "@/lib/auth/session";
 import { audit } from "@/lib/audit";
 import { isMailerConfigured, sendEmail } from "@/lib/mailer";
 import { appUrl, notify, notifyAdmins } from "@/lib/notifications";
-import { COLORI_UTENTE, RUOLI_STAFF, STATI_ASSENZA, TIPI_ASSENZA, TIPI_NOTIFICA, type Ruolo } from "@/lib/constants";
+import { COLORI_UTENTE, RUOLI_STAFF, STATI_ASSENZA, STATI_TASK_APERTI, TIPI_ASSENZA, TIPI_NOTIFICA, type Ruolo } from "@/lib/constants";
 import { formatDate, normalizeEmail, parseDateInput } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -250,22 +250,64 @@ export async function changeRoleAction(userId: string, ruolo: string): Promise<T
   }
 }
 
-export async function setStaffActiveAction(userId: string, attivo: boolean): Promise<TeamActionState> {
+/**
+ * Attiva o disattiva un collaboratore. Alla disattivazione clienti seguiti e attività aperte NON restano
+ * intestati a chi non c'è più (le notifiche a un utente disattivato non arrivano a nessuno): passano a
+ * `successoreId` se indicato, altrimenti restano senza referente e senza assegnatario, e i promemoria
+ * ricadono sugli amministratori.
+ */
+export async function setStaffActiveAction(userId: string, attivo: boolean, successoreId?: string | null): Promise<TeamActionState> {
   try {
     const admin = await requireAdminAction();
     const id = z.string().min(1).parse(userId);
-    const user = await prisma.user.findFirst({ where: { id, ruolo: { in: RUOLI_STAFF } }, select: { id: true, ruolo: true, attivo: true, email: true } });
+    const user = await prisma.user.findFirst({ where: { id, ruolo: { in: RUOLI_STAFF } }, select: { id: true, ruolo: true, attivo: true, email: true, nome: true } });
     if (!user) return { error: "Collaboratore non trovato." };
-    if (!attivo) {
-      if (user.id === admin.id) return { error: "Non puoi disattivare il tuo stesso account." };
-      if (user.ruolo === "ADMIN") {
-        const altriAdmin = await prisma.user.count({ where: { ruolo: "ADMIN", attivo: true, id: { not: user.id } } });
-        if (altriAdmin === 0) return { error: "Non puoi disattivare l'ultimo amministratore attivo." };
-      }
+    if (user.attivo === attivo) return { ok: true }; // doppio clic: nulla da rifare
+    if (attivo) {
+      await prisma.user.update({ where: { id }, data: { attivo: true } });
+      await audit({ userId: admin.id, azione: "COLLABORATORE_RIATTIVATO", entita: "User", entitaId: id, dettagli: { email: user.email } });
+      revalidateTeam();
+      return { ok: true };
     }
-    await prisma.user.update({ where: { id }, data: { attivo, ...(attivo ? {} : { inviteToken: null, inviteExpires: null }) } });
-    await audit({ userId: admin.id, azione: attivo ? "COLLABORATORE_RIATTIVATO" : "COLLABORATORE_DISATTIVATO", entita: "User", entitaId: id, dettagli: { email: user.email } });
+
+    if (user.id === admin.id) return { error: "Non puoi disattivare il tuo stesso account." };
+    if (user.ruolo === "ADMIN") {
+      const altriAdmin = await prisma.user.count({ where: { ruolo: "ADMIN", attivo: true, id: { not: user.id } } });
+      if (altriAdmin === 0) return { error: "Non puoi disattivare l'ultimo amministratore attivo." };
+    }
+    let successore: { id: string; nome: string } | null = null;
+    if (successoreId) {
+      successore = await prisma.user.findFirst({ where: { id: successoreId, attivo: true, ruolo: { in: RUOLI_STAFF } }, select: { id: true, nome: true } });
+      if (!successore || successore.id === user.id) return { error: "Scegli un collaboratore attivo a cui passare clienti e attività." };
+    }
+
+    const nuovo = successore?.id ?? null;
+    const [clienti, attivita] = await prisma.$transaction([
+      prisma.client.updateMany({ where: { referenteId: id }, data: { referenteId: nuovo } }),
+      // i promemoria ripartono per il nuovo assegnatario
+      prisma.task.updateMany({ where: { assigneeId: id, stato: { in: STATI_TASK_APERTI } }, data: { assigneeId: nuovo, lastReminderKind: null, lastReminderAt: null } }),
+      prisma.user.update({ where: { id }, data: { attivo: false, inviteToken: null, inviteExpires: null } }),
+    ]);
+    await audit({
+      userId: admin.id,
+      azione: "COLLABORATORE_DISATTIVATO",
+      entita: "User",
+      entitaId: id,
+      dettagli: { email: user.email, clientiPassati: clienti.count, attivitaPassate: attivita.count, a: successore?.nome ?? "nessuno" },
+    });
+    if (successore && (clienti.count || attivita.count)) {
+      await notify({
+        userId: successore.id,
+        tipo: "ATTIVITA_ASSEGNATA",
+        titolo: `Ti sono stati affidati clienti e attività di ${user.nome}`,
+        corpo: `${clienti.count === 1 ? "1 cliente" : `${clienti.count} clienti`} da seguire come referente e ${attivita.count === 1 ? "1 attività aperta" : `${attivita.count} attività aperte`}.`,
+        link: "/attivita?assegnatario=me&stato=aperte&ordina=scadenza",
+        email: true,
+      });
+    }
     revalidateTeam();
+    revalidatePath("/clienti");
+    revalidatePath("/attivita");
     return { ok: true };
   } catch (e) {
     return { error: errorMessage(e, "Errore durante l'aggiornamento.") };

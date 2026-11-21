@@ -11,7 +11,8 @@ export async function caricaOpzioniForm(opts: { includiClienteId?: string | null
     }),
     prisma.user.findMany({
       where: { ruolo: { in: ["ADMIN", "COLLABORATORE"] }, OR: [{ attivo: true }, ...(opts.includiUtenteId ? [{ id: opts.includiUtenteId }] : [])] },
-      select: { id: true, nome: true },
+      // `attivo` serve ai menu per marcare «(disattivato)» l'assegnatario attuale che non è più in studio
+      select: { id: true, nome: true, attivo: true },
       orderBy: { nome: "asc" },
     }),
     prisma.adempimentoTemplate.findMany({ select: { id: true, nome: true, categoria: true }, orderBy: [{ ordine: "asc" }, { nome: "asc" }] }),

@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { conSessione } from "@/lib/auth/sessione-scaduta";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notifications";
 import { AuthError, requireAdminAction } from "@/lib/auth/guards";
@@ -159,6 +160,10 @@ export async function salvaTemplate(_prev: TemplateActionResult, formData: FormD
 }
 
 export async function eliminaTemplate(formData: FormData) {
+  return conSessione(() => eliminaTemplateInterna(formData));
+}
+
+async function eliminaTemplateInterna(formData: FormData) {
   const user = await requireAdminAction();
   const id = fd(formData, "id");
   const t = await prisma.adempimentoTemplate.findUnique({ where: { id }, select: { id: true, codice: true, nome: true } });
@@ -171,6 +176,10 @@ export async function eliminaTemplate(formData: FormData) {
 }
 
 export async function toggleTemplateAttivo(formData: FormData) {
+  return conSessione(() => toggleTemplateAttivoInterna(formData));
+}
+
+async function toggleTemplateAttivoInterna(formData: FormData) {
   const user = await requireAdminAction();
   const id = fd(formData, "id");
   const t = await prisma.adempimentoTemplate.findUnique({ where: { id }, select: { id: true, attivo: true, nome: true } });

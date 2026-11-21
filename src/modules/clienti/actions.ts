@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { conSessione } from "@/lib/auth/sessione-scaduta";
 import { promises as fs } from "node:fs";
 import { AuthError, isAdmin, requireAdminAction, requireStaffAction, type CurrentUser } from "@/lib/auth/guards";
 import { hashPassword, validatePasswordStrength } from "@/lib/auth/password";
@@ -148,6 +149,10 @@ export async function updateClientAction(clientId: string, _prev: ClientFormStat
 }
 
 export async function setClientArchivedAction(clientId: string, archivia: boolean) {
+  return conSessione(() => setClientArchivedActionInterna(clientId, archivia));
+}
+
+async function setClientArchivedActionInterna(clientId: string, archivia: boolean) {
   const user = await requireAdminAction();
   const client = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true, denominazione: true } });
   if (!client) return;
@@ -164,6 +169,10 @@ export async function setClientArchivedAction(clientId: string, archivia: boolea
 }
 
 export async function deleteClientAction(clientId: string) {
+  return conSessione(() => deleteClientActionInterna(clientId));
+}
+
+async function deleteClientActionInterna(clientId: string) {
   const user = await requireAdminAction();
   const client = await prisma.client.findUnique({
     where: { id: clientId },

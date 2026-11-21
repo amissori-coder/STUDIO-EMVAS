@@ -358,7 +358,6 @@ function StaffCard({
               className={cn("ml-auto h-10 sm:h-8", u.attivo ? "text-red-600 hover:bg-red-50" : "text-green-700 hover:bg-green-50")}
               disabled={busy}
               onClick={() => {
-                if (u.attivo && !window.confirm(`Disattivare ${u.nome}? Non potrà più accedere alla piattaforma.`)) return;
                 onActive(!u.attivo);
               }}
             >
@@ -375,7 +374,71 @@ function StaffCard({
 // ---------------------------------------------------------------------------
 // Elenco
 // ---------------------------------------------------------------------------
-type ModalState = { kind: "none" } | { kind: "new" } | { kind: "edit"; utente: StaffRow } | { kind: "password"; utente: StaffRow };
+type ModalState =
+  | { kind: "none" }
+  | { kind: "new" }
+  | { kind: "edit"; utente: StaffRow }
+  | { kind: "password"; utente: StaffRow }
+  | { kind: "disattiva"; utente: StaffRow };
+
+/**
+ * Disattivazione: mostra che cosa la persona ha in carico e chiede a chi passarlo. Senza questo passaggio
+ * clienti e attività restavano intestati a chi non c'è più, e le notifiche non arrivavano a nessuno.
+ */
+function DisattivaForm({
+  utente,
+  colleghi,
+  onConferma,
+  onCancel,
+  busy,
+}: {
+  utente: StaffRow;
+  colleghi: StaffRow[];
+  onConferma: (successoreId: string | null) => void;
+  onCancel: () => void;
+  busy: boolean;
+}) {
+  const [successore, setSuccessore] = useState("");
+  const carico = utente.clientiReferente > 0 || utente.taskAperte > 0;
+  const clienti = utente.clientiReferente === 1 ? "1 cliente" : `${utente.clientiReferente} clienti`;
+  const attivita = utente.taskAperte === 1 ? "1 attività aperta" : `${utente.taskAperte} attività aperte`;
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-700">
+        {utente.nome} non potrà più accedere alla piattaforma.
+      </p>
+      {carico ? (
+        <>
+          <Alert kind="warning">
+            Segue come referente <strong>{clienti}</strong> e ha <strong>{attivita}</strong>
+            {utente.taskScadute > 0 ? `, di cui ${utente.taskScadute} già scadute` : ""}. Le notifiche a una persona disattivata non
+            arrivano a nessuno: scegli a chi passarli.
+          </Alert>
+          <Field label="Passa clienti e attività a" htmlFor="successore">
+            <Select id="successore" value={successore} onChange={(e) => setSuccessore(e.target.value)}>
+              <option value="">— Nessuno: restano da assegnare (i promemoria vanno agli amministratori) —</option>
+              {colleghi.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </>
+      ) : (
+        <p className="text-sm text-slate-500">Non ha clienti né attività aperte in carico.</p>
+      )}
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
+          Annulla
+        </Button>
+        <Button type="button" variant="danger" onClick={() => onConferma(successore || null)} disabled={busy}>
+          <ShieldOff className="h-4 w-4" /> Disattiva
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function StaffList({ staff, isAdmin, currentUserId }: { staff: StaffRow[]; isAdmin: boolean; currentUserId: string }) {
   const [modal, setModal] = useState<ModalState>({ kind: "none" });
@@ -398,7 +461,16 @@ export function StaffList({ staff, isAdmin, currentUserId }: { staff: StaffRow[]
 
   const attivi = staff.filter((s) => s.attivo);
   const disattivati = staff.filter((s) => !s.attivo);
-  const title = modal.kind === "new" ? "Nuovo collaboratore" : modal.kind === "edit" ? "Modifica collaboratore" : modal.kind === "password" ? "Password temporanea" : "";
+  const title =
+    modal.kind === "new"
+      ? "Nuovo collaboratore"
+      : modal.kind === "edit"
+        ? "Modifica collaboratore"
+        : modal.kind === "password"
+          ? "Password temporanea"
+          : modal.kind === "disattiva"
+            ? `Disattivare ${modal.utente.nome}?`
+            : "";
 
   return (
     <div className="space-y-4">
@@ -431,7 +503,7 @@ export function StaffList({ staff, isAdmin, currentUserId }: { staff: StaffRow[]
                   if (r.ok && r.inviteLink) setEsito({ kind: "invito", nome: u.nome, email: u.email, link: r.inviteLink, emailSent: r.emailSent });
                 }}
                 onRole={(ruolo) => run(() => changeRoleAction(u.id, ruolo))}
-                onActive={(attivo) => run(() => setStaffActiveAction(u.id, attivo))}
+                onActive={() => setModal({ kind: "disattiva", utente: u })}
               />
             ))}
           </ul>
@@ -472,6 +544,18 @@ export function StaffList({ staff, isAdmin, currentUserId }: { staff: StaffRow[]
           />
         )}
         {modal.kind === "edit" && <EditStaffForm utente={modal.utente} onDone={close} onCancel={close} />}
+        {modal.kind === "disattiva" && (
+          <DisattivaForm
+            utente={modal.utente}
+            colleghi={attivi.filter((c) => c.id !== modal.utente.id)}
+            busy={busy}
+            onCancel={close}
+            onConferma={async (successoreId) => {
+              const r = await run(() => setStaffActiveAction(modal.utente.id, false, successoreId));
+              if (r.ok) close();
+            }}
+          />
+        )}
         {modal.kind === "password" && (
           <TempPasswordForm
             utente={modal.utente}
