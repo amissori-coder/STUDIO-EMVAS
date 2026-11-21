@@ -4,7 +4,7 @@ import { BellRing, CalendarClock, ClipboardList, Eye, Pencil, Plus, Power } from
 import { prisma } from "@/lib/db";
 import { isAdmin, requireStaff } from "@/lib/auth/guards";
 import { CATEGORIE_ADEMPIMENTO, RICORRENZE } from "@/lib/constants";
-import { cn } from "@/lib/utils";
+import { cn, conta } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -40,7 +40,7 @@ export default async function AdempimentiPage(props: PageProps<"/adempimenti">) 
     <>
       <PageHeader
         title="Adempimenti"
-        description={`Catalogo di ${templates.length} adempimenti (${attivi} attivi): regole di scadenza e applicabilità usate per generare le attività dei clienti.`}
+        description={`Catalogo di ${conta(templates.length, "adempimento", "adempimenti")} (${conta(attivi, "attivo", "attivi")}): regole di scadenza e applicabilità usate per generare le attività dei clienti.`}
         actions={
           admin && (
             <Button href="/adempimenti/nuovo">

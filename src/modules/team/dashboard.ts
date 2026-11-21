@@ -45,6 +45,8 @@ export interface DashboardData {
   prossimeScadenzeTotale: number;
   /** solo admin: true se per l'anno corrente non è stata generata nessuna attività da adempimenti */
   pianificazioneMancante: boolean;
+  /** clienti attivi senza nessun adempimento generato per l'anno (quando lo studio ne ha già pianificati) */
+  clientiSenzaPianificazione: number;
 }
 
 // `priorita` è una stringa: un orderBy sul DB sarebbe alfabetico (MEDIA > BASSA > ALTA). Si ordina in memoria.
@@ -137,7 +139,7 @@ export async function loadDashboard(user: CurrentUser): Promise<DashboardData> {
     prisma.document.findMany({
       where: { daCliente: true },
       select: { id: true, nome: true, createdAt: true, client: { select: { id: true, denominazione: true } }, uploadedBy: { select: { nome: true } } },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 5,
     }),
     prisma.task
@@ -152,6 +154,10 @@ export async function loadDashboard(user: CurrentUser): Promise<DashboardData> {
     isAdmin ? prisma.task.count({ where: { templateId: { not: null }, anno } }) : Promise.resolve(1),
     prisma.task.count({ where: { ...aperte, assigneeId: null } }),
   ]);
+  // anche dopo la pianificazione massiva, un cliente inserito dopo resta senza scadenze finché qualcuno
+  // non lo pianifica: lo si conta a parte
+  const clientiSenzaPianificazione =
+    isAdmin && taskGenerateAnno > 0 ? await prisma.client.count({ where: { attivo: true, tasks: { none: { templateId: { not: null }, anno } } } }) : 0;
 
   // Allerta assenze: per ogni assente (oggi..+3 giorni) le attività aperte in scadenza nella finestra o già scadute
   const allerte: AllertaAssenza[] = [];
@@ -192,5 +198,6 @@ export async function loadDashboard(user: CurrentUser): Promise<DashboardData> {
     prossimeScadenze,
     prossimeScadenzeTotale,
     pianificazioneMancante: isAdmin && taskGenerateAnno === 0,
+    clientiSenzaPianificazione,
   };
 }

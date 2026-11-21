@@ -15,6 +15,7 @@ import { normalizeEmail } from "@/lib/utils";
 import { canChangeReferente, canManagePortalAccess } from "./permessi";
 import { clientiFuoriGestione, messaggioFuoriGestione } from "./regole-portale";
 import { contactSchema, parseClientForm, portalUserSchema, type ClientFieldErrors, type ClientFormValues } from "./validation";
+import { duplicatiConfermati, messaggioDuplicati, raggruppaDuplicati, valoriDaControllare, type Duplicato, type Identificativi } from "./duplicati";
 
 // ---------------------------------------------------------------------------
 // Tipi di stato per useActionState
@@ -24,6 +25,8 @@ export interface ClientFormState {
   ok?: boolean;
   fieldErrors?: ClientFieldErrors;
   values?: ClientFormValues;
+  /** altri clienti con lo stesso codice fiscale o partita IVA: si salva solo dopo una conferma esplicita */
+  duplicati?: Duplicato[];
 }
 
 export interface SimpleState {
@@ -53,6 +56,23 @@ function revalidateClient(clientId: string) {
   revalidatePath("/clienti");
   revalidatePath(`/clienti/${clientId}`);
   revalidatePath(`/clienti/${clientId}/modifica`);
+}
+
+/**
+ * Doppioni di codice fiscale / partita IVA da far confermare (vuoto se non ce ne sono o se l'utente li ha
+ * già confermati con il campo «confermaDuplicati»). In modifica si guardano solo i campi cambiati.
+ */
+async function duplicatiDaConfermare(nuovo: Identificativi, formData: FormData, escludi?: { id: string } & Identificativi): Promise<Duplicato[]> {
+  const valori = valoriDaControllare(nuovo, escludi);
+  if (!valori.length) return [];
+  const altri = await prisma.client.findMany({
+    where: { ...(escludi ? { id: { not: escludi.id } } : {}), OR: [{ codiceFiscale: { in: valori } }, { partitaIva: { in: valori } }] },
+    select: { id: true, denominazione: true, attivo: true, codiceFiscale: true, partitaIva: true },
+    orderBy: [{ denominazione: "asc" }, { id: "asc" }],
+    take: 20,
+  });
+  const duplicati = raggruppaDuplicati(nuovo, valori, altri);
+  return duplicatiConfermati(String(formData.get("confermaDuplicati") ?? ""), duplicati) ? [] : duplicati;
 }
 
 async function validateReferente(referenteId: string | null) {
@@ -87,6 +107,9 @@ export async function createClientAction(_prev: ClientFormState, formData: FormD
 
   const referenteId = await validateReferente(data.referenteId);
   if (referenteId === undefined) return { error: "Referente non valido.", fieldErrors: { referenteId: "Seleziona un collaboratore attivo." }, values };
+  const duplicati = await duplicatiDaConfermare(data, formData);
+  if (duplicati.length) return { error: messaggioDuplicati(duplicati), duplicati, values };
+  const confermati = valoriDaControllare(data).length ? String(formData.get("confermaDuplicati") ?? "") || null : null;
 
   let id: string;
   try {
@@ -99,7 +122,7 @@ export async function createClientAction(_prev: ClientFormState, formData: FormD
       select: { id: true },
     });
     id = created.id;
-    await audit({ userId: user.id, azione: "CLIENTE_CREATO", entita: "Client", entitaId: id, dettagli: { denominazione: data.denominazione } });
+    await audit({ userId: user.id, azione: "CLIENTE_CREATO", entita: "Client", entitaId: id, dettagli: { denominazione: data.denominazione, ...(confermati ? { doppioniConfermati: confermati } : {}) } });
   } catch (e) {
     return { error: errorMessage(e, "Errore durante il salvataggio del cliente."), values };
   }
@@ -118,8 +141,11 @@ export async function updateClientAction(clientId: string, _prev: ClientFormStat
   if (!data) return { error: "Controlla i campi evidenziati.", fieldErrors, values };
 
   try {
-    const existing = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true, attivo: true, referenteId: true } });
+    const existing = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true, attivo: true, referenteId: true, codiceFiscale: true, partitaIva: true } });
     if (!existing) return { error: "Cliente non trovato.", values };
+    const duplicati = await duplicatiDaConfermare(data, formData, existing);
+    if (duplicati.length) return { error: messaggioDuplicati(duplicati), duplicati, values };
+    const confermati = valoriDaControllare(data, existing).length ? String(formData.get("confermaDuplicati") ?? "") || null : null;
 
     // Referente: se non cambia lo si conserva così com'è (anche se nel frattempo è stato disattivato);
     // se cambia serve l'autorizzazione (admin, referente attuale o cliente senza referente) e un collaboratore attivo.
@@ -140,7 +166,7 @@ export async function updateClientAction(clientId: string, _prev: ClientFormStat
     // Solo gli amministratori possono cambiare lo stato attivo/archiviato
     const attivo = isAdmin(user) ? data.attivo : existing.attivo;
     await prisma.client.update({ where: { id: clientId }, data: { ...data, referenteId, attivo } });
-    await audit({ userId: user.id, azione: "CLIENTE_MODIFICATO", entita: "Client", entitaId: clientId, dettagli: { denominazione: data.denominazione } });
+    await audit({ userId: user.id, azione: "CLIENTE_MODIFICATO", entita: "Client", entitaId: clientId, dettagli: { denominazione: data.denominazione, ...(confermati ? { doppioniConfermati: confermati } : {}) } });
   } catch (e) {
     return { error: errorMessage(e, "Errore durante il salvataggio del cliente."), values };
   }

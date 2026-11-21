@@ -121,6 +121,26 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
         </Alert>
       )}
 
+      {!d.pianificazioneMancante && d.clientiSenzaPianificazione > 0 && (
+        <Alert
+          kind="info"
+          className="mb-4"
+          title={
+            d.clientiSenzaPianificazione === 1
+              ? `1 cliente senza adempimenti pianificati per il ${d.oggi.getFullYear()}`
+              : `${d.clientiSenzaPianificazione} clienti senza adempimenti pianificati per il ${d.oggi.getFullYear()}`
+          }
+        >
+          <p>
+            Di solito sono clienti inseriti dopo la pianificazione. Rilancia la pianificazione per tutti i clienti: le scadenze già create non vengono duplicate. Se
+            un cliente non ha adempimenti previsti dal suo regime, l&apos;avviso resta: puoi ignorarlo.
+          </p>
+          <Link href="/adempimenti" className="mt-1 inline-flex min-h-10 items-center gap-1 text-sm font-medium text-blue-700 hover:underline sm:min-h-0">
+            Vai agli adempimenti <ArrowRight className="h-4 w-4" />
+          </Link>
+        </Alert>
+      )}
+
       {/* KPI */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         <Kpi label="Attività scadute" value={d.kpi.scaduteMie} sub={`${d.kpi.scaduteTotali} in tutto lo studio`} href="/attivita?assegnatario=me&stato=aperte&periodo=scadute&ordina=scadenza" icon={AlertTriangle} tone="red" />

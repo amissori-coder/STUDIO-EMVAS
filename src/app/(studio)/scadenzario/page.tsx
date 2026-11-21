@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/auth/guards";
 import { STATI_ASSENZA, TIPI_ASSENZA } from "@/lib/constants";
 import { festivita } from "@/lib/adempimenti/calendario";
-import { addDays, cn, endOfDayLocal, formatDate, formatDateLong, parseDateInput, startOfDayLocal } from "@/lib/utils";
+import { addDays, cn, conta, endOfDayLocal, formatDate, formatDateLong, parseDateInput, startOfDayLocal } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Badge, STATO_ASSENZA_COLOR, TIPO_ASSENZA_COLOR } from "@/components/ui/Badge";
@@ -150,7 +150,7 @@ export default async function ScadenzarioPage(props: PageProps<"/scadenzario">) 
     <>
       <PageHeader
         title="Scadenzario"
-        description={`${nelMese.length} attività nel mese${assenze.length ? ` · ${assenze.length} assenze` : ""}`}
+        description={`${nelMese.length} attività nel mese${assenze.length ? ` · ${conta(assenze.length, "assenza", "assenze")}` : ""}`}
         actions={
           <>
             <Button href="/attivita" variant="outline">
@@ -238,7 +238,7 @@ export default async function ScadenzarioPage(props: PageProps<"/scadenzario">) 
                     {items.length > 3 && (
                       <li>
                         <Link href={base({ giorno: k })} className="block px-1.5 text-[11px] font-medium text-blue-700 hover:underline">
-                          +{items.length - 3} altre
+                          {items.length - 3 === 1 ? "+1 altra" : `+${items.length - 3} altre`}
                         </Link>
                       </li>
                     )}

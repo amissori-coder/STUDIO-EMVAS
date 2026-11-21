@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Checkbox, Select } from "@/components/ui/Input";
 import { Spinner } from "@/components/ui/Spinner";
 import { CATEGORIE_ADEMPIMENTO, RICORRENZE } from "@/lib/constants";
-import { cn, formatDate } from "@/lib/utils";
+import { cn, conta, formatDate } from "@/lib/utils";
 import { anteprimaCliente, impostaOverride, pianificaCliente, type PianificazioneResult } from "@/modules/attivita/actions";
 import type { AnteprimaRiga } from "@/modules/attivita/pianificazione";
 
@@ -114,8 +114,8 @@ export function PianificazioneCard({ clientId, annoIniziale, righeIniziali }: { 
         <div className="flex flex-col gap-3 rounded-lg border border-blue-100 bg-blue-50/60 p-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-blue-900">
             <p className="font-medium">
-              {daGenerare.length} adempimenti da generare per il {anno} · {totScadenze} scadenze
-              {totEsistenti > 0 && <span className="font-normal text-blue-700"> ({totEsistenti} già create)</span>}
+              {conta(daGenerare.length, "adempimento", "adempimenti")} da generare per il {anno} · {conta(totScadenze, "scadenza", "scadenze")}
+              {totEsistenti > 0 && <span className="font-normal text-blue-700"> ({totEsistenti === 1 ? "1 già creata" : `${totEsistenti} già create`})</span>}
             </p>
             <Checkbox label="Salta le scadenze già passate" checked={saltaPassate} onChange={(e) => setSaltaPassate(e.target.checked)} className="mt-1 min-h-8 text-blue-900" />
           </div>

@@ -29,7 +29,7 @@ export async function ClientTasksTab({ clientId, user }: { clientId: string; use
       <Card>
         <CardHeader
           title="Attività aperte"
-          description={aperte.length ? `${aperte.length} attività da fare o in corso${scadute ? ` · ${scadute} scadute` : ""}` : "Nessuna attività aperta"}
+          description={aperte.length ? `${aperte.length} attività da fare o in corso${scadute ? ` · ${scadute === 1 ? "1 scaduta" : `${scadute} scadute`}` : ""}` : "Nessuna attività aperta"}
           actions={
             <Button href={`/attivita/nuova?cliente=${clientId}`} size="sm">
               <Plus className="h-4 w-4" /> Nuova attività

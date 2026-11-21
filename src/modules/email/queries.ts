@@ -62,6 +62,8 @@ export function buildEmailWhere(f: EmailListFilters): Prisma.EmailMessageWhereIn
   }
   if (f.casella) where.accountId = f.casella;
   if (f.q) {
+    // SQLite: contains ignora maiuscole/minuscole (solo lettere ASCII, non le accentate). Passando a
+    // PostgreSQL aggiungere mode: "insensitive" a ogni condizione, altrimenti la ricerca diventa sensibile.
     where.OR = [
       { subject: { contains: f.q } },
       { fromAddr: { contains: f.q } },
@@ -155,7 +157,7 @@ export async function getEmailDetail(id: string, userId: string) {
       client: { select: { id: true, denominazione: true, referenteId: true } },
       task: { select: { id: true, titolo: true, stato: true, scadenza: true } },
       linkedBy: { select: { nome: true } },
-      documenti: { select: { id: true, nome: true, folderId: true, createdAt: true }, orderBy: { createdAt: "desc" } },
+      documenti: { select: { id: true, nome: true, folderId: true, createdAt: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }] },
     },
   });
 }

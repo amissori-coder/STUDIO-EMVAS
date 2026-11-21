@@ -1,5 +1,7 @@
 "use client";
 import { useActionState } from "react";
+import Link from "next/link";
+import { chiaveConferma, descriviCampi } from "./duplicati";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -54,7 +56,32 @@ export function ClientForm({
 
   return (
     <form action={formAction} className="space-y-5">
-      {state.error && <Alert kind="error">{state.error}</Alert>}
+      {state.error && !state.duplicati?.length && <Alert kind="error">{state.error}</Alert>}
+      {!!state.duplicati?.length && (
+        <Alert kind="warning" title="Possibile cliente doppio">
+          <p>{state.error}</p>
+          <ul className="mt-2 space-y-1">
+            {state.duplicati.map((d) => (
+              <li key={d.valore}>
+                {descriviCampi(d)} <span className="font-mono">{d.valore}</span> già presente in:{" "}
+                {d.clienti.map((c, i) => (
+                  <span key={c.id}>
+                    {i > 0 && ", "}
+                    <Link href={`/clienti/${c.id}`} target="_blank" className="font-medium underline">
+                      {c.denominazione}
+                    </Link>
+                    {!c.attivo && " (archiviato)"}
+                  </span>
+                ))}
+              </li>
+            ))}
+          </ul>
+          <label className="mt-3 flex items-start gap-2 font-medium">
+            <input type="checkbox" name="confermaDuplicati" value={chiaveConferma(state.duplicati)} className="mt-0.5 h-4 w-4" />
+            È un cliente diverso: salva comunque
+          </label>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader title="Dati anagrafici" description="Denominazione e inquadramento fiscale del cliente." />
@@ -98,10 +125,10 @@ export function ClientForm({
             )}
           </div>
           <Field label="Codice fiscale" htmlFor="codiceFiscale" error={errors.codiceFiscale}>
-            <Input id="codiceFiscale" name="codiceFiscale" defaultValue={v("codiceFiscale")} maxLength={16} className="uppercase" autoCapitalize="characters" />
+            <Input id="codiceFiscale" name="codiceFiscale" defaultValue={v("codiceFiscale")} maxLength={22} className="uppercase" autoCapitalize="characters" />
           </Field>
           <Field label="Partita IVA" htmlFor="partitaIva" error={errors.partitaIva} hint="11 cifre.">
-            <Input id="partitaIva" name="partitaIva" defaultValue={v("partitaIva")} inputMode="numeric" maxLength={13} placeholder="01234567890" />
+            <Input id="partitaIva" name="partitaIva" defaultValue={v("partitaIva")} inputMode="numeric" maxLength={16} placeholder="01234567890" />
           </Field>
           <Field label="Codice ATECO" htmlFor="codiceAteco" error={errors.codiceAteco}>
             <Input id="codiceAteco" name="codiceAteco" defaultValue={v("codiceAteco")} maxLength={20} placeholder="Es. 43.22.01" />

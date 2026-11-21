@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   const [items, unread] = await Promise.all([
     prisma.notification.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: limit,
       select: { id: true, tipo: true, titolo: true, corpo: true, link: true, letta: true, createdAt: true },
     }),

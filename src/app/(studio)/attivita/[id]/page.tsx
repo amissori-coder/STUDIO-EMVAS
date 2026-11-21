@@ -5,7 +5,7 @@ import { AlertTriangle, Building2, CalendarClock, FileText, Mail, Trash2 } from 
 import { prisma } from "@/lib/db";
 import { isAdmin, requireStaff } from "@/lib/auth/guards";
 import { CATEGORIE_ADEMPIMENTO, PRIORITA_TASK, STATI_TASK } from "@/lib/constants";
-import { cn, describeDeadline, formatDate, formatDateLong, formatDateTime, toDateInputValue } from "@/lib/utils";
+import { cn, conta, describeDeadline, formatDate, formatDateLong, formatDateTime, toDateInputValue } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Badge, PRIORITA_COLOR, STATO_TASK_COLOR } from "@/components/ui/Badge";
@@ -33,7 +33,7 @@ export default async function DettaglioAttivitaPage(props: PageProps<"/attivita/
       createdBy: { select: { id: true, nome: true } },
       template: { select: { id: true, nome: true, categoria: true, ricorrenza: true } },
       emails: { select: { id: true, subject: true, fromAddr: true, fromName: true, receivedAt: true }, orderBy: { receivedAt: "desc" } },
-      documenti: { select: { id: true, nome: true, size: true, createdAt: true, daCliente: true }, orderBy: { createdAt: "desc" } },
+      documenti: { select: { id: true, nome: true, size: true, createdAt: true, daCliente: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }] },
     },
   });
   if (!task) notFound();
@@ -167,7 +167,7 @@ export default async function DettaglioAttivitaPage(props: PageProps<"/attivita/
           </Card>
 
           <Card>
-            <CardHeader title="Documenti collegati" description={task.documenti.length ? `${task.documenti.length} documenti` : "Nessun documento collegato"} />
+            <CardHeader title="Documenti collegati" description={task.documenti.length ? conta(task.documenti.length, "documento", "documenti") : "Nessun documento collegato"} />
             {task.documenti.length > 0 && (
               <ul className="divide-y divide-slate-100">
                 {task.documenti.map((d) => (

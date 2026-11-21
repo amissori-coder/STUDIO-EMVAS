@@ -234,6 +234,7 @@ export const CAMPI: Record<string, string> = {
   authorId: "Autore",
   clientId: "Cliente",
   precedenteClientId: "Cliente precedente",
+  doppioniConfermati: "Codice fiscale / partita IVA già di altri clienti, confermati",
   metodo: "Con",
   rimasti: "Codici di recupero rimasti",
   con: "Con",

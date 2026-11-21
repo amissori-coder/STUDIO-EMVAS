@@ -95,7 +95,7 @@ export function AssociationForm({
 
       <form action={action} className="space-y-3">
         <input type="hidden" name="emailId" value={emailId} />
-        <Field label="Cliente" htmlFor="assoc-cliente" hint={f ? `${visibili.length} clienti trovati` : undefined}>
+        <Field label="Cliente" htmlFor="assoc-cliente" hint={f ? (visibili.length === 1 ? "1 cliente trovato" : `${visibili.length} clienti trovati`) : undefined}>
           <div className="space-y-2">
             <Input
               id="assoc-filtro"

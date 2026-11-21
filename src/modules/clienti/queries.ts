@@ -41,6 +41,8 @@ export async function listClients(filters: ClientListFilters) {
   const where: Prisma.ClientWhereInput = {};
   const q = filters.q?.trim();
   if (q) {
+    // SQLite: contains ignora maiuscole/minuscole (solo lettere ASCII). Passando a PostgreSQL aggiungere
+    // mode: "insensitive" alla denominazione (gli altri campi sono già normalizzati in salvataggio).
     where.OR = [
       { denominazione: { contains: q } },
       { partitaIva: { contains: q } },
@@ -100,10 +102,10 @@ export async function getClientSummary(clientId: string) {
       select: { id: true, titolo: true, scadenza: true, stato: true, priorita: true },
     }),
     prisma.emailMessage.findFirst({ where: { clientId }, orderBy: { receivedAt: "desc" }, select: { id: true, receivedAt: true, subject: true } }),
-    prisma.clientContact.findMany({ where: { clientId }, orderBy: { createdAt: "asc" } }),
+    prisma.clientContact.findMany({ where: { clientId }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }),
     prisma.clientUser.findMany({
       where: { clientId },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       include: {
         user: {
           select: {

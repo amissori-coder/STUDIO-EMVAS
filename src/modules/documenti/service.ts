@@ -37,7 +37,7 @@ export function toDocumentDto(d: DocumentWithRefs): DocumentDto {
 export async function getFolderList(clientId: string): Promise<FolderDto[]> {
   const folders = await prisma.documentFolder.findMany({
     where: { clientId },
-    orderBy: [{ ordine: "asc" }, { nome: "asc" }],
+    orderBy: [{ ordine: "asc" }, { nome: "asc" }, { id: "asc" }],
     include: { _count: { select: { documenti: true } } },
   });
   return folders.map((f) => ({
@@ -63,7 +63,7 @@ export async function getClientDocuments(clientId: string, opts: { limit?: numbe
   const docs = await prisma.document.findMany({
     where: { clientId, ...(opts.folderId !== undefined ? { folderId: opts.folderId } : {}) },
     include: DOCUMENT_INCLUDE,
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: opts.limit ?? 500,
   });
   return docs.map(toDocumentDto);

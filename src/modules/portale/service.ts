@@ -99,7 +99,7 @@ export async function getPortalFolderTree(clientId: string): Promise<PortalFolde
     orderBy: [{ ordine: "asc" }, { nome: "asc" }],
     include: {
       _count: { select: { documenti: true } },
-      documenti: { select: { createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+      documenti: { select: { createdAt: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1 },
     },
   });
   const nodes = buildFolderTree(
@@ -183,7 +183,7 @@ function perIlPortale(d: Parameters<typeof toDocumentDto>[0]): DocumentDto {
 
 /** Documenti di una cartella visibile (più recenti prima). */
 export async function getPortalFolderDocuments(folderId: string): Promise<DocumentDto[]> {
-  const docs = await prisma.document.findMany({ where: { folderId }, include: DOCUMENT_INCLUDE, orderBy: { createdAt: "desc" }, take: 500 });
+  const docs = await prisma.document.findMany({ where: { folderId }, include: DOCUMENT_INCLUDE, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 500 });
   return docs.map(perIlPortale);
 }
 
@@ -194,7 +194,7 @@ export async function getPortalRecentDocuments(user: CurrentUser, clientId: stri
   const docs = await prisma.document.findMany({
     where: { clientId, OR: [{ folderId: { in: ids } }, { folderId: null, daCliente: true, uploadedById: user.id }] },
     include: DOCUMENT_INCLUDE,
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: limit,
   });
   return docs.map(perIlPortale);

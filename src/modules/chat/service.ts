@@ -55,9 +55,11 @@ export async function listStaffUsers(): Promise<StaffUserDto[]> {
 export async function getChatMessages(clientId: string, opts: { after?: Date; before?: Date; limit?: number } = {}) {
   if (opts.after) {
     return prisma.chatMessage.findMany({
-      where: { clientId, createdAt: { gt: opts.after } },
+      // gte, non gt: un messaggio scritto nello stesso millisecondo dell'ultimo ricevuto non va perso;
+      // quello già presente torna indietro e il client lo scarta per id (mergeIncoming)
+      where: { clientId, createdAt: { gte: opts.after } },
       select: chatMessageSelect,
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       take: 500,
     });
   }
@@ -65,7 +67,7 @@ export async function getChatMessages(clientId: string, opts: { after?: Date; be
   const rows = await prisma.chatMessage.findMany({
     where: { clientId, ...(opts.before ? { createdAt: { lt: opts.before } } : {}) },
     select: chatMessageSelect,
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: opts.limit ?? CHAT_INITIAL_LIMIT,
   });
   return rows.reverse();
@@ -183,7 +185,7 @@ export async function listConversations(userId: string): Promise<ConversationIte
   const lastMessages = lastKeys.length
     ? await prisma.chatMessage.findMany({
         where: { OR: lastKeys },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         select: { clientId: true, testo: true, createdAt: true, authorId: true, author: { select: { nome: true } } },
       })
     : [];

@@ -34,7 +34,7 @@ export default async function NotifichePage(props: PageProps<"/notifiche">) {
 
   const where = { userId: user.id, ...(vista === "non-lette" ? { letta: null } : {}) };
   const [notifiche, totale, nonLette] = await Promise.all([
-    prisma.notification.findMany({ where, orderBy: { createdAt: "desc" }, skip: (pagina - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    prisma.notification.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (pagina - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     prisma.notification.count({ where }),
     prisma.notification.count({ where: { userId: user.id, letta: null } }),
   ]);
@@ -67,7 +67,7 @@ export default async function NotifichePage(props: PageProps<"/notifiche">) {
 
       {messaggio === "pulite" && (
         <Alert kind="success" className="mb-4">
-          {n === 0 ? "Nessuna notifica da eliminare: non ci sono notifiche lette più vecchie di 30 giorni." : `Eliminate ${n} ${n === 1 ? "notifica" : "notifiche"} lette più vecchie di 30 giorni.`}
+          {n === 0 ? "Nessuna notifica da eliminare: non ci sono notifiche lette più vecchie di 30 giorni." : n === 1 ? "Eliminata 1 notifica letta più vecchia di 30 giorni." : `Eliminate ${n} notifiche lette più vecchie di 30 giorni.`}
         </Alert>
       )}
       {errore === "pulizia" && (

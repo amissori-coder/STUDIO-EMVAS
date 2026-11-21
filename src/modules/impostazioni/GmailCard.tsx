@@ -119,7 +119,7 @@ export function GmailCard({ status, messaggio, errore }: { status: GmailStatus |
               onClick={() => {
                 if (
                   window.confirm(
-                    `Scollegare ${status.googleEmail}? Le ${status.emailCount} email importate da questa casella (con le relative associazioni ai clienti) verranno rimosse dalla piattaforma. I documenti già salvati restano.`,
+                    `Scollegare ${status.googleEmail}? ${status.emailCount === 1 ? "L'email importata da questa casella (con la sua associazione al cliente) verrà rimossa" : `Le ${status.emailCount} email importate da questa casella (con le relative associazioni ai clienti) verranno rimosse`} dalla piattaforma. I documenti già salvati restano.`,
                   )
                 )
                   run(disconnectGmailAction);

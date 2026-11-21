@@ -111,9 +111,23 @@ export async function updateFolderAction(_prev: DocActionResult, formData: FormD
     const parent = await validateParent(existing.clientId, parsed.data.parentId || undefined, existing.id);
     if ("error" in parent) return { error: parent.error };
     const { nome, descrizione, visibileCliente, clientePuoCaricare } = parsed.data;
+    // spostata sotto un'altra cartella: va in fondo alle nuove sorelle invece di prendere la posizione di
+    // una di loro (due letture e una scrittura, senza transazione interattiva: a parità di posizione
+    // l'ordine resta comunque stabile per nome, vedi getFolderList)
+    const nuovoOrdine =
+      parent.parentId !== existing.parentId
+        ? ((await prisma.documentFolder.aggregate({ where: { clientId: existing.clientId, parentId: parent.parentId }, _max: { ordine: true } }))._max.ordine ?? -1) + 1
+        : undefined;
     await prisma.documentFolder.update({
       where: { id: existing.id },
-      data: { nome, descrizione: descrizione || null, parentId: parent.parentId, visibileCliente, clientePuoCaricare: visibileCliente && clientePuoCaricare },
+      data: {
+        nome,
+        descrizione: descrizione || null,
+        parentId: parent.parentId,
+        visibileCliente,
+        clientePuoCaricare: visibileCliente && clientePuoCaricare,
+        ...(nuovoOrdine !== undefined ? { ordine: nuovoOrdine } : {}),
+      },
     });
     await audit({ userId: user.id, azione: "CARTELLA_MODIFICATA", entita: "DocumentFolder", entitaId: existing.id, dettagli: { clientId: existing.clientId, nome, parentId: parent.parentId, visibileCliente, clientePuoCaricare } });
     revalidateDocs(existing.clientId, [existing.id, existing.parentId, parent.parentId]);

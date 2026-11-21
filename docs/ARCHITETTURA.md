@@ -138,6 +138,12 @@ Le notifiche create dai job usano questi link (`/attivita/[id]`, `/email/[id]`, 
 - Mobile-first: layout responsive (tabelle → card su schermi piccoli o `overflow-x-auto`), target touch ≥ 40px.
 - Server Component di default; `"use client"` solo dove serve interattività.
 - Le date "solo giorno" (scadenze, assenze) si salvano a mezzogiorno locale (`parseDateInput`) per evitare slittamenti di fuso.
+- Date: tutto si calcola nell'ora del server, che è sempre Europe/Rome (Docker e .env impostano TZ;
+  `instrumentation.ts` lo impone se manca). Non usare UTC esplicito per «oggi» o per l'anno.
+- Elenchi a pagine o ordinati per data: aggiungere sempre `{ id }` come spareggio nell'orderBy.
+- Testi con numeri: concordare singolare e plurale (`conta(n, "documento", "documenti")` in utils).
+- Ricerche testuali (`contains`): su SQLite ignorano maiuscole e minuscole; con PostgreSQL servirà
+  `mode: "insensitive"` (vedi i commenti in clienti/queries.ts ed email/queries.ts).
 - Ogni mutazione rilevante registra un `audit(...)` con l'autore (`userId`): solo i tentativi di accesso
   (`AZIONI_SENZA_AUTORE`) si registrano senza. Ogni nuova `azione` va aggiunta con la sua etichetta
   italiana in `src/modules/registro/etichette.ts` (il test `tests/unit/registro.test.ts` lo verifica

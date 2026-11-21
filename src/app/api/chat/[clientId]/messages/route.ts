@@ -67,7 +67,7 @@ export async function GET(request: NextRequest, ctx: Ctx) {
     messages = await prisma.chatMessage.findMany({
       where: { clientId, createdAt: { gte: from } },
       select: chatMessageSelect,
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       take: CHAT_RELOAD_LIMIT,
     });
   } else {

@@ -116,3 +116,8 @@ export function slugifyFilename(name: string) {
     .replace(/\s+/g, "_")
     .slice(0, 120) || "file";
 }
+
+/** «1 documento», «3 documenti»: il numero con la parola concordata. */
+export function conta(n: number, singolare: string, plurale: string) {
+  return `${n} ${n === 1 ? singolare : plurale}`;
+}
