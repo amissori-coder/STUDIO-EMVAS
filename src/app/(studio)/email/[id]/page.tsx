@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Briefcase, ExternalLink, ListChecks, MessagesSquare, Paperclip, Plus } from "lucide-react";
-import { requireStaff } from "@/lib/auth/guards";
+import { getCurrentUser, requireStaff } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
+import { emailVisibile } from "@/modules/email/visibilita";
 import { findClientByEmails, gmailWebUrl, sanitizeEmailHtml } from "@/lib/gmail";
 import { STATI_TASK, STATI_TASK_APERTI } from "@/lib/constants";
 import { formatDate, formatDateTime, formatRelative, truncate } from "@/lib/utils";
@@ -20,14 +21,16 @@ import { getEmailDetail, listActiveClientsForSelect, parseAttachments, splitAddr
 
 export async function generateMetadata(props: PageProps<"/email/[id]">): Promise<Metadata> {
   const { id } = await props.params;
-  const email = await prisma.emailMessage.findUnique({ where: { id }, select: { subject: true } });
+  // anche il titolo della scheda del browser rispetta la visibilità: l'oggetto è già un dato riservato
+  const user = await getCurrentUser();
+  const email = user ? await prisma.emailMessage.findFirst({ where: { AND: [{ id }, emailVisibile(user.id)] }, select: { subject: true } }) : null;
   return { title: email ? truncate(email.subject, 60) : "Email" };
 }
 
 export default async function EmailDetailPage(props: PageProps<"/email/[id]">) {
-  await requireStaff();
+  const user = await requireStaff();
   const { id } = await props.params;
-  const email = await getEmailDetail(id);
+  const email = await getEmailDetail(id, user.id);
   if (!email) notFound();
 
   if (email.isUnread) {
@@ -40,7 +43,7 @@ export default async function EmailDetailPage(props: PageProps<"/email/[id]">) {
 
   const [thread, clienti, suggestedId, folders] = await Promise.all([
     prisma.emailMessage.findMany({
-      where: { threadId: email.threadId, accountId: email.accountId, id: { not: email.id } },
+      where: { AND: [{ threadId: email.threadId, accountId: email.accountId, id: { not: email.id } }, emailVisibile(user.id)] },
       select: { id: true, subject: true, fromAddr: true, fromName: true, receivedAt: true, isUnread: true },
       orderBy: { receivedAt: "asc" },
     }),

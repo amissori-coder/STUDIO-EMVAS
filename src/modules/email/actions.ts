@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { emailVisibile } from "./visibilita";
 import { AuthError, requireStaffAction } from "@/lib/auth/guards";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notifications";
@@ -80,7 +81,7 @@ export async function linkEmailAction(_prev: ActionResult, formData: FormData): 
     if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dati non validi." };
     const { emailId, clientId, taskId } = parsed.data;
 
-    const email = await prisma.emailMessage.findUnique({ where: { id: emailId }, select: { id: true, clientId: true, subject: true } });
+    const email = await prisma.emailMessage.findFirst({ where: { AND: [{ id: emailId }, emailVisibile(user.id)] }, select: { id: true, clientId: true, subject: true } });
     if (!email) return { error: "Email non trovata." };
     const client = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true, denominazione: true, referenteId: true } });
     if (!client) return { error: "Cliente non trovato." };
@@ -123,7 +124,7 @@ export async function unlinkEmailAction(emailId: string): Promise<ActionResult> 
   try {
     const user = await requireStaffAction();
     const id = z.string().min(1).parse(emailId);
-    const email = await prisma.emailMessage.findUnique({ where: { id }, select: { id: true, clientId: true, taskId: true } });
+    const email = await prisma.emailMessage.findFirst({ where: { AND: [{ id }, emailVisibile(user.id)] }, select: { id: true, clientId: true, taskId: true } });
     if (!email) return { error: "Email non trovata." };
     await prisma.emailMessage.update({
       where: { id },
@@ -147,7 +148,7 @@ export async function toggleArchiveEmailAction(emailId: string): Promise<ActionR
   try {
     const user = await requireStaffAction();
     const id = z.string().min(1).parse(emailId);
-    const email = await prisma.emailMessage.findUnique({ where: { id }, select: { id: true, archiviata: true, clientId: true } });
+    const email = await prisma.emailMessage.findFirst({ where: { AND: [{ id }, emailVisibile(user.id)] }, select: { id: true, archiviata: true, clientId: true } });
     if (!email) return { error: "Email non trovata." };
     const archiviata = !email.archiviata;
     await prisma.emailMessage.update({ where: { id }, data: { archiviata } });

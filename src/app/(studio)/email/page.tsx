@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Inbox, MailX, Settings } from "lucide-react";
 import { requireStaff } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
+import { emailVisibile } from "@/modules/email/visibilita";
 import { isGoogleConfigured } from "@/lib/auth/google";
 import { formatRelative } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
@@ -57,8 +58,8 @@ export default async function EmailPage(props: PageProps<"/email">) {
 
   const [clienti, result, daAssociare] = await Promise.all([
     listActiveClientsForSelect(),
-    listEmails(filters),
-    prisma.emailMessage.count({ where: { clientId: null, archiviata: false } }),
+    listEmails(filters, user.id),
+    prisma.emailMessage.count({ where: { AND: [{ clientId: null, archiviata: false }, emailVisibile(user.id)] } }),
   ]);
 
   const canSync = user.ruolo === "ADMIN" || accounts.some((a) => a.userId === user.id);

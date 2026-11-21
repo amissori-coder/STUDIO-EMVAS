@@ -1,6 +1,7 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { emailVisibile } from "@/modules/email/visibilita";
 import type { CurrentUser } from "@/lib/auth/guards";
 import { STATI_TASK_APERTI } from "@/lib/constants";
 import { addDays, endOfDayLocal, startOfDayLocal } from "@/lib/utils";
@@ -105,7 +106,7 @@ export async function loadDashboard(user: CurrentUser): Promise<DashboardData> {
     prisma.task.count({ where: { ...aperte, scadenza: { gte: oggi, lte: fineOggi } } }),
     prisma.task.count({ where: { ...aperte, assigneeId: user.id, scadenza: { gte: oggi, lte: fineSettimana } } }),
     prisma.task.count({ where: { ...aperte, scadenza: { gte: oggi, lte: fineSettimana } } }),
-    prisma.emailMessage.count({ where: { clientId: null, archiviata: false } }),
+    prisma.emailMessage.count({ where: { AND: [{ clientId: null, archiviata: false }, emailVisibile(user.id)] } }),
     chatNonLette(user.id),
     prisma.document.count({ where: { daCliente: true, createdAt: { gte: addDays(oggi, -7) } } }),
     isAdmin ? prisma.absence.count({ where: { stato: "RICHIESTA" } }) : Promise.resolve(0),

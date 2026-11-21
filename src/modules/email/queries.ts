@@ -1,6 +1,7 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { emailVisibile } from "./visibilita";
 import { safeJsonParse } from "@/lib/utils";
 import type { ParsedAttachment } from "@/lib/gmail";
 
@@ -91,13 +92,15 @@ export const emailListSelect = {
 
 export type EmailListItem = Prisma.EmailMessageGetPayload<{ select: typeof emailListSelect }>;
 
-export async function listEmails(f: EmailListFilters) {
-  const where = buildEmailWhere(f);
+/** Elenco delle email visibili a `userId` (vedi emailVisibile) che rispettano i filtri. */
+export async function listEmails(f: EmailListFilters, userId: string) {
+  const where: Prisma.EmailMessageWhereInput = { AND: [buildEmailWhere(f), emailVisibile(userId)] };
   const [items, total] = await Promise.all([
     prisma.emailMessage.findMany({
       where,
       select: emailListSelect,
-      orderBy: { receivedAt: "desc" },
+      // spareggio sull'id: a parità di data l'ordine resta lo stesso fra una pagina e l'altra
+      orderBy: [{ receivedAt: "desc" }, { id: "desc" }],
       skip: (f.pagina - 1) * EMAIL_PAGE_SIZE,
       take: EMAIL_PAGE_SIZE,
     }),
@@ -143,11 +146,12 @@ export function splitAddresses(raw: string | null | undefined): string[] {
     .filter(Boolean);
 }
 
-export async function getEmailDetail(id: string) {
-  return prisma.emailMessage.findUnique({
-    where: { id },
+/** Dettaglio di un'email, solo se visibile a `userId`: altrimenti null (la pagina risponde «non trovata»). */
+export async function getEmailDetail(id: string, userId: string) {
+  return prisma.emailMessage.findFirst({
+    where: { AND: [{ id }, emailVisibile(userId)] },
     include: {
-      account: { select: { id: true, googleEmail: true, user: { select: { nome: true } } } },
+      account: { select: { id: true, googleEmail: true, userId: true, user: { select: { nome: true } } } },
       client: { select: { id: true, denominazione: true, referenteId: true } },
       task: { select: { id: true, titolo: true, stato: true, scadenza: true } },
       linkedBy: { select: { nome: true } },

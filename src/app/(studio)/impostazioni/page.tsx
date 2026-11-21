@@ -84,7 +84,7 @@ export default async function ImpostazioniPage(props: PageProps<"/impostazioni">
         </Card>
 
         <Card>
-          <CardHeader title={<SectionTitle icon={Mail}>Gmail</SectionTitle>} description="Importa le email dei clienti dalla tua casella Google." />
+          <CardHeader title={<SectionTitle icon={Mail}>Gmail</SectionTitle>} description="Importa le email della tua casella Google e associale ai clienti." />
           <CardBody>
             {googleConfigured ? (
               <GmailCard status={gmail} messaggio={messaggio} errore={errore} />

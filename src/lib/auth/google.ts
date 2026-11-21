@@ -4,12 +4,11 @@ export const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 export const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 export const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
 
-export const GMAIL_SCOPES = [
-  "openid",
-  "email",
-  "profile",
-  "https://www.googleapis.com/auth/gmail.readonly",
-];
+/** Accesso con Google: solo l'identità. Non deve MAI chiedere la posta. */
+export const LOGIN_SCOPES = ["openid", "email", "profile"];
+
+/** «Collega Gmail» da Impostazioni: identità più lettura della casella. */
+export const GMAIL_SCOPES = [...LOGIN_SCOPES, "https://www.googleapis.com/auth/gmail.readonly"];
 
 export function isGoogleConfigured() {
   return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
@@ -20,15 +19,22 @@ export function getRedirectUri() {
   return `${base}/api/auth/google/callback`;
 }
 
-export function buildGoogleAuthUrl(state: string, opts: { loginHint?: string } = {}) {
+/**
+ * Indirizzo della schermata di Google. Con mode "login" chiede soltanto l'identità: premere «Accedi con
+ * Google» non deve collegare la casella, che verrebbe importata e resa visibile allo studio senza che
+ * l'utente l'abbia scelto. La casella si collega solo con mode "connect", da Impostazioni.
+ */
+export function buildGoogleAuthUrl(state: string, opts: { mode: "login" | "connect"; loginHint?: string }) {
+  const collega = opts.mode === "connect";
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID ?? "",
     redirect_uri: getRedirectUri(),
     response_type: "code",
-    scope: GMAIL_SCOPES.join(" "),
-    access_type: "offline",
-    prompt: "consent",
-    include_granted_scopes: "true",
+    scope: (collega ? GMAIL_SCOPES : LOGIN_SCOPES).join(" "),
+    // il token di rinnovo serve solo per leggere la posta quando l'utente non c'è
+    access_type: collega ? "offline" : "online",
+    prompt: collega ? "consent" : "select_account",
+    include_granted_scopes: "false",
     state,
   });
   if (opts.loginHint) params.set("login_hint", opts.loginHint);

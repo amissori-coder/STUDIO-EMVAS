@@ -55,9 +55,11 @@ utente portale `cliente@rossi-impianti.it` / `Cliente123!`.
 
 Le email non vengono mai inviate dall'app: si legge solo la posta (scope `gmail.readonly`).
 
-Nota sulla riservatezza: la posta importata (ultimi `GMAIL_SYNC_DAYS` giorni e poi i nuovi messaggi) forma una
-casella unificata visibile a **tutto lo staff**, comprese le email non associate a clienti. Collega quindi solo
-caselle di lavoro dello studio, non caselle personali. Ogni casella può essere collegata da un solo utente.
+Nota sulla riservatezza: si importa la posta degli ultimi `GMAIL_SYNC_DAYS` giorni e poi i nuovi messaggi. Le email
+associate a un cliente (in automatico dall'indirizzo, o a mano) sono visibili a tutto lo staff; quelle non associate
+sono visibili **solo al titolare della casella**, amministratori compresi. «Accedi con Google» chiede solo l'identità
+e non collega mai la casella: la si collega esclusivamente da Impostazioni. Ogni casella può essere collegata da un
+solo utente.
 
 ### Notifiche push
 Genera le chiavi con `npm run vapid`, inseriscile nel `.env` e riavvia il server (in Docker: `docker compose up -d --build`,

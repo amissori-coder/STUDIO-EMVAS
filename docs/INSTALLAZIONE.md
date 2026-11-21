@@ -396,8 +396,10 @@ Serve una configurazione una tantum su Google, poi ogni collaboratore collega la
 
 6. Ogni collaboratore entra in Impostazioni, sezione Gmail, e preme Collega Gmail.
 
-La posta viene letta e basta: l'applicazione non invia mai email dalla casella collegata. La casella
-importata è però visibile a tutto lo staff, quindi collega solo caselle di lavoro.
+La posta viene letta e basta: l'applicazione non invia mai email dalla casella collegata. Le email che
+riguardano un cliente diventano visibili a tutto lo studio; tutte le altre restano visibili solo a chi
+ha collegato la casella. Accedere con il pulsante «Accedi con Google» non collega la casella: la si
+collega solo da Impostazioni.
 
 ---
 

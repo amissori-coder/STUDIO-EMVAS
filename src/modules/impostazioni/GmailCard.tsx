@@ -50,8 +50,19 @@ export function GmailCard({ status, messaggio, errore }: { status: GmailStatus |
       {!status ? (
         <>
           <p className="text-sm text-slate-600">
-            Collega la tua casella Gmail per importare automaticamente le email dei clienti nella sezione Email e associarle alle schede cliente.
+            Collega la tua casella Gmail per importare le email nella sezione Email e associarle alle schede dei clienti.
           </p>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-slate-600">
+            <li>Vengono importate le email degli ultimi giorni della tua casella, non solo quelle dei clienti.</li>
+            <li>
+              Quelle che arrivano da un indirizzo di un cliente vengono associate da sole alla sua scheda e diventano visibili a
+              tutto lo studio.
+            </li>
+            <li>
+              Tutte le altre restano visibili <strong>solo a te</strong>, nella vista «Da associare»: nessun collega, nemmeno
+              l&apos;amministratore, può leggerle. Diventano visibili allo studio solo se le associ tu a un cliente.
+            </li>
+          </ul>
           <a href="/api/auth/google?mode=connect" className={buttonClasses()}>
             <Link2 className="h-4 w-4" /> Collega Gmail
           </a>
@@ -115,7 +126,10 @@ export function GmailCard({ status, messaggio, errore }: { status: GmailStatus |
               <Unlink className="h-4 w-4" /> Scollega
             </Button>
           </div>
-          <p className="text-xs text-slate-500">La sincronizzazione automatica avviene periodicamente dal server; usa «Sincronizza ora» per forzarla.</p>
+          <p className="text-xs text-slate-500">
+            La sincronizzazione automatica avviene periodicamente dal server; usa «Sincronizza ora» per forzarla. Le email non associate a
+            un cliente restano visibili solo a te.
+          </p>
         </>
       )}
     </div>

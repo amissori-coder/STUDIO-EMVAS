@@ -79,7 +79,10 @@ export async function GET(request: NextRequest) {
       if (altroUtente) return fail("google-casella-usata", "connect");
     }
 
-    if (hasGmailScope && !altroUtente) {
+    // La casella si collega SOLO da «Collega Gmail» (mode=connect). Un accesso con Google non scrive mai
+    // i token della posta: prima lo faceva, e la casella veniva importata e mostrata allo studio senza
+    // che l'utente lo avesse chiesto.
+    if (state.mode === "connect" && hasGmailScope && !altroUtente) {
       // Salva/aggiorna i token per l'accesso a Gmail (il refresh token arriva solo con prompt=consent)
       const existing = await prisma.googleAccount.findUnique({ where: { userId: user.id } });
       await prisma.googleAccount.upsert({
