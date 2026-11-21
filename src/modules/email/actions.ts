@@ -7,6 +7,7 @@ import { AuthError, requireStaffAction } from "@/lib/auth/guards";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notifications";
 import { fetchGmailAttachment, syncGoogleAccount, type SyncResult } from "@/lib/gmail";
+import { riepilogoSincronizzazione } from "@/lib/gmail-regole";
 import { postaRegistrata } from "@/lib/cron/jobs";
 import { deleteUpload, getMaxUploadBytes, isAllowedFilename, saveUpload } from "@/lib/storage";
 import { cartellaDiSalvataggio } from "./cartella-allegati";
@@ -53,13 +54,8 @@ export async function syncNowAction(): Promise<ActionResult> {
     const linked = results.reduce((s, r) => s + r.linked, 0);
     const errors = results.map((r) => r.error?.replace(/\s+/g, " ")).filter(Boolean) as string[];
     await audit({ userId: user.id, azione: "EMAIL_SYNC", entita: "GoogleAccount", dettagli: { caselle: results.length, imported, linked, errors } });
-    if (errors.length) {
-      return { error: `Sincronizzazione con errori: ${truncate(errors.join(" · "), 300)}${imported ? ` (importate comunque ${imported} email)` : ""}` };
-    }
-    return {
-      ok: true,
-      message: `Sincronizzazione completata: ${imported} ${imported === 1 ? "nuova email importata" : "nuove email importate"}, ${linked} ${linked === 1 ? "associata" : "associate"} automaticamente a un cliente.`,
-    };
+    const riepilogo = riepilogoSincronizzazione(results);
+    return riepilogo.ok ? { ok: true, message: riepilogo.testo } : { error: riepilogo.testo };
   } catch (e) {
     return { error: errorMessage(e) };
   }

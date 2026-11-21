@@ -1,7 +1,10 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { refreshAccessToken } from "@/lib/auth/google";
-import { notify } from "@/lib/notifications";
+import { notify, notifyAdmins } from "@/lib/notifications";
+import { conLucchetto } from "@/lib/cron/registro";
+import type { OrigineJob } from "@/lib/cron/stato";
+import { clienteUnivoco, giorniDaRecuperare, LIMITE_ELENCO, pianoImportazione } from "@/lib/gmail-regole";
 import { RUOLI_STAFF } from "@/lib/constants";
 import { normalizeEmail, truncate } from "@/lib/utils";
 import {
@@ -61,21 +64,22 @@ async function gmailFetch<T>(account: GoogleAccount, path: string, init?: Reques
 }
 
 /**
- * Trova il cliente (attivo) associato a un insieme di indirizzi email (email/PEC del cliente o dei suoi contatti).
+ * Clienti (attivi) a cui corrisponde un insieme di indirizzi: email e PEC del cliente o dei suoi contatti.
+ * Ne restituisce al più qualcuno: basta sapere se è uno solo.
  */
-export async function findClientByEmails(addresses: string[]): Promise<string | null> {
+export async function clientiPerIndirizzi(addresses: string[]): Promise<string[]> {
   const list = Array.from(new Set(addresses.map(normalizeEmail).filter(Boolean)));
-  if (!list.length) return null;
-  const client = await prisma.client.findFirst({
-    where: { attivo: true, OR: [{ email: { in: list } }, { pec: { in: list } }] },
-    select: { id: true },
-  });
-  if (client) return client.id;
-  const contact = await prisma.clientContact.findFirst({
-    where: { email: { in: list }, client: { attivo: true } },
-    select: { clientId: true },
-  });
-  return contact?.clientId ?? null;
+  if (!list.length) return [];
+  const [clienti, contatti] = await Promise.all([
+    prisma.client.findMany({ where: { attivo: true, OR: [{ email: { in: list } }, { pec: { in: list } }] }, select: { id: true }, take: 3 }),
+    prisma.clientContact.findMany({ where: { email: { in: list }, client: { attivo: true } }, select: { clientId: true }, distinct: ["clientId"], take: 3 }),
+  ]);
+  return [...new Set([...clienti.map((c) => c.id), ...contatti.map((c) => c.clientId)])];
+}
+
+/** Il cliente degli indirizzi, solo se è uno e uno solo (vedi clienteUnivoco). */
+export async function findClientByEmails(addresses: string[]): Promise<string | null> {
+  return clienteUnivoco(await clientiPerIndirizzi(addresses));
 }
 
 /** Indirizzi dello studio (utenti staff e caselle collegate): non partecipano all'associazione ai clienti. */
@@ -87,7 +91,7 @@ export async function loadStudioAddresses(): Promise<Set<string>> {
   return new Set([...users.map((u) => normalizeEmail(u.email)), ...accounts.map((a) => normalizeEmail(a.googleEmail))]);
 }
 
-async function listMessageIds(account: GoogleAccount, query: string, max: number): Promise<string[]> {
+async function listMessageIds(account: GoogleAccount, query: string, max: number): Promise<{ ids: string[]; completo: boolean }> {
   const ids: string[] = [];
   let pageToken: string | undefined;
   while (ids.length < max) {
@@ -95,13 +99,14 @@ async function listMessageIds(account: GoogleAccount, query: string, max: number
     if (pageToken) params.set("pageToken", pageToken);
     const res = await gmailFetch<GmailListResponse>(account, `/messages?${params}`);
     for (const m of res.messages ?? []) ids.push(m.id);
-    if (!res.nextPageToken || !(res.messages?.length)) break;
+    if (!res.nextPageToken || !(res.messages?.length)) return { ids, completo: true };
     pageToken = res.nextPageToken;
   }
-  return ids;
+  return { ids, completo: false };
 }
 
-async function listHistoryMessageIds(account: GoogleAccount, startHistoryId: string): Promise<{ ids: string[]; historyId: string | null }> {
+/** Messaggi aggiunti dopo `startHistoryId`. `completo` è falso se la storia è più lunga di quanto letto. */
+async function listHistoryMessageIds(account: GoogleAccount, startHistoryId: string): Promise<{ ids: string[]; historyId: string | null; completo: boolean }> {
   const ids = new Set<string>();
   let pageToken: string | undefined;
   let latest: string | null = null;
@@ -111,157 +116,185 @@ async function listHistoryMessageIds(account: GoogleAccount, startHistoryId: str
     const res = await gmailFetch<GmailHistoryResponse>(account, `/history?${params}`);
     latest = res.historyId ?? latest;
     for (const h of res.history ?? []) for (const a of h.messagesAdded ?? []) ids.add(a.message.id);
-    if (!res.nextPageToken) break;
+    if (!res.nextPageToken) return { ids: Array.from(ids), historyId: latest, completo: true };
     pageToken = res.nextPageToken;
   }
-  return { ids: Array.from(ids), historyId: latest };
+  return { ids: Array.from(ids), historyId: latest, completo: false };
 }
 
-export interface SyncResult { imported: number; linked: number; skipped: number; error?: string }
+export interface SyncResult {
+  imported: number;
+  linked: number;
+  /** messaggi esclusi (spam, cestino, bozze, eliminati nel frattempo) */
+  skipped: number;
+  /** messaggi nuovi lasciati alla prossima sincronizzazione per il limite GMAIL_SYNC_MAX */
+  restanti: number;
+  /** la stessa casella era già in sincronizzazione: questa esecuzione non ha fatto nulla */
+  giaInCorso?: boolean;
+  error?: string;
+}
 
 /**
  * Sincronizza la casella Gmail di un account: importa i nuovi messaggi, li collega
  * automaticamente ai clienti e notifica il referente del cliente.
  *
- * Notifiche: solo nelle sincronizzazioni incrementali (mai al primo collegamento della casella,
+ * Notifiche: solo nelle sincronizzazioni successive alla prima (mai al primo collegamento della casella,
  * che importerebbe settimane di posta già letta) e solo per messaggi in entrata il cui mittente
  * è un indirizzo del cliente (non per email scritte dallo studio con il cliente in copia).
+ *
+ * Una casella alla volta: se è già in sincronizzazione (pianificatore e pulsante insieme) si rinuncia.
+ * `lastSyncAt` è l'ora dell'ultima sincronizzazione COMPLETA: con messaggi ancora da importare, o in
+ * caso di errore, non avanza (né avanza il punto di ripresa), così nulla resta indietro.
  */
-export async function syncGoogleAccount(accountId: string): Promise<SyncResult> {
+export async function syncGoogleAccount(accountId: string, origine: OrigineJob = "MANUALE"): Promise<SyncResult> {
+  const r = await conLucchetto(`casella:${accountId}`, origine, () => sincronizzaCasella(accountId));
+  return r.preso ? r.risultato : { imported: 0, linked: 0, skipped: 0, restanti: 0, giaInCorso: true };
+}
+
+async function sincronizzaCasella(accountId: string): Promise<SyncResult> {
   const account = await prisma.googleAccount.findUnique({ where: { id: accountId }, include: { user: true } });
-  if (!account) return { imported: 0, linked: 0, skipped: 0, error: "Account non trovato" };
+  if (!account) return { imported: 0, linked: 0, skipped: 0, restanti: 0, error: "Account non trovato" };
 
   const max = Number(process.env.GMAIL_SYNC_MAX ?? 300) || 300;
   const days = Number(process.env.GMAIL_SYNC_DAYS ?? 30) || 30;
-  const result: SyncResult = { imported: 0, linked: 0, skipped: 0 };
-  const incremental = !!account.historyId;
-  const previousSyncAt = account.lastSyncAt;
+  const result: SyncResult = { imported: 0, linked: 0, skipped: 0, restanti: 0 };
+  // la prima importazione (casella appena collegata) non notifica: è posta già vista
+  const notificabile = !!account.historyId;
+  const ultimaCompleta = account.lastSyncAt;
 
   try {
     let ids: string[] = [];
-    let newHistoryId: string | null = null;
-    let fallback = false;
+    let puntoDiRipresa: string | null = null;
 
+    let storia: Awaited<ReturnType<typeof listHistoryMessageIds>> | null = null;
     if (account.historyId) {
       try {
-        const h = await listHistoryMessageIds(account, account.historyId);
-        ids = h.ids;
-        newHistoryId = h.historyId;
+        storia = await listHistoryMessageIds(account, account.historyId);
       } catch (e) {
-        // historyId troppo vecchio (404): ricadiamo sulla ricerca dei giorni trascorsi dall'ultimo sync
+        // storia troppo vecchia (404): si ricade sulla ricerca per data
         if ((e as GmailError).status !== 404) throw e;
-        fallback = true;
-        const trascorsi = previousSyncAt ? Math.ceil((Date.now() - previousSyncAt.getTime()) / 86_400_000) + 1 : days;
-        ids = await listMessageIds(account, `newer_than:${Math.max(7, trascorsi)}d -in:spam -in:trash`, max);
       }
+    }
+    const ricercaPerData = !storia || !storia.completo; // anche una storia troppo lunga si legge per data
+    if (storia && storia.completo) {
+      ids = storia.ids;
+      puntoDiRipresa = storia.historyId ?? account.historyId;
     } else {
-      ids = await listMessageIds(account, `newer_than:${days}d -in:spam -in:trash`, max);
+      // il punto di ripresa si legge PRIMA di elencare: quel che arriva durante l'importazione verrà
+      // preso dalla storia alla volta successiva (leggerlo dopo, come prima, poteva saltarlo)
+      puntoDiRipresa = (await gmailFetch<GmailProfile>(account, "/profile")).historyId;
+      const giorni = account.historyId ? giorniDaRecuperare(ultimaCompleta, new Date(), days) : days;
+      ids = (await listMessageIds(account, `newer_than:${giorni}d -in:spam -in:trash`, LIMITE_ELENCO)).ids;
     }
 
-    if (ids.length) {
-      const existing = await prisma.emailMessage.findMany({
-        where: { accountId, gmailId: { in: ids } },
-        select: { gmailId: true },
-      });
-      const known = new Set(existing.map((e) => e.gmailId));
-      const nuovi = ids.filter((id) => !known.has(id));
-      const toFetch = nuovi.slice(0, max);
-      result.skipped = ids.length - toFetch.length;
-      // Se nel ramo incrementale restano messaggi oltre il limite, NON avanziamo l'historyId:
-      // verranno ripresi (già noti esclusi) alla prossima sincronizzazione.
-      if (nuovi.length > toFetch.length && newHistoryId) newHistoryId = account.historyId;
+    const existing = ids.length ? await prisma.emailMessage.findMany({ where: { accountId, gmailId: { in: ids } }, select: { gmailId: true } }) : [];
+    const piano = pianoImportazione(ids, new Set(existing.map((e) => e.gmailId)), max);
+    result.restanti = piano.restanti;
 
+    if (piano.daScaricare.length) {
       const studioAddresses = await loadStudioAddresses();
       const selfAddr = normalizeEmail(account.googleEmail);
 
-      for (const id of toFetch) {
+      for (const id of piano.daScaricare) {
         let msg: GmailMessage;
         try {
           msg = await gmailFetch<GmailMessage>(account, `/messages/${id}?format=full`);
         } catch (e) {
-          if ((e as GmailError).status === 404) continue; // eliminato nel frattempo
+          if ((e as GmailError).status === 404) {
+            result.skipped++;
+            continue; // eliminato nel frattempo
+          }
           throw e;
         }
-        if ((msg.labelIds ?? []).some((l) => l === "SPAM" || l === "TRASH" || l === "DRAFT")) continue;
+        if ((msg.labelIds ?? []).some((l) => l === "SPAM" || l === "TRASH" || l === "DRAFT")) {
+          result.skipped++;
+          continue;
+        }
         const parsed = parseGmailMessage(msg);
 
-        // Associazione: prima il mittente, poi i destinatari (esclusi gli indirizzi dello studio)
+        // Associazione: prima il mittente, poi i destinatari (esclusi gli indirizzi dello studio), e solo
+        // se portano a un unico cliente
         const fromIsStudio = studioAddresses.has(parsed.fromAddr) || parsed.fromAddr === selfAddr;
         const isSent = parsed.labelIds.includes("SENT") || fromIsStudio;
-        let clientId = !fromIsStudio && parsed.fromAddr ? await findClientByEmails([parsed.fromAddr]) : null;
+        const clientiMittente = !fromIsStudio && parsed.fromAddr ? await clientiPerIndirizzi([parsed.fromAddr]) : [];
+        let clientId = clienteUnivoco(clientiMittente);
         const senderIsClient = !!clientId;
-        if (!clientId) {
+        // un mittente condiviso fra più clienti resta da associare a mano: i destinatari non decidono al suo posto
+        if (!clientId && clientiMittente.length === 0) {
           const recipients = [...parsed.toAddrs, ...parsed.ccAddrs].filter((a) => a !== selfAddr && !studioAddresses.has(a));
           clientId = recipients.length ? await findClientByEmails(recipients) : null;
         }
 
-        const created = await prisma.emailMessage.upsert({
-          where: { accountId_gmailId: { accountId, gmailId: parsed.gmailId } },
-          create: {
-            accountId,
-            gmailId: parsed.gmailId,
-            threadId: parsed.threadId,
-            fromAddr: parsed.fromAddr,
-            fromName: parsed.fromName,
-            toAddrs: parsed.toAddrs.join(", "),
-            ccAddrs: parsed.ccAddrs.join(", ") || null,
-            subject: parsed.subject,
-            snippet: parsed.snippet,
-            bodyText: parsed.bodyText,
-            bodyHtml: parsed.bodyHtml,
-            receivedAt: parsed.receivedAt,
-            hasAttachments: parsed.attachments.length > 0,
-            attachments: parsed.attachments.length ? JSON.stringify(parsed.attachments) : null,
-            labelIds: parsed.labelIds.join(","),
-            isUnread: parsed.isUnread,
-            clientId,
-            linkAuto: !!clientId,
-            linkedAt: clientId ? new Date() : null,
-          },
-          update: {},
-        });
+        let created: { id: string };
+        try {
+          created = await prisma.emailMessage.create({
+            data: {
+              accountId,
+              gmailId: parsed.gmailId,
+              threadId: parsed.threadId,
+              fromAddr: parsed.fromAddr,
+              fromName: parsed.fromName,
+              toAddrs: parsed.toAddrs.join(", "),
+              ccAddrs: parsed.ccAddrs.join(", ") || null,
+              subject: parsed.subject,
+              snippet: parsed.snippet,
+              bodyText: parsed.bodyText,
+              bodyHtml: parsed.bodyHtml,
+              receivedAt: parsed.receivedAt,
+              hasAttachments: parsed.attachments.length > 0,
+              attachments: parsed.attachments.length ? JSON.stringify(parsed.attachments) : null,
+              labelIds: parsed.labelIds.join(","),
+              isUnread: parsed.isUnread,
+              clientId,
+              linkAuto: !!clientId,
+              linkedAt: clientId ? new Date() : null,
+            },
+            select: { id: true },
+          });
+        } catch (e) {
+          // già importato (doppione nell'elenco): niente seconda notifica
+          if ((e as { code?: string }).code === "P2002") continue;
+          throw e;
+        }
         result.imported++;
         if (clientId) {
           result.linked++;
-          const isNew = incremental && (!fallback || !previousSyncAt || parsed.receivedAt > previousSyncAt);
-          if (isNew && senderIsClient && !isSent) {
-            const client = await prisma.client.findUnique({ where: { id: clientId }, select: { denominazione: true, referenteId: true } });
-            if (client?.referenteId) {
-              await notify({
-                userId: client.referenteId,
-                tipo: "EMAIL_CLIENTE",
-                titolo: `Email da ${client.denominazione}`,
-                corpo: truncate(parsed.subject, 120),
-                link: `/email/${created.id}`,
-              });
-            }
-          }
+          const isNew = notificabile && (!ricercaPerData || !ultimaCompleta || parsed.receivedAt > ultimaCompleta);
+          if (isNew && senderIsClient && !isSent) await avvisaEmailCliente(clientId, created.id, parsed.subject);
         }
       }
     }
 
-    if (!newHistoryId) {
-      const profile = await gmailFetch<GmailProfile>(account, "/profile");
-      newHistoryId = profile.historyId;
-    }
     await prisma.googleAccount.update({
       where: { id: accountId },
-      data: { historyId: newHistoryId, lastSyncAt: new Date(), syncError: null },
+      data: piano.avanza ? { historyId: puntoDiRipresa, lastSyncAt: new Date(), syncError: null } : { syncError: null },
     });
   } catch (e) {
     const message = (e as Error).message ?? String(e);
     console.error(`[gmail] sync fallita per ${account.googleEmail}:`, message);
-    await prisma.googleAccount.update({ where: { id: accountId }, data: { syncError: truncate(message, 500), lastSyncAt: new Date() } });
+    await prisma.googleAccount.update({ where: { id: accountId }, data: { syncError: truncate(message, 500) } });
     result.error = message;
   }
   return result;
+}
+
+/**
+ * Avviso di una nuova email del cliente: al referente; se non c'è o non è attivo, agli amministratori,
+ * altrimenti l'email non la vedrebbe nessuno finché qualcuno non apre la posta.
+ */
+async function avvisaEmailCliente(clientId: string, emailId: string, oggetto: string) {
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { denominazione: true, referenteId: true } });
+  if (!client) return;
+  const avviso = { tipo: "EMAIL_CLIENTE" as const, titolo: `Email da ${client.denominazione}`, corpo: truncate(oggetto, 120), link: `/email/${emailId}` };
+  const alReferente = client.referenteId ? await notify({ ...avviso, userId: client.referenteId }) : null;
+  if (!alReferente) await notifyAdmins({ ...avviso, titolo: `Email da ${client.denominazione} (cliente senza referente attivo)` });
 }
 
 /** Sincronizza tutti gli account Gmail collegati. */
 export async function syncAllGoogleAccounts() {
   const accounts = await prisma.googleAccount.findMany({ select: { id: true } });
   const results: Record<string, SyncResult> = {};
-  for (const a of accounts) results[a.id] = await syncGoogleAccount(a.id);
+  for (const a of accounts) results[a.id] = await syncGoogleAccount(a.id, "CRON");
   return results;
 }
 

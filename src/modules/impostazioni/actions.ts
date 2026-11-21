@@ -7,6 +7,7 @@ import { hashPassword, validatePasswordStrength, verifyPassword } from "@/lib/au
 import { audit } from "@/lib/audit";
 import { createSession } from "@/lib/auth/session";
 import { syncGoogleAccount } from "@/lib/gmail";
+import { riepilogoSincronizzazione } from "@/lib/gmail-regole";
 import { giornalieriRegistrati, type eseguiJobGiornalieri as eseguiJobGiornalieriTipo } from "@/lib/cron/jobs";
 import { isPushConfigured, notify, sendPushToUser } from "@/lib/notifications";
 import { COLORI_UTENTE } from "@/lib/constants";
@@ -131,13 +132,9 @@ export async function syncGmailAction(): Promise<ImpostazioniState> {
     const r = await syncGoogleAccount(account.id);
     revalidateImpostazioni();
     revalidatePath("/email");
-    if (r.error) return { error: `Sincronizzazione fallita: ${r.error}`, result: { ...r } };
-    return {
-      ok: true,
-      message: `Sincronizzazione completata: ${r.imported} ${r.imported === 1 ? "email importata" : "email importate"}, ${r.linked} ${r.linked === 1 ? "associata" : "associate"} a clienti, ${r.skipped} ignorate.`,
-      result: { ...r },
-      nonce: Date.now(),
-    };
+    const riepilogo = riepilogoSincronizzazione([r]);
+    if (!riepilogo.ok) return { error: riepilogo.testo, result: { ...r } };
+    return { ok: true, message: riepilogo.testo, result: { ...r }, nonce: Date.now() };
   } catch (e) {
     return { error: errorMessage(e, "Errore durante la sincronizzazione.") };
   }

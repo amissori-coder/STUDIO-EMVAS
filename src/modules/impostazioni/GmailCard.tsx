@@ -26,6 +26,8 @@ const ERRORI: Record<string, string> = {
   "google-negato": "Collegamento con Google annullato.",
   "google-scope": "Devi consentire l'accesso in sola lettura a Gmail nella schermata di consenso Google.",
   "google-casella-usata": "Questa casella Gmail è già collegata da un altro utente dello studio.",
+  "google-casella-diversa":
+    "Hai scelto una casella diversa da quella già collegata. Per cambiarla scollega prima quella attuale (le sue email importate verranno rimosse), poi collega la nuova. Per rinnovare il collegamento scegli la stessa casella.",
 };
 
 export function GmailCard({ status, messaggio, errore }: { status: GmailStatus | null; messaggio?: string; errore?: string }) {

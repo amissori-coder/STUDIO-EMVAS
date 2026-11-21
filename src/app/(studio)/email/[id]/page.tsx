@@ -5,7 +5,7 @@ import { Briefcase, ExternalLink, ListChecks, MessagesSquare, Paperclip, Plus } 
 import { getCurrentUser, requireStaff } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
 import { emailVisibile } from "@/modules/email/visibilita";
-import { findClientByEmails, gmailWebUrl, loadStudioAddresses, sanitizeEmailHtml } from "@/lib/gmail";
+import { clientiPerIndirizzi, gmailWebUrl, loadStudioAddresses, sanitizeEmailHtml } from "@/lib/gmail";
 import { cartellaProposta, ordinaCartelle } from "@/modules/email/cartella-allegati";
 import { STATI_TASK, STATI_TASK_APERTI } from "@/lib/constants";
 import { formatDate, formatDateTime, formatRelative, truncate } from "@/lib/utils";
@@ -42,22 +42,28 @@ export default async function EmailDetailPage(props: PageProps<"/email/[id]">) {
   const ccAddrs = splitAddresses(email.ccAddrs);
   const attachments = parseAttachments(email.attachments);
 
-  const [thread, clienti, suggestedId, folders] = await Promise.all([
+  const [thread, clienti, candidati, folders] = await Promise.all([
     prisma.emailMessage.findMany({
       where: { AND: [{ threadId: email.threadId, accountId: email.accountId, id: { not: email.id } }, emailVisibile(user.id)] },
       select: { id: true, subject: true, fromAddr: true, fromName: true, receivedAt: true, isUnread: true },
       orderBy: { receivedAt: "asc" },
     }),
     listActiveClientsForSelect(),
-    // come la sincronizzazione, il suggerimento ignora gli indirizzi dello studio (colleghi, caselle collegate)
+    // come la sincronizzazione: prima il mittente, poi i destinatari, ignorando gli indirizzi dello studio
     email.clientId
-      ? Promise.resolve(null)
-      : loadStudioAddresses().then((studio) => findClientByEmails([email.fromAddr, ...toAddrs, ...ccAddrs].filter((a) => !studio.has(a.toLowerCase())))),
+      ? Promise.resolve([] as string[])
+      : loadStudioAddresses().then(async (studio) => {
+          const esterni = (indirizzi: string[]) => indirizzi.filter((a) => a && !studio.has(a.toLowerCase()));
+          const delMittente = await clientiPerIndirizzi(esterni([email.fromAddr]));
+          return delMittente.length ? delMittente : clientiPerIndirizzi(esterni([...toAddrs, ...ccAddrs]));
+        }),
     email.clientId
       ? prisma.documentFolder.findMany({ where: { clientId: email.clientId }, select: { id: true, nome: true, ordine: true, visibileCliente: true } })
       : Promise.resolve([]),
   ]);
-  const suggested = suggestedId ? (clienti.find((c) => c.id === suggestedId) ?? null) : null;
+  // un solo cliente: proposto; più clienti con lo stesso indirizzo: si elencano e sceglie la persona
+  const suggested = candidati.length === 1 ? (clienti.find((c) => c.id === candidati[0]) ?? null) : null;
+  const ambigui = candidati.length > 1 ? clienti.filter((c) => candidati.includes(c.id)) : [];
   // mai una cartella visibile al cliente per scelta automatica (vedi cartellaProposta)
   const defaultFolderId = cartellaProposta(folders);
   const cartelleOrdinate = ordinaCartelle(folders);
@@ -237,6 +243,7 @@ export default async function EmailDetailPage(props: PageProps<"/email/[id]">) {
                   }
                   clienti={clienti}
                   suggested={suggested}
+                  ambigui={ambigui}
                 />
               </div>
             </CardBody>

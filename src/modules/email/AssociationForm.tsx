@@ -21,6 +21,7 @@ export function AssociationForm({
   currentTask = null,
   clienti,
   suggested,
+  ambigui = [],
 }: {
   emailId: string;
   currentClientId: string | null;
@@ -29,6 +30,8 @@ export function AssociationForm({
   currentTask?: TaskOption | null;
   clienti: { id: string; denominazione: string }[];
   suggested: { id: string; denominazione: string } | null;
+  /** clienti diversi con lo stesso indirizzo: nessuna proposta automatica, si sceglie a mano */
+  ambigui?: { id: string; denominazione: string }[];
 }) {
   const [state, action] = useActionState<ActionResult, FormData>(linkEmailAction, {});
   const [filter, setFilter] = useState("");
@@ -81,6 +84,13 @@ export function AssociationForm({
             Associa a {suggested.denominazione}
           </SubmitButton>
         </form>
+      )}
+
+      {ambigui.length > 1 && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          L&apos;indirizzo corrisponde a più clienti ({ambigui.map((c) => c.denominazione).join(", ")}): per questo l&apos;email non è stata associata in
+          automatico. Scegli tu quello giusto.
+        </p>
       )}
 
       <form action={action} className="space-y-3">

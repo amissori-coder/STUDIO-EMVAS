@@ -82,6 +82,11 @@ export async function GET(request: NextRequest) {
     if (state.mode === "connect") {
       if (!hasGmailScope) return fail("google-scope", "connect");
       if (altroUtente) return fail("google-casella-usata", "connect");
+      // Un'altra casella al posto di quella collegata: le email importate dalla prima resterebbero
+      // intestate alla seconda (collegamenti a Gmail e allegati non funzionerebbero più). Si chiede di
+      // scollegare prima, operazione che dice chiaramente che cosa viene rimosso.
+      const collegata = await prisma.googleAccount.findUnique({ where: { userId: user.id }, select: { googleEmail: true } });
+      if (collegata && normalizeEmail(collegata.googleEmail) !== googleEmail) return fail("google-casella-diversa", "connect");
     }
 
     // La casella si collega SOLO da «Collega Gmail» (mode=connect). Un accesso con Google non scrive mai
@@ -107,8 +112,6 @@ export async function GET(request: NextRequest) {
           expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
           scope: tokens.scope,
           syncError: null,
-          // se cambia la casella, riparte la sincronizzazione completa
-          ...(existing && existing.googleEmail !== googleEmail ? { historyId: null } : {}),
         },
       });
     }

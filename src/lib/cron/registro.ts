@@ -20,11 +20,11 @@ import {
  * aggiornamento condizionato, quindi in modo atomico anche se due esecuzioni partono insieme.
  */
 
-function idLucchetto(nome: NomeJob) {
+function idLucchetto(nome: string) {
   return `lucchetto:${nome}`;
 }
 
-async function prendiLucchetto(nome: NomeJob, origine: OrigineJob): Promise<boolean> {
+async function prendiLucchetto(nome: string, origine: OrigineJob): Promise<boolean> {
   const id = idLucchetto(nome);
   const adesso = new Date();
   const abbandonatoPrima = new Date(adesso.getTime() - MINUTI_LUCCHETTO_ABBANDONATO * 60_000);
@@ -44,8 +44,22 @@ async function prendiLucchetto(nome: NomeJob, origine: OrigineJob): Promise<bool
   }
 }
 
-async function rilasciaLucchetto(nome: NomeJob) {
+async function rilasciaLucchetto(nome: string) {
   await prisma.jobRun.update({ where: { id: idLucchetto(nome) }, data: { finishedAt: new Date() } }).catch(() => {});
+}
+
+/**
+ * Esegue `lavoro` solo se nessun'altra esecuzione con la stessa chiave è in corso (anche in un'altra
+ * richiesta o nel pianificatore). Usato per non sincronizzare due volte insieme la stessa casella Gmail:
+ * si importerebbero gli stessi messaggi in parallelo e partirebbero avvisi doppi.
+ */
+export async function conLucchetto<T>(chiave: string, origine: OrigineJob, lavoro: () => Promise<T>): Promise<{ preso: true; risultato: T } | { preso: false }> {
+  if (!(await prendiLucchetto(chiave, origine))) return { preso: false };
+  try {
+    return { preso: true, risultato: await lavoro() };
+  } finally {
+    await rilasciaLucchetto(chiave);
+  }
 }
 
 export type EsitoEsecuzione<T> = { eseguito: true; risultato: T; esito: EsitoJob } | { eseguito: false; motivo: string };
