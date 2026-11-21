@@ -35,6 +35,11 @@ export interface TemplateCatalogo {
 const IVA_ORDINARIA: RegimeFiscale[] = ["ORDINARIO", "SEMPLIFICATO"];
 const IMPRESE_E_PROFESSIONISTI: TipoSoggetto[] = ["DITTA_INDIVIDUALE", "PROFESSIONISTA", "SNC", "SAS", "SRL", "SRLS", "SPA"];
 const SOSTITUTI: TipoSoggetto[] = ["DITTA_INDIVIDUALE", "PROFESSIONISTA", "SNC", "SAS", "SRL", "SRLS", "SPA", "ASSOCIAZIONE", "CONDOMINIO"];
+/**
+ * Chi agisce da sostituto d'imposta: anche senza partita IVA (condomini, enti non commerciali), ma non
+ * il forfettario, che di regola non opera ritenute. Un forfettario con dipendenti si attiva per cliente.
+ */
+const REGIMI_SOSTITUTI: RegimeFiscale[] = ["ORDINARIO", "SEMPLIFICATO", "NON_TITOLARE"];
 const SOCIETA_CAPITALI: TipoSoggetto[] = ["SRL", "SRLS", "SPA"];
 const SOCIETA_PERSONE: TipoSoggetto[] = ["SNC", "SAS"];
 
@@ -305,7 +310,7 @@ export const CATALOGO_ADEMPIMENTI: TemplateCatalogo[] = [
     ricorrenza: "ANNUALE",
     scadenze: [{ mese: 3, giorno: 16, etichetta: "CU {anno} (redditi {annoPrec})" }],
     tipiSoggetto: SOSTITUTI,
-    regimi: IVA_ORDINARIA,
+    regimi: REGIMI_SOSTITUTI,
     giorniPreavviso: 20,
   },
   {
@@ -316,7 +321,7 @@ export const CATALOGO_ADEMPIMENTI: TemplateCatalogo[] = [
     ricorrenza: "ANNUALE",
     scadenze: [{ mese: 10, giorno: 31, etichetta: "770/{anno} (anno {annoPrec})" }],
     tipiSoggetto: SOSTITUTI,
-    regimi: IVA_ORDINARIA,
+    regimi: REGIMI_SOSTITUTI,
     giorniPreavviso: 30,
   },
   {

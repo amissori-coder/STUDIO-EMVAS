@@ -1,7 +1,8 @@
 import "server-only";
-import type { AdempimentoTemplate, Prisma } from "@prisma/client";
+import { Prisma, type AdempimentoTemplate } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { calcolaScadenze, chiaveTask, deveGenerare, isApplicabile, type ScadenzaCalcolata } from "@/lib/adempimenti/regole";
+import { STATI_TASK_APERTI } from "@/lib/constants";
+import { abbinaScadenze, calcolaScadenze, deveGenerare, isApplicabile, type AttivitaPresente, type ScadenzaCalcolata } from "@/lib/adempimenti/regole";
 
 export * from "@/lib/adempimenti/regole";
 
@@ -49,55 +50,113 @@ export interface PianificaOpzioni {
   saltaPassate?: boolean;
 }
 
-function giornoKey(templateId: string, d: Date) {
-  return `${templateId}:${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+export interface DataDiversa {
+  id: string;
+  titolo: string;
+  attuale: Date;
+  catalogo: Date;
+}
+
+export interface EsitoPianificazione {
+  creati: number;
+  esistenti: number;
+  /** attività aperte la cui data non coincide più con il catalogo: NON vengono toccate, si segnalano */
+  dateDiverse: DataDiversa[];
+  /** le attività nuove sono state create senza assegnatario */
+  senzaAssegnatario: boolean;
+  /** il cliente ha un referente, ma non è più attivo */
+  referenteNonAttivo: boolean;
 }
 
 /**
- * Genera le attività di un anno per un cliente. Idempotente: una scadenza è considerata già presente se esiste
- * un'attività con la stessa chiave (cliente:template:anno:idx) oppure, per lo stesso template e anno, con la
- * stessa data di scadenza (copre le attività create con il vecchio schema di chiavi posizionali).
- * Le chiavi esistenti vengono caricate una volta sola e le nuove attività inserite in blocco.
+ * Inserisce le attività nuove in un solo blocco. Se una chiave è già usata (pianificazione lanciata in
+ * contemporanea, oppure un'attività generata e poi spostata a un altro cliente che si è portata dietro
+ * la chiave) non fallisce tutto: libera le chiavi rimaste su attività di altri clienti, conta come già
+ * presenti quelle di questo cliente, e riprova con il resto.
  */
-export async function pianificaAnno(opts: PianificaOpzioni) {
-  const client = await prisma.client.findUniqueOrThrow({ where: { id: opts.clientId } });
+async function inserisciGenerate(nuove: Prisma.TaskCreateManyInput[], clientId: string) {
+  let daCreare = nuove;
+  let giaPresenti = 0;
+  // Libera o scarta le chiavi già usate; si fa PRIMA di inserire, così il caso normale non passa da un
+  // errore di vincolo (che finirebbe nei log del server e allarmerebbe chi li legge).
+  const scartaOccupate = async () => {
+    const occupate = await prisma.task.findMany({
+      where: { chiave: { in: daCreare.map((n) => n.chiave).filter((c): c is string => !!c) } },
+      select: { id: true, chiave: true, clientId: true },
+    });
+    const altrove = occupate.filter((o) => o.clientId !== clientId);
+    if (altrove.length) await prisma.task.updateMany({ where: { id: { in: altrove.map((o) => o.id) } }, data: { chiave: null } });
+    const qui = new Set(occupate.filter((o) => o.clientId === clientId).map((o) => o.chiave));
+    giaPresenti += qui.size;
+    daCreare = daCreare.filter((n) => !qui.has(n.chiave ?? null));
+  };
+  await scartaOccupate();
+  for (let tentativo = 0; tentativo < 3 && daCreare.length; tentativo++) {
+    try {
+      // transazione a lotto: l'inserimento è tutto o niente anche se Prisma lo spezza in più istruzioni
+      await prisma.$transaction([prisma.task.createMany({ data: daCreare })]);
+      return { creati: daCreare.length, giaPresenti };
+    } catch (e) {
+      // una pianificazione dello stesso cliente partita nello stesso istante: si riprova con il resto
+      if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
+      await scartaOccupate();
+    }
+  }
+  return { creati: 0, giaPresenti };
+}
+
+/**
+ * Genera le attività di un anno per un cliente. Idempotente: le scadenze già presenti si riconoscono
+ * con abbinaScadenze (per chiave, per periodo, per chiave vecchia o per giorno) e non vengono mai
+ * modificate — nemmeno quando la data del catalogo è cambiata, perché quella presente può essere una
+ * data concordata con il cliente: in quel caso si segnala, in dateDiverse.
+ */
+export async function pianificaAnno(opts: PianificaOpzioni): Promise<EsitoPianificazione> {
+  const client = await prisma.client.findUniqueOrThrow({ where: { id: opts.clientId }, include: { referente: { select: { attivo: true } } } });
   const [templates, overrides, presenti] = await Promise.all([
     prisma.adempimentoTemplate.findMany({ where: opts.templateIds ? { id: { in: opts.templateIds } } : { attivo: true } }),
     prisma.clientAdempimentoOverride.findMany({ where: { clientId: opts.clientId } }),
     prisma.task.findMany({
       where: { clientId: opts.clientId, anno: opts.anno, templateId: { not: null } },
-      select: { chiave: true, templateId: true, scadenza: true },
+      select: { id: true, chiave: true, templateId: true, periodo: true, scadenza: true, stato: true },
     }),
   ]);
   const ovMap = new Map(overrides.map((o) => [o.templateId, o]));
-  const chiaviPresenti = new Set(presenti.map((p) => p.chiave).filter((c): c is string => !!c));
-  const giorniPresenti = new Set(presenti.map((p) => giornoKey(p.templateId!, p.scadenza)));
-  const assigneeId = opts.assigneeId === undefined ? client.referenteId : opts.assigneeId;
+  const presentiPerTemplate = new Map<string, AttivitaPresente[]>();
+  for (const p of presenti) presentiPerTemplate.set(p.templateId!, [...(presentiPerTemplate.get(p.templateId!) ?? []), p]);
+
+  // un referente non più attivo non riceve nulla: meglio senza assegnatario (i promemoria vanno agli amministratori)
+  const referenteAttivo = !!client.referenteId && !!client.referente?.attivo;
+  const assigneeId = opts.assigneeId === undefined ? (referenteAttivo ? client.referenteId : null) : opts.assigneeId;
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
 
   const nuove: Prisma.TaskCreateManyInput[] = [];
+  const dateDiverse: DataDiversa[] = [];
   let esistenti = 0;
   for (const t of templates) {
     const forzato = !!opts.templateIds;
     if (!forzato && !deveGenerare(t, client, ovMap.get(t.id))) continue;
     if (forzato && ovMap.get(t.id)?.attivo === false) continue;
-    for (const s of calcolaScadenze(t, opts.anno)) {
-      if (opts.saltaPassate && s.scadenza < oggi) continue;
-      const chiave = chiaveTask(client.id, t.id, opts.anno, s.idx);
-      const gk = giornoKey(t.id, s.scadenza);
-      if (chiaviPresenti.has(chiave) || giorniPresenti.has(gk)) { esistenti++; continue; }
-      chiaviPresenti.add(chiave);
-      giorniPresenti.add(gk);
+    const voci = calcolaScadenze(t, opts.anno).filter((s) => !(opts.saltaPassate && s.scadenza < oggi));
+    for (const a of abbinaScadenze(voci, presentiPerTemplate.get(t.id) ?? [], { clientId: client.id, templateId: t.id, anno: opts.anno })) {
+      if (a.presente) {
+        esistenti++;
+        const aperta = STATI_TASK_APERTI.includes(a.presente.stato as (typeof STATI_TASK_APERTI)[number]);
+        if (aperta && a.presente.scadenza.toDateString() !== a.voce.scadenza.toDateString()) {
+          dateDiverse.push({ id: a.presente.id, titolo: a.voce.titolo, attuale: a.presente.scadenza, catalogo: a.voce.scadenza });
+        }
+        continue;
+      }
       nuove.push({
-        titolo: s.titolo,
+        titolo: a.voce.titolo,
         descrizione: t.descrizione,
         clientId: client.id,
         templateId: t.id,
-        scadenza: s.scadenza,
+        scadenza: a.voce.scadenza,
         anno: opts.anno,
-        periodo: s.periodo,
-        chiave,
+        periodo: a.voce.periodo,
+        chiave: a.chiave,
         assigneeId,
         createdById: opts.createdById ?? null,
         giorniPreavviso: t.giorniPreavviso,
@@ -105,6 +164,12 @@ export async function pianificaAnno(opts: PianificaOpzioni) {
       });
     }
   }
-  if (nuove.length) await prisma.task.createMany({ data: nuove });
-  return { creati: nuove.length, esistenti };
+  const { creati, giaPresenti } = nuove.length ? await inserisciGenerate(nuove, client.id) : { creati: 0, giaPresenti: 0 };
+  return {
+    creati,
+    esistenti: esistenti + giaPresenti,
+    dateDiverse,
+    senzaAssegnatario: creati > 0 && !assigneeId,
+    referenteNonAttivo: !!client.referenteId && !referenteAttivo,
+  };
 }

@@ -184,8 +184,13 @@ async function toggleTemplateAttivoInterna(formData: FormData) {
   const id = fd(formData, "id");
   const t = await prisma.adempimentoTemplate.findUnique({ where: { id }, select: { id: true, attivo: true, nome: true } });
   if (!t) throw new AuthError("Adempimento non trovato.", 404);
-  await prisma.adempimentoTemplate.update({ where: { id }, data: { attivo: !t.attivo } });
-  await audit({ userId: user.id, azione: "TEMPLATE_MODIFICATO", entita: "AdempimentoTemplate", entitaId: id, dettagli: { nome: t.nome, attivo: !t.attivo } });
+  // Il modulo dice quale stato vuole ottenere: due invii (doppio clic) portano allo stesso risultato,
+  // mentre un'inversione lo riportava attivo proprio quando lo si voleva disattivare.
+  const voluto = fd(formData, "attivo");
+  const attivo = voluto === "1" ? true : voluto === "0" ? false : !t.attivo;
+  if (attivo === t.attivo) return;
+  await prisma.adempimentoTemplate.update({ where: { id }, data: { attivo } });
+  await audit({ userId: user.id, azione: "TEMPLATE_MODIFICATO", entita: "AdempimentoTemplate", entitaId: id, dettagli: { nome: t.nome, attivo } });
   revalidatePath("/adempimenti");
 }
 
@@ -198,6 +203,9 @@ export interface RigaPianificazioneMassiva {
   denominazione: string;
   creati: number;
   esistenti: number;
+  /** attività aperte con una data diversa dal catalogo, non toccate */
+  dateDiverse: number;
+  senzaAssegnatario: boolean;
   errore?: string;
 }
 
@@ -224,11 +232,20 @@ export async function pianificazioneMassiva(_prev: PianificazioneMassivaResult, 
     for (const c of clienti) {
       try {
         const r = await pianificaAnno({ clientId: c.id, anno: anno.data, createdById: user.id, saltaPassate });
-        righe.push({ clientId: c.id, denominazione: c.denominazione, ...r });
-        if (r.creati > 0 && c.referenteId && c.referenteId !== user.id) perReferente.set(c.referenteId, (perReferente.get(c.referenteId) ?? 0) + r.creati);
+        righe.push({
+          clientId: c.id,
+          denominazione: c.denominazione,
+          creati: r.creati,
+          esistenti: r.esistenti,
+          dateDiverse: r.dateDiverse.length,
+          senzaAssegnatario: r.senzaAssegnatario,
+        });
+        if (r.creati > 0 && !r.senzaAssegnatario && c.referenteId && c.referenteId !== user.id) {
+          perReferente.set(c.referenteId, (perReferente.get(c.referenteId) ?? 0) + r.creati);
+        }
       } catch (e) {
         console.error("[adempimenti] pianificazione fallita per", c.denominazione, e);
-        righe.push({ clientId: c.id, denominazione: c.denominazione, creati: 0, esistenti: 0, errore: "Errore durante la generazione." });
+        righe.push({ clientId: c.id, denominazione: c.denominazione, creati: 0, esistenti: 0, dateDiverse: 0, senzaAssegnatario: false, errore: "Errore durante la generazione." });
       }
     }
     const totaleCreati = righe.reduce((s, r) => s + r.creati, 0);

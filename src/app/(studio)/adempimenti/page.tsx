@@ -116,6 +116,7 @@ export default async function AdempimentiPage(props: PageProps<"/adempimenti">) 
                               <div className="flex shrink-0 items-center gap-2">
                                 <form action={toggleTemplateAttivo}>
                                   <input type="hidden" name="id" value={t.id} />
+                                  <input type="hidden" name="attivo" value={t.attivo ? "0" : "1"} />
                                   <button type="submit" className={buttonClasses({ variant: "ghost", size: "sm" })} title={t.attivo ? "Disattiva" : "Attiva"}>
                                     <Power className={cn("h-4 w-4", t.attivo ? "text-green-600" : "text-slate-400")} />
                                     {t.attivo ? "Disattiva" : "Attiva"}

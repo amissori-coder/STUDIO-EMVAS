@@ -195,6 +195,9 @@ export async function aggiornaTask(_prev: ActionResult, formData: FormData): Pro
         giorniPreavviso: parsed.data.giorniPreavviso,
         // se la scadenza cambia anno e l'attività è manuale, aggiorna l'anno di riferimento
         anno: esistente.chiave ? esistente.anno : scadenza.getFullYear(),
+        // spostata a un altro cliente, non è più la scadenza generata per quello di prima: la chiave va
+        // liberata, altrimenti la pianificazione di quel cliente non potrebbe più ricrearla
+        ...(cambiaCliente ? { chiave: null } : {}),
         // se cambia la scadenza o l'assegnatario, i promemoria ripartono da zero (come in riassegnaTask)
         ...(scadenza.getTime() !== esistente.scadenza.getTime() || rif.assigneeId !== esistente.assigneeId ? { lastReminderKind: null, lastReminderAt: null } : {}),
       },
@@ -344,6 +347,10 @@ export interface PianificazioneResult extends ActionResult {
   righe?: AnteprimaRiga[];
   creati?: number;
   esistenti?: number;
+  /** attività aperte con una data diversa dal catalogo: non toccate, mostrate per decidere */
+  dateDiverse?: { id: string; titolo: string; attuale: string; catalogo: string }[];
+  senzaAssegnatario?: boolean;
+  referenteNonAttivo?: boolean;
 }
 
 const annoSchema = z.coerce.number().int().min(2000).max(2100);
@@ -397,8 +404,14 @@ export async function pianificaCliente(clientId: string, anno: number, saltaPass
     const client = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true, denominazione: true, referenteId: true } });
     if (!client) return { error: "Cliente non trovato." };
     const esito = await pianificaAnno({ clientId, anno: a.data, createdById: user.id, saltaPassate });
-    await audit({ userId: user.id, azione: "PIANIFICAZIONE", entita: "Client", entitaId: clientId, dettagli: { anno: a.data, saltaPassate, ...esito } });
-    if (esito.creati > 0 && client.referenteId && client.referenteId !== user.id) {
+    await audit({
+      userId: user.id,
+      azione: "PIANIFICAZIONE",
+      entita: "Client",
+      entitaId: clientId,
+      dettagli: { anno: a.data, saltaPassate, creati: esito.creati, esistenti: esito.esistenti, dateDiverse: esito.dateDiverse.length },
+    });
+    if (esito.creati > 0 && !esito.senzaAssegnatario && client.referenteId && client.referenteId !== user.id) {
       await notify({
         userId: client.referenteId,
         tipo: "ATTIVITA_ASSEGNATA",
@@ -414,7 +427,16 @@ export async function pianificaCliente(clientId: string, anno: number, saltaPass
     revalidatePath(`/clienti/${clientId}`);
     revalidatePath(`/attivita/cliente/${clientId}`);
     const righe = serializzaAnteprima(await anteprimaPianificazione(clientId, a.data));
-    return { ok: true, anno: a.data, righe, creati: esito.creati, esistenti: esito.esistenti };
+    return {
+      ok: true,
+      anno: a.data,
+      righe,
+      creati: esito.creati,
+      esistenti: esito.esistenti,
+      dateDiverse: esito.dateDiverse.map((d) => ({ id: d.id, titolo: d.titolo, attuale: formatDate(d.attuale), catalogo: formatDate(d.catalogo) })),
+      senzaAssegnatario: esito.senzaAssegnatario,
+      referenteNonAttivo: esito.referenteNonAttivo,
+    };
   } catch (e) {
     return erroreUtente(e);
   }

@@ -80,7 +80,34 @@ export function PianificazioneCard({ clientId, annoIniziale, righeIniziali }: { 
         {esito?.error && <Alert kind="error">{esito.error}</Alert>}
         {esito?.ok && esito.creati !== undefined && (
           <Alert kind={esito.creati > 0 ? "success" : "info"} title={`Pianificazione ${esito.anno} eseguita`}>
-            {esito.creati} attività create, {esito.esistenti} già presenti.
+            {esito.creati === 1 ? "1 attività creata" : `${esito.creati} attività create`},{" "}
+            {esito.esistenti === 1 ? "1 già presente" : `${esito.esistenti} già presenti`}.
+            {esito.senzaAssegnatario && (
+              <span className="mt-1 block">
+                {esito.referenteNonAttivo
+                  ? "Il referente del cliente non è più attivo: le attività nuove sono senza assegnatario e i promemoria vanno agli amministratori."
+                  : "Il cliente non ha un referente: le attività nuove sono senza assegnatario e i promemoria vanno agli amministratori."}
+              </span>
+            )}
+          </Alert>
+        )}
+        {esito?.ok && esito.dateDiverse && esito.dateDiverse.length > 0 && (
+          <Alert kind="warning" title={esito.dateDiverse.length === 1 ? "1 attività con una data diversa dal catalogo" : `${esito.dateDiverse.length} attività con una data diversa dal catalogo`}>
+            <p>
+              Non sono state modificate: la data può essere stata concordata con il cliente, oppure è il catalogo a essere cambiato. Controlla e,
+              se serve, correggi la scadenza dalla scheda dell&apos;attività.
+            </p>
+            <ul className="mt-2 space-y-1">
+              {esito.dateDiverse.slice(0, 10).map((d) => (
+                <li key={d.id}>
+                  <a href={`/attivita/${d.id}`} className="font-medium underline">
+                    {d.titolo}
+                  </a>
+                  : scadenza {d.attuale}, nel catalogo {d.catalogo}
+                </li>
+              ))}
+              {esito.dateDiverse.length > 10 && <li>…e altre {esito.dateDiverse.length - 10}</li>}
+            </ul>
           </Alert>
         )}
 
