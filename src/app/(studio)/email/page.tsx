@@ -33,7 +33,7 @@ export default async function EmailPage(props: PageProps<"/email">) {
         "Per vedere qui le email dello studio, collega il tuo account Gmail dalla pagina Impostazioni: le email verranno importate e associate automaticamente ai clienti in base agli indirizzi.";
     } else if (isAdmin) {
       description =
-        "L'integrazione Google non è configurata su questo server (mancano GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET nel file .env). Una volta configurata, ogni collaboratore potrà collegare la propria casella Gmail dalle Impostazioni.";
+        "Il collegamento con Google non è ancora configurato su questo server: va fatto una volta sola, seguendo il punto 8 della guida di installazione («Collegare Gmail»). Dopo, ogni collaboratore potrà collegare la propria casella dalle Impostazioni.";
     } else {
       description = "L'integrazione Gmail non è ancora attiva per lo studio: contatta l'amministratore.";
     }

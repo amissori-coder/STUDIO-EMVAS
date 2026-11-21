@@ -114,7 +114,7 @@ export const TIPI_NOTIFICA = {
 export type TipoNotifica = keyof typeof TIPI_NOTIFICA;
 
 // Cartelle create automaticamente per ogni nuovo cliente (area documenti)
-export const CARTELLE_DEFAULT: { nome: string; descrizione: string }[] = [
+export const CARTELLE_DEFAULT: { nome: string; descrizione: string; visibileCliente?: boolean; clientePuoCaricare?: boolean }[] = [
   { nome: "Fatture di vendita", descrizione: "Fatture emesse ai clienti" },
   { nome: "Fatture di acquisto", descrizione: "Fatture ricevute dai fornitori" },
   { nome: "Corrispettivi", descrizione: "Scontrini / corrispettivi giornalieri" },
@@ -125,6 +125,12 @@ export const CARTELLE_DEFAULT: { nome: string; descrizione: string }[] = [
   { nome: "Dichiarazioni", descrizione: "Dichiarazioni fiscali e relative ricevute" },
   { nome: "Contratti", descrizione: "Contratti di locazione, fornitura, ecc." },
   { nome: "Altro", descrizione: "Documenti vari" },
+  {
+    nome: "Riservata allo studio",
+    descrizione: "Corrispondenza e allegati archiviati dallo studio: il cliente non la vede",
+    visibileCliente: false,
+    clientePuoCaricare: false,
+  },
 ];
 
 export const COLORI_UTENTE = [

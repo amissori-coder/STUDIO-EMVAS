@@ -5,7 +5,8 @@ import { Briefcase, ExternalLink, ListChecks, MessagesSquare, Paperclip, Plus } 
 import { getCurrentUser, requireStaff } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
 import { emailVisibile } from "@/modules/email/visibilita";
-import { findClientByEmails, gmailWebUrl, sanitizeEmailHtml } from "@/lib/gmail";
+import { findClientByEmails, gmailWebUrl, loadStudioAddresses, sanitizeEmailHtml } from "@/lib/gmail";
+import { cartellaProposta, ordinaCartelle } from "@/modules/email/cartella-allegati";
 import { STATI_TASK, STATI_TASK_APERTI } from "@/lib/constants";
 import { formatDate, formatDateTime, formatRelative, truncate } from "@/lib/utils";
 import { Badge, STATO_TASK_COLOR } from "@/components/ui/Badge";
@@ -48,13 +49,18 @@ export default async function EmailDetailPage(props: PageProps<"/email/[id]">) {
       orderBy: { receivedAt: "asc" },
     }),
     listActiveClientsForSelect(),
-    email.clientId ? Promise.resolve(null) : findClientByEmails([email.fromAddr, ...toAddrs, ...ccAddrs]),
+    // come la sincronizzazione, il suggerimento ignora gli indirizzi dello studio (colleghi, caselle collegate)
     email.clientId
-      ? prisma.documentFolder.findMany({ where: { clientId: email.clientId }, select: { id: true, nome: true }, orderBy: [{ ordine: "asc" }, { nome: "asc" }] })
+      ? Promise.resolve(null)
+      : loadStudioAddresses().then((studio) => findClientByEmails([email.fromAddr, ...toAddrs, ...ccAddrs].filter((a) => !studio.has(a.toLowerCase())))),
+    email.clientId
+      ? prisma.documentFolder.findMany({ where: { clientId: email.clientId }, select: { id: true, nome: true, ordine: true, visibileCliente: true } })
       : Promise.resolve([]),
   ]);
   const suggested = suggestedId ? (clienti.find((c) => c.id === suggestedId) ?? null) : null;
-  const defaultFolderId = folders.find((f) => f.nome === "Altro")?.id ?? folders[0]?.id ?? null;
+  // mai una cartella visibile al cliente per scelta automatica (vedi cartellaProposta)
+  const defaultFolderId = cartellaProposta(folders);
+  const cartelleOrdinate = ordinaCartelle(folders);
   const savedNames = new Set(email.documenti.map((d) => d.nome));
   const bodyHtml = email.bodyHtml ? sanitizeEmailHtml(email.bodyHtml) : null;
 
@@ -143,7 +149,7 @@ export default async function EmailDetailPage(props: PageProps<"/email/[id]">) {
                       key={a.attachmentId}
                       emailId={email.id}
                       attachment={a}
-                      folders={folders}
+                      folders={cartelleOrdinate}
                       defaultFolderId={defaultFolderId}
                       enabled={!!email.clientId}
                       alreadySaved={savedNames.has(a.filename)}

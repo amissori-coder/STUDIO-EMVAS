@@ -93,7 +93,7 @@ export async function createClientAction(_prev: ClientFormState, formData: FormD
       data: {
         ...data,
         referenteId,
-        cartelle: { create: CARTELLE_DEFAULT.map((c, i) => ({ nome: c.nome, descrizione: c.descrizione, ordine: i })) },
+        cartelle: { create: CARTELLE_DEFAULT.map((c, i) => ({ nome: c.nome, descrizione: c.descrizione, ordine: i, visibileCliente: c.visibileCliente ?? true, clientePuoCaricare: c.clientePuoCaricare ?? true })) },
       },
       select: { id: true },
     });

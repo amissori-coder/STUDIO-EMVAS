@@ -79,7 +79,7 @@ export async function findClientByEmails(addresses: string[]): Promise<string | 
 }
 
 /** Indirizzi dello studio (utenti staff e caselle collegate): non partecipano all'associazione ai clienti. */
-async function loadStudioAddresses(): Promise<Set<string>> {
+export async function loadStudioAddresses(): Promise<Set<string>> {
   const [users, accounts] = await Promise.all([
     prisma.user.findMany({ where: { ruolo: { in: [...RUOLI_STAFF] } }, select: { email: true } }),
     prisma.googleAccount.findMany({ select: { googleEmail: true } }),

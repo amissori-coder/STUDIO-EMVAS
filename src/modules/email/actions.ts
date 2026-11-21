@@ -7,7 +7,8 @@ import { AuthError, requireStaffAction } from "@/lib/auth/guards";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notifications";
 import { fetchGmailAttachment, syncAllGoogleAccounts, syncGoogleAccount, type SyncResult } from "@/lib/gmail";
-import { getMaxUploadBytes, isAllowedFilename, saveUpload } from "@/lib/storage";
+import { deleteUpload, getMaxUploadBytes, isAllowedFilename, saveUpload } from "@/lib/storage";
+import { cartellaDiSalvataggio } from "./cartella-allegati";
 import { formatBytes, truncate } from "@/lib/utils";
 import { parseAttachments } from "./queries";
 
@@ -192,21 +193,23 @@ export async function saveAttachmentAction(_prev: ActionResult, formData: FormDa
     const max = getMaxUploadBytes();
     if (att.size > max) return { error: `Allegato troppo grande (massimo ${formatBytes(max)}).` };
 
-    let folder: { id: string } | null = null;
-    if (folderId) {
-      folder = await prisma.documentFolder.findFirst({ where: { id: folderId, clientId: email.clientId }, select: { id: true } });
-      if (!folder) return { error: "Cartella non valida." };
-    } else {
-      folder =
-        (await prisma.documentFolder.findFirst({ where: { clientId: email.clientId, nome: "Altro" }, select: { id: true } })) ??
-        (await prisma.documentFolder.findFirst({ where: { clientId: email.clientId }, orderBy: { ordine: "asc" }, select: { id: true } }));
-    }
+    const cartelle = await prisma.documentFolder.findMany({
+      where: { clientId: email.clientId },
+      select: { id: true, nome: true, ordine: true, visibileCliente: true },
+    });
+    const scelta = cartellaDiSalvataggio(folderId, cartelle);
+    if (!scelta.ok) return { error: scelta.errore };
+    const folder = scelta.folderId ? { id: scelta.folderId } : null;
 
     const data = await fetchGmailAttachment(email.accountId, email.gmailId, attachmentId, { partId: att.partId, filename: att.filename, size: att.size });
     if (data.length > max) return { error: `Allegato troppo grande (massimo ${formatBytes(max)}).` };
     const storagePath = await saveUpload({ clientId: email.clientId, originalName: att.filename, data });
-    const doc = await prisma.document.create({
-      data: {
+    // Se la riga non si crea, il file appena scritto non deve restare sul disco senza nessun documento che
+    // lo richiami. Ogni salvataggio crea un documento nuovo: non si sovrascrive mai un documento esistente,
+    // nemmeno se ha lo stesso nome (due allegati diversi possono chiamarsi entrambi «scansione.pdf»).
+    const doc = await prisma.document
+      .create({
+        data: {
         clientId: email.clientId,
         folderId: folder?.id ?? null,
         nome: att.filename,
@@ -216,8 +219,12 @@ export async function saveAttachmentAction(_prev: ActionResult, formData: FormDa
         uploadedById: user.id,
         emailId: email.id,
         taskId: email.taskId,
-      },
-    });
+        },
+      })
+      .catch(async (e: unknown) => {
+        await deleteUpload(storagePath).catch(() => {});
+        throw e;
+      });
     await audit({
       userId: user.id,
       azione: "EMAIL_ALLEGATO_SALVATO",

@@ -114,7 +114,7 @@ async function seedDemo(adminId: string) {
         comune: "Roma",
         provincia: "RM",
         referenteId: adminId,
-        cartelle: { create: CARTELLE_DEFAULT.map((c, i) => ({ nome: c.nome, descrizione: c.descrizione, ordine: i })) },
+        cartelle: { create: CARTELLE_DEFAULT.map((c, i) => ({ nome: c.nome, descrizione: c.descrizione, ordine: i, visibileCliente: c.visibileCliente ?? true, clientePuoCaricare: c.clientePuoCaricare ?? true })) },
         contatti: { create: [{ nome: "Mario Rossi", email: "mario.rossi@rossi-impianti.it", ruolo: "Amministratore" }] },
       },
     }),
@@ -133,7 +133,7 @@ async function seedDemo(adminId: string) {
         comune: "Milano",
         provincia: "MI",
         referenteId: collab.id,
-        cartelle: { create: CARTELLE_DEFAULT.map((c, i) => ({ nome: c.nome, descrizione: c.descrizione, ordine: i })) },
+        cartelle: { create: CARTELLE_DEFAULT.map((c, i) => ({ nome: c.nome, descrizione: c.descrizione, ordine: i, visibileCliente: c.visibileCliente ?? true, clientePuoCaricare: c.clientePuoCaricare ?? true })) },
       },
     }),
     prisma.client.create({
@@ -151,7 +151,7 @@ async function seedDemo(adminId: string) {
         comune: "Firenze",
         provincia: "FI",
         referenteId: collab.id,
-        cartelle: { create: CARTELLE_DEFAULT.map((c, i) => ({ nome: c.nome, descrizione: c.descrizione, ordine: i })) },
+        cartelle: { create: CARTELLE_DEFAULT.map((c, i) => ({ nome: c.nome, descrizione: c.descrizione, ordine: i, visibileCliente: c.visibileCliente ?? true, clientePuoCaricare: c.clientePuoCaricare ?? true })) },
       },
     }),
   ]);

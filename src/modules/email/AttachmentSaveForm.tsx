@@ -23,7 +23,7 @@ export function AttachmentSaveForm({
 }: {
   emailId: string;
   attachment: AttachmentInfo;
-  folders: { id: string; nome: string }[];
+  folders: { id: string; nome: string; visibileCliente: boolean }[];
   defaultFolderId: string | null;
   enabled: boolean;
   alreadySaved: boolean;
@@ -54,11 +54,23 @@ export function AttachmentSaveForm({
         <form action={action} className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <input type="hidden" name="emailId" value={emailId} />
           <input type="hidden" name="attachmentId" value={attachment.attachmentId} />
-          <Select name="folderId" defaultValue={defaultFolderId ?? ""} aria-label="Cartella di destinazione" className="sm:w-48">
-            {folders.length === 0 && <option value="">(nessuna cartella)</option>}
+          <Select
+            name="folderId"
+            defaultValue={defaultFolderId ?? ""}
+            aria-label="Cartella di destinazione"
+            className="sm:w-64"
+            required={folders.length > 0}
+          >
+            {folders.length === 0 && <option value="">(nessuna cartella: resta visibile solo allo studio)</option>}
+            {folders.length > 0 && !defaultFolderId && (
+              <option value="" disabled>
+                — Scegli la cartella —
+              </option>
+            )}
             {folders.map((f) => (
               <option key={f.id} value={f.id}>
                 {f.nome}
+                {f.visibileCliente ? " · la vede il cliente" : " · solo studio"}
               </option>
             ))}
           </Select>
