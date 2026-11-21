@@ -416,14 +416,23 @@ Il backup notturno è già programmato dallo script di preparazione e scrive in
 `/var/backups/studio-emvas`:
 
 - una copia integra del database, una per notte, conservata trenta giorni;
-- uno specchio aggiornato di tutti i documenti.
+- uno specchio aggiornato di tutti i documenti, presi dalla stessa cartella che usa l'applicazione
+  (il disco dei documenti, se hai impostato `UPLOADS_PATH`).
+
+Prima di copiare i documenti lo script controlla che ogni documento registrato nell'archivio si trovi
+davvero nella cartella. Se il disco dei documenti non è montato, o è montato nel posto sbagliato,
+**non tocca lo specchio** (resta com'era l'ultima notte riuscita) e termina con un errore; la copia del
+database e la pulizia delle copie vecchie vengono fatte comunque. La mattina dopo `verifica.sh` lo
+segnala con una croce rossa.
 
 Per eseguirlo subito e controllare che funzioni:
 
 ```bash
 /opt/studio-emvas/deploy/backup.sh
-ls -lh /var/backups/studio-emvas/database | tail -5
 ```
+
+L'ultima riga deve dire `completato`. Se dice `TERMINATO CON ERRORI`, le righe sopra spiegano che
+cosa non è andato. L'esito di ogni notte è anche nel file `/var/log/studio-emvas-backup.log`.
 
 ### Copia fuori dal server
 
@@ -434,12 +443,18 @@ anche a un guasto grave o a una cancellazione per errore.
   Aruba sono gli snapshot da attivare dal pannello. Fotografano l'intero server e bastano per il caso
   più comune.
 - **Spazio di archiviazione remoto**: uno Storage Box di Hetzner oppure un Cloud Object Storage di
-  Aruba, entrambi da pochi euro al mese per 1 TB. Aggiungi una riga al file
-  `/etc/cron.d/studio-emvas-backup` per copiarci i backup ogni notte:
+  Aruba, entrambi da pochi euro al mese per 1 TB. Crea un file a parte, così lo script di
+  preparazione non lo sovrascrive se lo rilanci:
 
   ```bash
-  rsync -az --delete /var/backups/studio-emvas/ utente@indirizzo-dello-spazio-remoto:backup-emvas/
+  echo '30 4 * * * root rsync -az /var/backups/studio-emvas/ utente@indirizzo-dello-spazio-remoto:backup-emvas/' > /etc/cron.d/studio-emvas-fuori-sede
+  chmod 0644 /etc/cron.d/studio-emvas-fuori-sede
   ```
+
+  Ogni notte alle 4:30, dopo il backup, copia tutto nello spazio remoto. Il comando volutamente **non
+  cancella** nulla dall'altra parte: se la cartella dei backup sul server venisse svuotata per errore,
+  la copia remota resta intatta. Ogni tanto conviene togliere a mano dallo spazio remoto le copie del
+  database più vecchie che non servono più.
 
 - **Una copia in studio**: puoi anche scaricare periodicamente la cartella dei backup su un disco
   esterno dello studio, dal tuo computer:
@@ -454,23 +469,58 @@ anche a un guasto grave o a una cancellazione per errore.
 /opt/studio-emvas/deploy/ripristina.sh /var/backups/studio-emvas/database/emvas-AAAAMMGG-HHMM.db.gz
 ```
 
-Lo script ferma l'applicazione, conserva il database attuale con un nome che riporta la data,
-rimette al suo posto la copia scelta e riavvia.
+Lo script controlla prima che la copia scelta sia leggibile (se è danneggiata si ferma senza toccare
+nulla), poi ferma l'applicazione, conserva il database attuale con un nome che riporta la data, rimette
+al suo posto la copia scelta, riporta i documenti nella cartella che l'applicazione usa davvero (il
+disco dei documenti, se impostato) senza cancellare quelli già presenti, e riavvia.
 
 ---
 
 ## 11. Aggiornamenti
 
-Per portare sul server una nuova versione:
+Per portare sul server una nuova versione, prima un backup e poi l'aggiornamento:
 
 ```bash
+/opt/studio-emvas/deploy/backup.sh
 cd /opt/studio-emvas
 git pull
 docker compose up -d --build
 ```
 
-Il database viene aggiornato da solo all'avvio e i dati restano al loro posto. Conviene lanciare
-prima un backup manuale.
+All'avvio l'applicazione aggiorna il database con le **migrazioni** comprese nella nuova versione:
+modifiche scritte e controllate in anticipo, applicate in ordine. Se una migrazione non si può
+applicare l'applicazione **non parte**, di proposito: meglio un sito fermo che dati rovinati.
+
+Te ne accorgi perché `docker compose ps` mostra l'applicazione come `Restarting`. La causa si legge con:
+
+```bash
+docker compose logs app --tail 30
+```
+
+**Caso 1 — installazione fatta prima dell'introduzione delle migrazioni.** Il messaggio parla di un
+database «non vuoto» o di una migrazione `20260101000000_init` già presente. Il database va solo
+allineato, una volta sola; i dati non vengono toccati:
+
+```bash
+cd /opt/studio-emvas
+docker compose run --rm --entrypoint npx app prisma migrate resolve --applied 20260101000000_init
+docker compose up -d
+```
+
+L'opzione `--entrypoint npx` serve perché il normale avvio applicherebbe le migrazioni prima di
+eseguire il comando, e si fermerebbe sullo stesso errore.
+
+**Caso 2 — qualunque altro errore.** Torna alla versione precedente:
+
+```bash
+cd /opt/studio-emvas
+git checkout HEAD@{1}
+docker compose up -d --build
+```
+
+Se l'applicazione riparte, il database non era stato toccato: segnala il messaggio letto nei log a chi
+cura l'applicazione. Se invece non riparte nemmeno così, ripristina la copia del database fatta
+appena prima dell'aggiornamento (punto 10, Ripristino: è la più recente nell'elenco).
 
 Gli aggiornamenti di sicurezza di Ubuntu si installano da soli. Ogni tanto riavvia il server con
 `reboot`: l'applicazione riparte automaticamente.

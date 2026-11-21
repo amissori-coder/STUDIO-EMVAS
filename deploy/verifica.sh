@@ -19,12 +19,9 @@ avviso()  { printf '  \033[33m!\033[0m %s\n' "$1"; AVVISI=$((AVVISI + 1)); }
 nota()    { printf '    %s\n' "$1"; }
 titolo()  { printf '\n\033[1m%s\033[0m\n' "$1"; }
 
-# Legge una variabile dal file .env senza eseguirlo.
-leggi_env() {
-  local chiave="$1"
-  [ -f "$APP_DIR/.env" ] || return 1
-  sed -n "s/^${chiave}=//p" "$APP_DIR/.env" | tail -1 | sed 's/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//'
-}
+# leggi_env, cartella_documenti, plurale, durata
+# shellcheck source=deploy/comune.sh
+source "$(dirname "$0")/comune.sh"
 
 printf '\033[1mVerifica di Studio EMVAS\033[0m  (%s)\n' "$(date '+%d/%m/%Y %H:%M')"
 
@@ -99,14 +96,19 @@ if [ -f "$APP_DIR/.env" ]; then
     ok "Segreto delle sessioni impostato"
   fi
 
-  for opzionale in GOOGLE_CLIENT_ID NEXT_PUBLIC_VAPID_PUBLIC_KEY SMTP_HOST; do
-    valore="$(leggi_env "$opzionale")"
-    case "$opzionale" in
-      GOOGLE_CLIENT_ID) etichetta="Collegamento a Gmail" ;;
-      NEXT_PUBLIC_VAPID_PUBLIC_KEY) etichetta="Notifiche push" ;;
-      *) etichetta="Notifiche via email" ;;
-    esac
-    [ -n "${valore:-}" ] && ok "$etichetta configurato" || nota "$etichetta non configurato (facoltativo)"
+  # Ogni funzione facoltativa ha bisogno di DUE valori: con uno solo sembra configurata e non funziona.
+  for coppia in "Collegamento a Gmail:GOOGLE_CLIENT_ID:GOOGLE_CLIENT_SECRET" \
+                "Notifiche push:NEXT_PUBLIC_VAPID_PUBLIC_KEY:VAPID_PRIVATE_KEY" \
+                "Notifiche via email:SMTP_HOST:SMTP_FROM"; do
+    IFS=: read -r etichetta prima seconda <<< "$coppia"
+    v1="$(leggi_env "$prima")"; v2="$(leggi_env "$seconda")"
+    if [ -n "${v1:-}" ] && [ -n "${v2:-}" ]; then
+      ok "$etichetta configurato"
+    elif [ -n "${v1:-}" ] || [ -n "${v2:-}" ]; then
+      errore "$etichetta configurato a metà: servono sia $prima sia $seconda nel file .env"
+    else
+      nota "$etichetta non configurato (facoltativo)"
+    fi
   done
 else
   errore "Manca $APP_DIR/.env: copialo da .env.example e compilalo"
@@ -177,8 +179,11 @@ fi
 # ---------------------------------------------------------------------------
 titolo "5. Spazio e dati"
 
-CARTELLA_DOCUMENTI="${UPLOADS:-$APP_DIR/data/uploads}"
-[ -n "${UPLOADS:-}" ] || CARTELLA_DOCUMENTI="$APP_DIR/data/uploads"
+CARTELLA_DOCUMENTI="$(cartella_documenti)"
+DOCUMENTI_REGISTRATI=""
+if [ -f "$APP_DIR/data/emvas.db" ] && command -v sqlite3 >/dev/null 2>&1; then
+  DOCUMENTI_REGISTRATI="$(sqlite3 "$APP_DIR/data/emvas.db" 'SELECT count(*) FROM Document;' 2>/dev/null)"
+fi
 
 if [ -n "${UPLOADS:-}" ]; then
   if mountpoint -q "$UPLOADS" 2>/dev/null; then
@@ -188,6 +193,17 @@ if [ -n "${UPLOADS:-}" ]; then
   fi
 else
   nota "Documenti sul disco di sistema (UPLOADS_PATH non impostato)"
+fi
+
+if [ -d "$CARTELLA_DOCUMENTI" ]; then
+  FILE_DOCUMENTI="$(find "$CARTELLA_DOCUMENTI" -type f 2>/dev/null | wc -l)"
+  if [ -n "$DOCUMENTI_REGISTRATI" ] && [ "$DOCUMENTI_REGISTRATI" -gt 0 ] && [ "$FILE_DOCUMENTI" -eq 0 ]; then
+    errore "La cartella dei documenti $CARTELLA_DOCUMENTI è vuota ma l'archivio ne registra $DOCUMENTI_REGISTRATI: il disco è montato?"
+  else
+    ok "Cartella dei documenti: $(plurale "$FILE_DOCUMENTI" file file) in $CARTELLA_DOCUMENTI"
+  fi
+else
+  errore "La cartella dei documenti $CARTELLA_DOCUMENTI non esiste: i clienti non possono caricare nulla"
 fi
 
 for percorso in "$APP_DIR/data" "$CARTELLA_DOCUMENTI" "$BACKUP_DIR"; do
@@ -229,15 +245,40 @@ fi
 ULTIMO="$(ls -1t "$BACKUP_DIR"/database/*.db.gz 2>/dev/null | head -1)"
 if [ -n "$ULTIMO" ]; then
   ETA=$(( ( $(date +%s) - $(stat -c %Y "$ULTIMO") ) / 3600 ))
-  if [ "$ETA" -le 30 ]; then
-    ok "Ultimo backup di $ETA ore fa ($(basename "$ULTIMO"))"
+  if ! gzip -t "$ULTIMO" 2>/dev/null; then
+    errore "L'ultima copia del database ($(basename "$ULTIMO")) è danneggiata: controlla /var/log/studio-emvas-backup.log"
+  elif [ "$ETA" -le 30 ]; then
+    ok "Ultimo backup del database: $(durata "$ETA") fa ($(basename "$ULTIMO"))"
+  elif [ "$ETA" -le 48 ]; then
+    avviso "Ultimo backup del database: $(durata "$ETA") fa. Stanotte non è partito? Controlla /var/log/studio-emvas-backup.log"
   else
-    avviso "Ultimo backup di $ETA ore fa: controlla /var/log/studio-emvas-backup.log"
+    errore "Il backup del database è fermo da $(durata "$ETA"): controlla /var/log/studio-emvas-backup.log"
   fi
   NUMERO="$(ls -1 "$BACKUP_DIR"/database/*.db.gz 2>/dev/null | wc -l)"
-  nota "Copie conservate: $NUMERO"
+  nota "Copie del database conservate: $NUMERO"
 else
   avviso "Nessun backup ancora eseguito: provalo ora con  $APP_DIR/deploy/backup.sh"
+fi
+
+# Documenti: lo stato lo scrive backup.sh dopo aver confrontato la cartella con l'archivio.
+STATO_DOCUMENTI="$BACKUP_DIR/stato-documenti.txt"
+NELLO_SPECCHIO="$(find "$BACKUP_DIR/documenti" -type f 2>/dev/null | wc -l)"
+if [ -f "$STATO_DOCUMENTI" ]; then
+  ESITO="$(sed -n 's/^esito=//p' "$STATO_DOCUMENTI")"
+  MANCANTI="$(sed -n 's/^mancanti=//p' "$STATO_DOCUMENTI")"
+  ETA_DOC=$(( ( $(date +%s) - $(stat -c %Y "$STATO_DOCUMENTI") ) / 3600 ))
+  ULTIMO_COMPLETO="$(sed -n 's/^ultimo_completo=//p' "$STATO_DOCUMENTI")"
+  if [ "$ESITO" = "errore" ]; then
+    errore "L'ultimo backup dei documenti NON è riuscito (ultimo completo: ${ULTIMO_COMPLETO:-mai}): controlla /var/log/studio-emvas-backup.log"
+  elif [ "$ESITO" != "completo" ]; then
+    errore "L'ultimo backup dei documenti è incompleto: $(plurale "${MANCANTI:-?}" "documento registrato mancava" "documenti registrati mancavano") nella cartella"
+  elif [ "$ETA_DOC" -gt 48 ]; then
+    errore "Il backup dei documenti è fermo da $(durata "$ETA_DOC"): controlla /var/log/studio-emvas-backup.log"
+  else
+    ok "Backup dei documenti completo: $(plurale "$NELLO_SPECCHIO" file file) nello specchio, $(durata "$ETA_DOC") fa"
+  fi
+elif [ -n "$DOCUMENTI_REGISTRATI" ] && [ "$DOCUMENTI_REGISTRATI" -gt 0 ]; then
+  errore "Nessun backup dei documenti risulta riuscito, ma l'archivio ne registra $DOCUMENTI_REGISTRATI: esegui  $APP_DIR/deploy/backup.sh  e leggi l'esito"
 fi
 
 # ---------------------------------------------------------------------------

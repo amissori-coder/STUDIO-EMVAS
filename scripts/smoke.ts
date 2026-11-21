@@ -4,6 +4,14 @@
 import { chromium, type Page } from "playwright";
 import fs from "node:fs";
 
+// Le credenziali sono quelle con cui il seed ha creato l'amministratore (ADMIN_EMAIL e ADMIN_PASSWORD
+// nel file .env); le variabili d'ambiente, se presenti, hanno la precedenza.
+try {
+  process.loadEnvFile();
+} catch {
+  // nessun file .env
+}
+
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const ADMIN = { email: process.env.ADMIN_EMAIL ?? "a.missori@emvas.tax", password: process.env.ADMIN_PASSWORD ?? "CambiaSubito123!" };
 const CLIENTE = { email: "cliente@rossi-impianti.it", password: "Cliente123!" };

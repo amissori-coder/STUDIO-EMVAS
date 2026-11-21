@@ -10,7 +10,16 @@ import path from "node:path";
 import os from "node:os";
 import { PrismaClient } from "@prisma/client";
 
+// Le credenziali sono quelle con cui il seed ha creato l'amministratore (ADMIN_EMAIL e ADMIN_PASSWORD
+// nel file .env); le variabili d'ambiente, se presenti, hanno la precedenza.
+try {
+  process.loadEnvFile();
+} catch {
+  // nessun file .env
+}
+
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
+const ADMIN = { email: process.env.ADMIN_EMAIL ?? "a.missori@emvas.tax", password: process.env.ADMIN_PASSWORD ?? "CambiaSubito123!" };
 const exePath = fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined;
 const prisma = new PrismaClient();
 let failures = 0;
@@ -37,7 +46,7 @@ async function main() {
     // 1. filtro intervallo scadenze
     const ctxA: BrowserContext = await browser.newContext({ viewport: { width: 1366, height: 900 } });
     const admin = await ctxA.newPage();
-    await login(admin, "a.missori@emvas.tax", "CambiaSubito123!");
+    await login(admin, ADMIN.email, ADMIN.password);
     await admin.goto(`${BASE}/attivita?assegnatario=${collab.id}&stato=aperte&ordina=scadenza&a=2026-09-13`);
     const testo = (await admin.textContent("body")) ?? "";
     check(testo.includes("entro il 13/09/2026"), "filtro ?a= mostra il chip dell'intervallo");
