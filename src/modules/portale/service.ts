@@ -43,11 +43,16 @@ export interface PortalClient {
 /** Clienti (attivi) a cui l'utente del portale ha accesso. */
 export async function getPortalClients(user: CurrentUser): Promise<PortalClient[]> {
   if (user.clientIds.length === 0) return [];
-  return prisma.client.findMany({
+  const clienti = await prisma.client.findMany({
     where: { id: { in: user.clientIds }, attivo: true },
-    select: { id: true, denominazione: true, referente: { select: { nome: true, email: true, telefono: true } } },
+    select: { id: true, denominazione: true, referente: { select: { nome: true, email: true, telefono: true, attivo: true } } },
     orderBy: { denominazione: "asc" },
   });
+  // un referente non più attivo in studio non va presentato al cliente come contatto
+  return clienti.map(({ referente, ...c }) => ({
+    ...c,
+    referente: referente?.attivo ? { nome: referente.nome, email: referente.email, telefono: referente.telefono } : null,
+  }));
 }
 
 /** Cliente corrente: parametro ?cliente= (se valido), poi cookie, poi il primo disponibile. */
@@ -167,10 +172,19 @@ export async function getPortalFolder(user: CurrentUser, folderId: string): Prom
   return { chain, folder: chain[chain.length - 1]!, clientId: base.clientId };
 }
 
+/**
+ * Documento per il portale. La nota NON lascia mai il server: è un campo solo, che il cliente compila
+ * al caricamento ma che lo studio usa e riscrive come appunto interno («manca la pagina 2», «non
+ * dedurre»). Togliendola qui, e non solo dallo schermo, non arriva nemmeno nei dati della pagina.
+ */
+function perIlPortale(d: Parameters<typeof toDocumentDto>[0]): DocumentDto {
+  return { ...toDocumentDto(d), note: null };
+}
+
 /** Documenti di una cartella visibile (più recenti prima). */
 export async function getPortalFolderDocuments(folderId: string): Promise<DocumentDto[]> {
   const docs = await prisma.document.findMany({ where: { folderId }, include: DOCUMENT_INCLUDE, orderBy: { createdAt: "desc" }, take: 500 });
-  return docs.map(toDocumentDto);
+  return docs.map(perIlPortale);
 }
 
 /** Ultimi documenti visibili al cliente (in cartelle visibili oppure caricati da lui senza cartella). */
@@ -183,7 +197,7 @@ export async function getPortalRecentDocuments(user: CurrentUser, clientId: stri
     orderBy: { createdAt: "desc" },
     take: limit,
   });
-  return docs.map(toDocumentDto);
+  return docs.map(perIlPortale);
 }
 
 /** Messaggi mostrati nella pagina cartella per i codici `?errore=` (i valori sconosciuti vengono ignorati). */

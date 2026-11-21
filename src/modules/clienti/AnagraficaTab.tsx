@@ -10,6 +10,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { ContactsCard } from "./ContactsCard";
 import { canManagePortalAccess } from "./permessi";
 import { PortalAccessCard } from "./PortalAccessCard";
+import { clientiFuoriGestione } from "./regole-portale";
 import { getClientSummary, type ClientWithReferente } from "./queries";
 
 function Row({ label, children, span }: { label: string; children: ReactNode; span?: boolean }) {
@@ -86,6 +87,12 @@ export async function AnagraficaTab({ client, user }: { client: ClientWithRefere
             attivo: cu.user.attivo,
             colore: cu.user.colore,
             ultimoAccesso: cu.user.lastLoginAt ? formatDateTime(cu.user.lastLoginAt) : null,
+            altreAziende: cu.user.accessiClienti.filter((c) => c.client.id !== client.id).map((c) => c.client.denominazione),
+            soloScollega:
+              clientiFuoriGestione(
+                user,
+                cu.user.accessiClienti.map((c) => ({ clientId: c.client.id, denominazione: c.client.denominazione, referenteId: c.client.referenteId })),
+              ).length > 0,
           }))}
           canManage={canManagePortal}
         />

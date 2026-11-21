@@ -12,6 +12,7 @@ import { CARTELLE_DEFAULT, RUOLI_STAFF } from "@/lib/constants";
 import { deleteUpload, resolveUploadPath } from "@/lib/storage";
 import { normalizeEmail } from "@/lib/utils";
 import { canChangeReferente, canManagePortalAccess } from "./permessi";
+import { clientiFuoriGestione, messaggioFuoriGestione } from "./regole-portale";
 import { contactSchema, parseClientForm, portalUserSchema, type ClientFieldErrors, type ClientFormValues } from "./validation";
 
 // ---------------------------------------------------------------------------
@@ -271,6 +272,32 @@ async function requirePortalManager(user: CurrentUser, clientId: string, operazi
   return client;
 }
 
+/**
+ * Password e attivazione sono dell'utente, non del collegamento: valgono per tutte le aziende a cui
+ * accede. Chi agisce deve poterle gestire tutte (vedi clientiFuoriGestione); altrimenti il referente
+ * di un solo cliente potrebbe entrare nel portale al posto dell'utente e leggere i documenti degli
+ * altri. Restituisce il messaggio di rifiuto, oppure null se l'operazione è consentita.
+ */
+async function rifiutoSeCollegatoAltrove(user: CurrentUser, userId: string, clientId: string, operazione: string) {
+  const collegamenti = await prisma.clientUser.findMany({
+    where: { userId },
+    select: { user: { select: { nome: true } }, client: { select: { id: true, denominazione: true, referenteId: true } } },
+  });
+  const fuori = clientiFuoriGestione(
+    user,
+    collegamenti.map((c) => ({ clientId: c.client.id, denominazione: c.client.denominazione, referenteId: c.client.referenteId })),
+  );
+  if (!fuori.length) return null;
+  await audit({
+    userId: user.id,
+    azione: "ACCESSO_PORTALE_NEGATO",
+    entita: "User",
+    entitaId: userId,
+    dettagli: { operazione, clientId, altriClienti: fuori.map((c) => c.denominazione) },
+  });
+  return messaggioFuoriGestione(collegamenti[0]?.user.nome ?? "L'utente", fuori);
+}
+
 export async function createPortalUserAction(clientId: string, _prev: SimpleState, formData: FormData): Promise<SimpleState> {
   let user: CurrentUser;
   try {
@@ -367,11 +394,19 @@ export async function resetPortalPasswordAction(clientId: string, userId: string
   const weak = validatePasswordStrength(password);
   if (weak) return { error: weak, fieldErrors: { password: weak } };
   try {
-    await requirePortalManager(user, clientId, "reset-password");
-    const link = await prisma.clientUser.findUnique({ where: { userId_clientId: { userId, clientId } }, include: { user: { select: { ruolo: true } } } });
+    const client = await requirePortalManager(user, clientId, "reset-password");
+    const link = await prisma.clientUser.findUnique({ where: { userId_clientId: { userId, clientId } }, include: { user: { select: { ruolo: true, email: true } } } });
     if (!link || link.user.ruolo !== "CLIENTE") return { error: "Utente non collegato a questo cliente." };
+    const rifiuto = await rifiutoSeCollegatoAltrove(user, userId, clientId, "reset-password");
+    if (rifiuto) return { error: rifiuto };
     await prisma.user.update({ where: { id: userId }, data: { passwordHash: await hashPassword(password), sessionVersion: { increment: 1 } } });
-    await audit({ userId: user.id, azione: "UTENTE_PORTALE_PASSWORD_RESET", entita: "User", entitaId: userId, dettagli: { clientId } });
+    await audit({
+      userId: user.id,
+      azione: "UTENTE_PORTALE_PASSWORD_RESET",
+      entita: "User",
+      entitaId: userId,
+      dettagli: { clientId, denominazione: client.denominazione, email: link.user.email },
+    });
   } catch (e) {
     return { error: errorMessage(e, "Errore durante la reimpostazione della password.") };
   }
@@ -387,11 +422,20 @@ export async function setPortalUserActiveAction(clientId: string, userId: string
     return { error: errorMessage(e, "Operazione non consentita.") };
   }
   try {
-    await requirePortalManager(user, clientId, attivo ? "attivazione" : "disattivazione");
-    const link = await prisma.clientUser.findUnique({ where: { userId_clientId: { userId, clientId } }, include: { user: { select: { ruolo: true } } } });
+    const operazione = attivo ? "attivazione" : "disattivazione";
+    const client = await requirePortalManager(user, clientId, operazione);
+    const link = await prisma.clientUser.findUnique({ where: { userId_clientId: { userId, clientId } }, include: { user: { select: { ruolo: true, email: true } } } });
     if (!link || link.user.ruolo !== "CLIENTE") return { error: "Utente non collegato a questo cliente." };
+    const rifiuto = await rifiutoSeCollegatoAltrove(user, userId, clientId, operazione);
+    if (rifiuto) return { error: rifiuto };
     await prisma.user.update({ where: { id: userId }, data: { attivo } });
-    await audit({ userId: user.id, azione: attivo ? "UTENTE_PORTALE_ATTIVATO" : "UTENTE_PORTALE_DISATTIVATO", entita: "User", entitaId: userId, dettagli: { clientId } });
+    await audit({
+      userId: user.id,
+      azione: attivo ? "UTENTE_PORTALE_ATTIVATO" : "UTENTE_PORTALE_DISATTIVATO",
+      entita: "User",
+      entitaId: userId,
+      dettagli: { clientId, denominazione: client.denominazione, email: link.user.email },
+    });
   } catch (e) {
     return { error: errorMessage(e, "Errore durante l'aggiornamento dell'utente.") };
   }

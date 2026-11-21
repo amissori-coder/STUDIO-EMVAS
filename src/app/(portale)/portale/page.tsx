@@ -27,13 +27,19 @@ export default async function PortalePage(props: PageProps<"/portale">) {
   const client = await resolvePortalClient(clients, requested);
 
   if (!client) {
+    // collegato ad aziende che lo studio ha archiviato: dire «non ancora collegato» sarebbe falso
+    const collegato = user.clientIds.length > 0;
     return (
       <>
         <h1 className="mb-4 text-xl font-semibold text-slate-900 sm:text-2xl">Ciao {user.nome}</h1>
         <EmptyState
           icon={<Building2 />}
-          title="Il tuo accesso non è ancora collegato a un'azienda"
-          description="Lo studio deve associare il tuo utente a un cliente per mostrarti le cartelle dei documenti. Contatta lo studio per completare l'attivazione."
+          title={collegato ? "L'area documenti non è al momento attiva" : "Il tuo accesso non è ancora collegato a un'azienda"}
+          description={
+            collegato
+              ? "Lo studio ha chiuso l'area documenti dell'azienda a cui è collegato il tuo accesso. Se pensi che sia un errore, contatta lo studio."
+              : "Lo studio deve associare il tuo utente a un cliente per mostrarti le cartelle dei documenti. Contatta lo studio per completare l'attivazione."
+          }
         />
       </>
     );

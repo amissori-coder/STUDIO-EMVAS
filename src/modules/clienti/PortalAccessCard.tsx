@@ -27,6 +27,10 @@ export interface PortalUserRow {
   attivo: boolean;
   colore: string;
   ultimoAccesso: string | null;
+  /** altre aziende a cui l'utente accede con le stesse credenziali */
+  altreAziende: string[];
+  /** collegato anche a clienti che chi guarda non gestisce: password e attivazione solo da un amministratore */
+  soloScollega: boolean;
 }
 
 interface Credenziali {
@@ -215,19 +219,33 @@ export function PortalAccessCard({ clientId, utenti, canManage }: { clientId: st
                     </p>
                     <p className="truncate text-sm text-slate-600">{u.email}</p>
                     <p className="text-xs text-slate-400">{u.ultimoAccesso ? `Ultimo accesso: ${u.ultimoAccesso}` : "Non ha ancora effettuato l'accesso"}</p>
+                    {u.altreAziende.length > 0 && (
+                      <p className="text-xs text-amber-700">Accede anche a: {u.altreAziende.join(", ")}</p>
+                    )}
                   </div>
                 </div>
                 {canManage && (
                   <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
-                    <Button size="sm" variant="outline" onClick={() => setModal({ kind: "reset", utente: u })}>
-                      <KeyRound className="h-4 w-4" /> Password
-                    </Button>
-                    <form action={() => run(() => setPortalUserActiveAction(clientId, u.id, !u.attivo))}>
-                      <Button type="submit" size="sm" variant="outline" title={u.attivo ? "Disattiva l'accesso" : "Riattiva l'accesso"}>
-                        {u.attivo ? <ShieldOff className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
-                        {u.attivo ? "Disattiva" : "Attiva"}
-                      </Button>
-                    </form>
+                    {u.soloScollega ? (
+                      <p className="max-w-56 text-xs text-slate-500">Password e attivazione valgono anche per le altre aziende: può cambiarle solo un amministratore.</p>
+                    ) : (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => setModal({ kind: "reset", utente: u })}>
+                          <KeyRound className="h-4 w-4" /> Password
+                        </Button>
+                        <form action={() => run(() => setPortalUserActiveAction(clientId, u.id, !u.attivo))}>
+                          <Button
+                            type="submit"
+                            size="sm"
+                            variant="outline"
+                            title={u.attivo ? `Disattiva l'accesso${u.altreAziende.length ? " (anche per le altre aziende)" : ""}` : "Riattiva l'accesso"}
+                          >
+                            {u.attivo ? <ShieldOff className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+                            {u.attivo ? "Disattiva" : "Attiva"}
+                          </Button>
+                        </form>
+                      </>
+                    )}
                     <form action={() => run(() => unlinkPortalUserAction(clientId, u.id))}>
                       <ConfirmButton
                         message={`Scollegare ${u.nome} da questo cliente? L'utente non potrà più vedere i documenti di questo cliente.`}

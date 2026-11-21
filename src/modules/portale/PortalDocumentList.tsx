@@ -5,7 +5,10 @@ import { FileIcon } from "@/modules/documenti/FileIcon";
 import type { DocumentDto } from "@/modules/documenti/shared";
 import { deletePortalDocumentAction } from "./actions";
 
-/** Elenco documenti nel portale: nome, dimensione, data, chi l'ha caricato; eliminazione dei propri caricamenti. */
+/**
+ * Elenco documenti nel portale: nome, dimensione, data, chi l'ha caricato; eliminazione dei propri
+ * caricamenti. La nota non c'è di proposito: è un appunto interno dello studio (vedi perIlPortale).
+ */
 export function PortalDocumentList({
   documents,
   currentUserId,
@@ -39,7 +42,6 @@ export function PortalDocumentList({
                 <span>· {mio ? "caricato da te" : d.daCliente ? "caricato dalla tua azienda" : "dallo studio"}</span>
                 {cartella && <span className="text-slate-400">· {cartella}</span>}
               </p>
-              {d.note && <p className="mt-0.5 text-xs italic text-slate-600">{d.note}</p>}
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <a

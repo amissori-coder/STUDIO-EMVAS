@@ -140,9 +140,10 @@ export async function POST(request: NextRequest) {
       corpo: `${user.nome} ha caricato: ${elenco}${note ? ` — «${note}»` : ""}`,
       link: `/clienti/${clientId}?tab=documenti`,
     } as const;
-    // Senza referente l'avviso va agli amministratori: il portale promette che lo studio viene sempre avvisato.
-    if (client.referenteId) await notify({ userId: client.referenteId, ...avviso });
-    else await notifyAdmins(avviso);
+    // Il portale promette che lo studio viene sempre avvisato: senza referente, o con il referente non più
+    // attivo (notify non recapita nulla e restituisce null), l'avviso va agli amministratori.
+    const alReferente = client.referenteId ? await notify({ userId: client.referenteId, ...avviso }) : null;
+    if (!alReferente) await notifyAdmins(avviso);
   }
 
   revalidatePath(`/clienti/${clientId}`);

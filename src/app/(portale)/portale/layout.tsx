@@ -12,7 +12,8 @@ export default async function PortaleLayout({ children }: { children: ReactNode 
   const current = await resolvePortalClient(clients);
   // il selettore riconosce dal percorso quale cliente è mostrato: serve la mappa cartella → cliente
   const folderClients = clients.length > 1 ? await getPortalFolderClientMap(clients.map((c) => c.id)) : {};
-  const contatto = getStudioContactEmail();
+  // l'indirizzo generale dello studio; in mancanza quello del referente dell'azienda mostrata
+  const contatto = getStudioContactEmail() ?? current?.referente?.email ?? null;
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
@@ -42,14 +43,14 @@ export default async function PortaleLayout({ children }: { children: ReactNode 
       <footer className="border-t border-slate-200 bg-white pb-safe">
         <div className="mx-auto flex max-w-5xl flex-col gap-1 px-4 py-4 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>Studio EMVAS · Area riservata ai clienti</p>
-          <p className="flex items-center gap-1">
-            Hai bisogno di aiuto? Contatta lo studio
-            {contatto && (
+          {contatto && (
+            <p className="flex items-center gap-1">
+              Hai bisogno di aiuto? Scrivi allo studio
               <a href={`mailto:${contatto}`} className="inline-flex min-h-10 items-center gap-1 font-medium text-blue-700 hover:underline sm:min-h-0">
                 <Mail className="h-3.5 w-3.5" /> {contatto}
               </a>
-            )}
-          </p>
+            </p>
+          )}
         </div>
       </footer>
     </div>

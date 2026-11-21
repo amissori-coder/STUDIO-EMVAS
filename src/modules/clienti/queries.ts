@@ -104,7 +104,20 @@ export async function getClientSummary(clientId: string) {
     prisma.clientUser.findMany({
       where: { clientId },
       orderBy: { createdAt: "asc" },
-      include: { user: { select: { id: true, nome: true, email: true, attivo: true, lastLoginAt: true, colore: true } } },
+      include: {
+        user: {
+          select: {
+            id: true,
+            nome: true,
+            email: true,
+            attivo: true,
+            lastLoginAt: true,
+            colore: true,
+            // tutte le aziende a cui accede: password e attivazione valgono per ciascuna
+            accessiClienti: { select: { client: { select: { id: true, denominazione: true, referenteId: true } } } },
+          },
+        },
+      },
     }),
   ]);
   return { taskAperte, taskScadute, prossime, ultimaEmail, contatti, utenti };
