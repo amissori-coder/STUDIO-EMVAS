@@ -12,6 +12,7 @@ const ERRORI: Record<string, string> = {
   "google-dominio": "Account Google non appartenente al dominio dello studio.",
   "google-errore": "Errore durante l'accesso con Google.",
   "google-negato": "Accesso con Google annullato.",
+  "codice-scaduto": "La richiesta di accesso è scaduta (dura 10 minuti): inserisci di nuovo email e password.",
 };
 
 export function LoginForm({ next, googleEnabled, errore, messaggio }: { next: string; googleEnabled: boolean; errore?: string; messaggio?: string }) {

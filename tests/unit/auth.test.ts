@@ -47,3 +47,25 @@ describe("limite tentativi di login", () => {
     assert.equal(clientIpFromHeaders(h({})), "sconosciuto");
   });
 });
+
+describe("secondo passo dell'accesso (verifica in due passaggi)", () => {
+  it("il gettone del secondo passo non vale come sessione, e una sessione non vale come secondo passo", async () => {
+    const { firmaSecondoPasso, leggiSecondoPassoToken, signSession, verifySessionToken } = await import("../../src/lib/auth/jwt");
+    const intermedio = await firmaSecondoPasso({ sub: "u1", sv: 3, metodo: "google", next: "/clienti" });
+    assert.equal(await verifySessionToken(intermedio), null);
+    assert.deepEqual(await leggiSecondoPassoToken(intermedio), { sub: "u1", sv: 3, metodo: "google", next: "/clienti" });
+    const sessione = await signSession({ sub: "u1", email: "a@b.it", nome: "A", ruolo: "ADMIN", sv: 3 });
+    assert.equal(await leggiSecondoPassoToken(sessione), null);
+    assert.equal(await leggiSecondoPassoToken("non-un-gettone"), null);
+    assert.equal(await leggiSecondoPassoToken(undefined), null);
+  });
+
+  it("dopo l'accesso si va dove si era diretti, ma ognuno nella sua area", async () => {
+    const { destinazioneDopoAccesso } = await import("../../src/lib/auth/redirect");
+    assert.equal(destinazioneDopoAccesso("/clienti/abc", "ADMIN"), "/clienti/abc");
+    assert.equal(destinazioneDopoAccesso("/portale", "COLLABORATORE"), "/dashboard");
+    assert.equal(destinazioneDopoAccesso("/clienti", "CLIENTE"), "/portale");
+    assert.equal(destinazioneDopoAccesso("//esterno.it", "ADMIN"), "/dashboard");
+    assert.equal(destinazioneDopoAccesso("", "CLIENTE"), "/portale");
+  });
+});

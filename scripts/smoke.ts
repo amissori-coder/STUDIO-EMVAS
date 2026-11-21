@@ -3,6 +3,7 @@
 // (desktop e mobile), segnalando errori di console/pagina. Uso: BASE_URL=http://localhost:3000 npx tsx scripts/smoke.ts
 import { chromium, type Page } from "playwright";
 import fs from "node:fs";
+import { accedi } from "./accesso-e2e";
 
 // Le credenziali sono quelle con cui il seed ha creato l'amministratore (ADMIN_EMAIL e ADMIN_PASSWORD
 // nel file .env); le variabili d'ambiente, se presenti, hanno la precedenza.
@@ -24,10 +25,7 @@ const PORTAL_PAGES = ["/portale"];
 let failures = 0;
 
 async function login(page: Page, email: string, password: string) {
-  await page.goto(`${BASE}/login`);
-  await page.fill('input[name="email"]', email);
-  await page.fill('input[name="password"]', password);
-  await Promise.all([page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 20000 }), page.click('button[type="submit"]')]);
+  await accedi(page, BASE, email, password);
 }
 
 async function visit(page: Page, path: string, label: string) {

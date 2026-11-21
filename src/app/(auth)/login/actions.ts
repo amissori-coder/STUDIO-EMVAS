@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/password";
-import { createSession } from "@/lib/auth/session";
-import { isSafeInternalPath } from "@/lib/auth/redirect";
+import { apriSessione, richiedeCodice } from "@/lib/auth/accesso";
+import { destinazioneDopoAccesso } from "@/lib/auth/redirect";
+import { avviaSecondoPasso } from "@/lib/auth/secondo-passo";
 import {
   LOGIN_MAX_PER_EMAIL,
   LOGIN_MAX_PER_IP,
@@ -16,19 +17,9 @@ import {
 } from "@/lib/auth/rate-limit";
 import { normalizeEmail } from "@/lib/utils";
 import { audit } from "@/lib/audit";
-import type { Ruolo } from "@/lib/constants";
 
 export interface LoginState {
   error?: string;
-}
-
-function safeNext(next: string | null | undefined, ruolo: Ruolo) {
-  if (isSafeInternalPath(next)) {
-    if (ruolo === "CLIENTE" && !next.startsWith("/portale")) return "/portale";
-    if (ruolo !== "CLIENTE" && next.startsWith("/portale")) return "/dashboard";
-    return next;
-  }
-  return ruolo === "CLIENTE" ? "/portale" : "/dashboard";
 }
 
 function minuti(sec: number) {
@@ -63,9 +54,16 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     return { error: "Credenziali non valide." };
   }
 
+  if (richiedeCodice(user)) {
+    // password giusta, ma l'accesso non è ancora avvenuto: niente sessione e niente «ultimo accesso»
+    // finché non arriva il codice. I tentativi falliti restano contati fino ad accesso completato.
+    await avviaSecondoPasso({ sub: user.id, sv: user.sessionVersion, metodo: "password", next });
+    await audit({ userId: user.id, azione: "LOGIN_ATTESA_CODICE", entita: "User", entitaId: user.id, dettagli: { metodo: "password", ip } });
+    redirect("/login/codice");
+  }
+
   resetRateLimit(keyEmail);
-  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-  await createSession({ sub: user.id, email: user.email, nome: user.nome, ruolo: user.ruolo as Ruolo, sv: user.sessionVersion });
+  await apriSessione(user);
   await audit({ userId: user.id, azione: "LOGIN", entita: "User", entitaId: user.id });
-  redirect(safeNext(next, user.ruolo as Ruolo));
+  redirect(destinazioneDopoAccesso(next, user.ruolo));
 }

@@ -53,3 +53,47 @@ export async function verifySessionToken(token: string | undefined | null): Prom
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------------------------------
+// Secondo passo dell'accesso: dopo la password (o Google) e prima del codice a tempo. NON è una sessione:
+// è firmato con una chiave diversa, quindi verifySessionToken lo rifiuta e non apre nessuna pagina.
+
+export const SECONDO_PASSO_MINUTI = 10;
+
+export interface SecondoPasso {
+  sub: string;
+  /** versione della sessione al momento della password: se cambia (reset, azzeramento), si ricomincia */
+  sv: number;
+  metodo: "password" | "google" | "invito";
+  next: string;
+}
+
+function chiaveSecondoPasso() {
+  const base = getSecret();
+  const suffisso = new TextEncoder().encode("|secondo-passo");
+  const k = new Uint8Array(base.length + suffisso.length);
+  k.set(base);
+  k.set(suffisso, base.length);
+  return k;
+}
+
+export async function firmaSecondoPasso(p: SecondoPasso) {
+  return new SignJWT({ sv: p.sv, metodo: p.metodo, next: p.next, scopo: "secondo-passo" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(p.sub)
+    .setIssuedAt()
+    .setExpirationTime(`${SECONDO_PASSO_MINUTI}m`)
+    .sign(chiaveSecondoPasso());
+}
+
+export async function leggiSecondoPassoToken(token: string | undefined | null): Promise<SecondoPasso | null> {
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, chiaveSecondoPasso());
+    if (!payload.sub || payload.scopo !== "secondo-passo") return null;
+    const metodo = payload.metodo === "google" || payload.metodo === "invito" ? payload.metodo : "password";
+    return { sub: payload.sub, sv: typeof payload.sv === "number" ? payload.sv : 0, metodo, next: typeof payload.next === "string" ? payload.next : "" };
+  } catch {
+    return null;
+  }
+}

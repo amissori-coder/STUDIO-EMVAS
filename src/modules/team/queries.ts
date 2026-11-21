@@ -27,6 +27,8 @@ export interface StaffRow {
   /** scadenza dell'invito ancora aperto (ISO), null se non c'è un invito pendente */
   inviteExpires: string | null;
   hasPassword: boolean;
+  /** verifica in due passaggi attiva */
+  duePassaggi: boolean;
   taskAperte: number;
   taskScadute: number;
   /** clienti di cui è referente: alla disattivazione vanno passati a qualcuno */
@@ -77,6 +79,7 @@ export async function listStaff(): Promise<StaffRow[]> {
     createdAt: u.createdAt.toISOString(),
     inviteExpires: u.inviteToken && u.inviteExpires ? u.inviteExpires.toISOString() : null,
     hasPassword: !!u.passwordHash,
+    duePassaggi: u.totpAttivo,
     taskAperte: aperteMap.get(u.id) ?? 0,
     taskScadute: scaduteMap.get(u.id) ?? 0,
     clientiReferente: referenzeMap.get(u.id) ?? 0,

@@ -55,7 +55,16 @@ src/lib/
   auth/password.ts     hashPassword, verifyPassword, validatePasswordStrength
   auth/jwt.ts          signSession/verifySessionToken (claim `sv` = User.sessionVersion: incrementalo al reset password per
                        invalidare le sessioni esistenti; getCurrentUser rifiuta i token con versione diversa)
-  auth/redirect.ts     isSafeInternalPath/safeInternalPath: validazione del parametro `next` (niente //host, backslash, schemi)
+  auth/redirect.ts     isSafeInternalPath/safeInternalPath: validazione del parametro `next` (niente //host, backslash, schemi);
+                       destinazioneDopoAccesso(next, ruolo)
+  auth/accesso.ts      apriSessione(user): UNICO punto in cui un accesso si completa (lastLoginAt + sessione), dopo tutti i
+                       passaggi; richiedeCodice(user)
+  auth/totp.ts         (puro) codici a tempo RFC 6238 e codici di recupero (solo impronte SHA-256 nel DB)
+  auth/secondo-passo.ts cookie del passaggio intermedio password→codice: firmato con una chiave diversa dalla sessione,
+                       quindi non apre nessuna pagina. Password, Google e invito passano tutti da /login/codice se la
+                       verifica in due passaggi è attiva
+  auth/verifica-codice.ts verificaCodiceUtente: codice dell'app (rifiuta i passi già usati, totpUltimoPasso) o di recupero,
+                       consumati in modo atomico
   auth/rate-limit.ts   checkRateLimit/recordAttempt/resetRateLimit (login: 10 tentativi per email, 50 per IP ogni 15 minuti)
   html-sanitize.ts     sanitizeHtml a tokenizer (allowlist tag/attributi/schemi) usato per l'HTML delle email
   auth/google.ts       OAuth Google (buildGoogleAuthUrl, exchangeCodeForTokens, refreshAccessToken, isGoogleConfigured)

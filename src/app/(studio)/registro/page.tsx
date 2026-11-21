@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { History, KeyRound, UserX } from "lucide-react";
+import { History, KeyRound, Terminal, UserX } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { Avatar } from "@/components/ui/Avatar";
@@ -60,7 +60,7 @@ export default async function RegistroPage(props: PageProps<"/registro">) {
             Persona
             <Select name="persona" defaultValue={f.persona} className="mt-1">
               <option value="">Chiunque</option>
-              <option value="nessuno">Tentativi di accesso e account eliminati</option>
+              <option value="nessuno">Tentativi di accesso, server e account eliminati</option>
               {persone.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nome}
@@ -158,6 +158,11 @@ export default async function RegistroPage(props: PageProps<"/registro">) {
                         <span className="truncate text-sm text-slate-800" title={emailTentativo ?? undefined}>
                           {emailTentativo ? `Accesso come ${emailTentativo}` : "Tentativo di accesso"}
                         </span>
+                      </>
+                    ) : r.autore.tipo === "server" ? (
+                      <>
+                        <Terminal className="h-4 w-4 shrink-0 text-slate-400" />
+                        <span className="text-sm italic text-slate-500">Dal server</span>
                       </>
                     ) : (
                       <>

@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { exchangeCodeForTokens, fetchGoogleUserInfo, isGoogleConfigured } from "@/lib/auth/google";
-import { createSession } from "@/lib/auth/session";
+import { apriSessione, richiedeCodice } from "@/lib/auth/accesso";
+import { avviaSecondoPasso } from "@/lib/auth/secondo-passo";
 import { getCurrentUser, isStaff } from "@/lib/auth/guards";
 import { isSafeInternalPath } from "@/lib/auth/redirect";
 import { normalizeEmail } from "@/lib/utils";
@@ -56,6 +57,7 @@ export async function GET(request: NextRequest) {
 
     let user;
     let sessionVersion = 0;
+    let serveCodice = false;
     if (state.mode === "connect") {
       user = await getCurrentUser();
       if (!user || !isStaff(user)) return fail("google-utente", "connect");
@@ -64,6 +66,9 @@ export async function GET(request: NextRequest) {
       if (!found || !found.attivo || !["ADMIN", "COLLABORATORE"].includes(found.ruolo)) return fail("google-utente");
       user = { id: found.id, email: found.email, nome: found.nome, ruolo: found.ruolo as Ruolo };
       sessionVersion = found.sessionVersion;
+      // Google sostituisce la password, non il codice: con la verifica in due passaggi attiva si passa
+      // comunque dalla pagina del codice
+      serveCodice = richiedeCodice(found);
     }
 
     // Il permesso Gmail può essere deselezionato nella schermata di consenso: senza quello scope
@@ -108,9 +113,15 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    if (state.mode === "login" && serveCodice) {
+      await avviaSecondoPasso({ sub: user.id, sv: sessionVersion, metodo: "google", next: state.next ?? "" });
+      await audit({ userId: user.id, azione: "LOGIN_ATTESA_CODICE", entita: "User", entitaId: user.id, dettagli: { metodo: "google" } });
+      const res = NextResponse.redirect(new URL("/login/codice", request.url));
+      res.cookies.delete(STATE_COOKIE);
+      return res;
+    }
     if (state.mode === "login") {
-      await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-      await createSession({ sub: user.id, email: user.email, nome: user.nome, ruolo: user.ruolo, sv: sessionVersion });
+      await apriSessione(user);
       await audit({ userId: user.id, azione: "LOGIN_GOOGLE", entita: "User", entitaId: user.id });
     } else {
       await audit({ userId: user.id, azione: "GMAIL_COLLEGATO", entita: "GoogleAccount", entitaId: user.id, dettagli: { googleEmail } });

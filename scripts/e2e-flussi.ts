@@ -3,9 +3,13 @@
 //  - filtro intervallo scadenze usato dai link "riassegna" delle assenze
 //  - invalidazione delle altre sessioni al cambio password
 //  - upload e download di un documento dal portale clienti
+//  - verifica in due passaggi: attivazione, codice all'accesso, riuso, codici di recupero, invito,
+//    disattivazione, azzeramento da amministratore, blocco dopo troppi codici errati
 // Uso: BASE_URL=http://localhost:3000 npx tsx scripts/e2e-flussi.ts
-import { chromium, type BrowserContext, type Page } from "playwright";
+import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import fs from "node:fs";
+import { accedi, attendiPassoSuccessivo, codiceAdesso, inserisciCodice } from "./accesso-e2e";
+import { codiceDelPasso, generaCodiciRecupero, generaSegreto, impronta, passoDi } from "../src/lib/auth/totp";
 import path from "node:path";
 import os from "node:os";
 import { PrismaClient } from "@prisma/client";
@@ -30,10 +34,181 @@ function check(cond: boolean, label: string, extra = "") {
 }
 
 async function login(page: Page, email: string, password: string) {
+  await accedi(page, BASE, email, password);
+}
+
+const COLLAB = { email: "collaboratore@studio.local", password: "Collaboratore123!" };
+
+/** Un codice di 6 cifre sicuramente sbagliato adesso (diverso da quelli dei passi accettati). */
+function codiceSbagliato(chiave: string) {
+  const p = passoDi(Date.now());
+  const validi = new Set([-1, 0, 1, 2].map((d) => codiceDelPasso(chiave, p + d)));
+  for (let n = 0; ; n++) {
+    const c = String(n).padStart(6, "0");
+    if (!validi.has(c)) return c;
+  }
+}
+
+async function nuovaPagina(browser: Browser) {
+  const ctx = await browser.newContext({ viewport: { width: 1366, height: 900 } });
+  return { ctx, page: await ctx.newPage() };
+}
+
+async function soloPassword(page: Page, email: string, password: string) {
   await page.goto(`${BASE}/login`);
   await page.fill('input[name="email"]', email);
   await page.fill('input[name="password"]', password);
-  await Promise.all([page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 20000 }), page.click('button[type="submit"]')]);
+  await Promise.all([page.waitForURL((u) => u.pathname !== "/login", { timeout: 20000 }).catch(() => null), page.click('button[type="submit"]')]);
+}
+
+async function inviaCodice(page: Page, codice: string) {
+  await page.fill('input[name="codice"]', codice);
+  await Promise.all([page.waitForLoadState("networkidle").catch(() => null), page.click('button[type="submit"]:has-text("Accedi")')]);
+  await page.waitForTimeout(800);
+  return (await page.textContent("body")) ?? "";
+}
+
+async function verificaDuePassaggi(browser: Browser, collabId: string) {
+  const contesti: BrowserContext[] = [];
+  const apri = async () => {
+    const p = await nuovaPagina(browser);
+    contesti.push(p.ctx);
+    return p.page;
+  };
+  try {
+    // attivazione, con una seconda sessione aperta prima
+    const vecchia = await apri();
+    await accedi(vecchia, BASE, COLLAB.email, COLLAB.password);
+    const pagina = await apri();
+    await accedi(pagina, BASE, COLLAB.email, COLLAB.password);
+    await pagina.goto(`${BASE}/impostazioni`);
+    await pagina.click('button:has-text("Attiva la verifica in due passaggi")');
+    const chiave = ((await pagina.locator("#verifica-due-passaggi span.select-all").first().textContent({ timeout: 15000 })) ?? "").replace(/\s/g, "");
+    check(chiave.length === 32, "chiave mostrata per l'inserimento manuale");
+    check((await pagina.locator("#verifica-due-passaggi svg").count()) > 0, "codice QR mostrato");
+    const statoMeta = await prisma.user.findUniqueOrThrow({ where: { id: collabId } });
+    check(!statoMeta.totpAttivo, "prima della conferma la verifica non è ancora richiesta");
+
+    await pagina.fill("#totp-conferma", codiceSbagliato(chiave));
+    await pagina.click('button:has-text("Conferma e attiva")');
+    check(await pagina.waitForSelector("text=Codice non valido", { timeout: 10000 }).then(() => true).catch(() => false), "un codice errato non attiva la verifica");
+    await pagina.fill("#totp-conferma", codiceAdesso(chiave));
+    await pagina.click('button:has-text("Conferma e attiva")');
+    const mostrati = await pagina.waitForSelector("text=Salva adesso questi codici", { timeout: 15000 }).then(() => true).catch(() => false);
+    check(mostrati, "dopo la conferma compaiono i codici di recupero");
+    const codici = (await pagina.locator("#verifica-due-passaggi ul.font-mono li").allTextContents()).map((c) => c.trim());
+    check(codici.length === 10, "dieci codici di recupero", String(codici.length));
+    await pagina.reload();
+    check(((await pagina.textContent("#verifica-due-passaggi")) ?? "").includes("Codici di recupero ancora validi: 10"), "dopo il ricaricamento i codici non si vedono più, solo quanti sono");
+    const rVecchia = await vecchia.goto(`${BASE}/dashboard`);
+    check(!!rVecchia && rVecchia.url().includes("/login"), "l'altra sessione, entrata senza codice, viene chiusa", rVecchia?.url());
+    const rPagina = await pagina.goto(`${BASE}/dashboard`);
+    check(!!rPagina && rPagina.url().includes("/dashboard"), "la sessione che ha attivato la verifica resta aperta");
+
+    // accesso: la password da sola non basta
+    const prima = (await prisma.user.findUniqueOrThrow({ where: { id: collabId } })).lastLoginAt?.getTime();
+    const a = await apri();
+    await soloPassword(a, COLLAB.email, COLLAB.password);
+    check(a.url().includes("/login/codice"), "dopo la password viene chiesto il codice", a.url());
+    check((await prisma.user.findUniqueOrThrow({ where: { id: collabId } })).lastLoginAt?.getTime() === prima, "l'ultimo accesso non cambia prima del codice");
+    const rSenza = await a.goto(`${BASE}/dashboard`);
+    check(!!rSenza && rSenza.url().includes("/login"), "senza codice nessuna pagina riservata si apre", rSenza?.url());
+    const api = await a.request.get(`${BASE}/api/notifiche`);
+    check(api.status() === 401, "senza codice le API rispondono 401", String(api.status()));
+    await a.goto(`${BASE}/login/codice`);
+    check((await inviaCodice(a, codiceSbagliato(chiave))).includes("Codice non valido"), "codice errato all'accesso rifiutato");
+    await inserisciCodice(a, chiave);
+    check(a.url().includes("/dashboard"), "con il codice giusto si entra", a.url());
+    const ultimo = await prisma.user.findUniqueOrThrow({ where: { id: collabId } });
+    check(ultimo.lastLoginAt?.getTime() !== prima, "l'ultimo accesso si aggiorna dopo il codice");
+
+    // lo stesso codice non vale una seconda volta
+    const usato = codiceDelPasso(chiave, ultimo.totpUltimoPasso!);
+    const b = await apri();
+    await soloPassword(b, COLLAB.email, COLLAB.password);
+    check((await inviaCodice(b, usato)).includes("appena stato usato"), "un codice già usato viene rifiutato con la spiegazione");
+
+    // codici di recupero: valgono una volta
+    await b.click("text=Non hai il telefono? Usa un codice di recupero");
+    await inviaCodice(b, codici[0]!.toUpperCase());
+    check(b.url().includes("/impostazioni") || b.url().includes("/dashboard"), "si entra con un codice di recupero", b.url());
+    const dopoRecupero = await prisma.user.findUniqueOrThrow({ where: { id: collabId } });
+    check(dopoRecupero.totpRecupero?.split(",").length === 9, "il codice di recupero usato viene consumato");
+    const c = await apri();
+    await soloPassword(c, COLLAB.email, COLLAB.password);
+    await c.click("text=Non hai il telefono? Usa un codice di recupero");
+    check((await inviaCodice(c, codici[0]!)).includes("Codice non valido"), "lo stesso codice di recupero non vale due volte");
+
+    // disattivazione: un codice appena usato è spiegato, poi password + codice nuovo
+    await prisma.user.update({ where: { id: collabId }, data: { totpUltimoPasso: passoDi(Date.now()) } });
+    await a.goto(`${BASE}/impostazioni`);
+    await a.click("text=Disattiva la verifica in due passaggi");
+    await a.fill("#totp-password", COLLAB.password);
+    await a.fill("#totp-disattiva", codiceAdesso(chiave));
+    await a.click('button[type="submit"]:has-text("Disattiva")');
+    check(await a.waitForSelector("text=appena stato usato", { timeout: 10000 }).then(() => true).catch(() => false), "disattivare con un codice appena usato spiega di attendere il prossimo");
+    await attendiPassoSuccessivo();
+    await a.fill("#totp-password", "PasswordSbagliata1");
+    await a.fill("#totp-disattiva", codiceAdesso(chiave));
+    await a.click('button[type="submit"]:has-text("Disattiva")');
+    check(await a.waitForSelector("text=La password non è corretta", { timeout: 10000 }).then(() => true).catch(() => false), "senza la password giusta non si disattiva");
+    await a.fill("#totp-password", COLLAB.password);
+    await a.fill("#totp-disattiva", codiceAdesso(chiave));
+    await a.click('button[type="submit"]:has-text("Disattiva")');
+    check(await a.waitForSelector("text=Verifica in due passaggi disattivata", { timeout: 10000 }).then(() => true).catch(() => false), "la disattivazione è confermata a schermo");
+    check(!(await prisma.user.findUniqueOrThrow({ where: { id: collabId } })).totpAttivo, "verifica disattivata nel database");
+
+    // invito rimandato: reimposta la password ma non salta il codice
+    const segreto = generaSegreto();
+    const attiva = { totpAttivo: true, totpSecret: segreto, totpRecupero: generaCodiciRecupero().map(impronta).join(","), totpConfermato: new Date(), totpUltimoPasso: null };
+    const token = (await import("node:crypto")).randomBytes(32).toString("hex");
+    await prisma.user.update({ where: { id: collabId }, data: { ...attiva, inviteToken: token, inviteExpires: new Date(Date.now() + 3600_000) } });
+    const inv = await apri();
+    await inv.goto(`${BASE}/invito/${token}`);
+    await inv.fill('input[name="password"]', COLLAB.password);
+    await inv.fill('input[name="conferma"]', COLLAB.password);
+    await Promise.all([inv.waitForURL((u) => !u.pathname.startsWith("/invito"), { timeout: 15000 }).catch(() => null), inv.click('button[type="submit"]')]);
+    check(inv.url().includes("/login/codice"), "accettare un invito con la verifica attiva porta al codice", inv.url());
+    await inserisciCodice(inv, segreto);
+    check(inv.url().includes("/dashboard"), "dopo il codice l'invito porta dentro", inv.url());
+
+    // azzeramento da amministratore
+    const adm = await apri();
+    await accedi(adm, BASE, ADMIN.email, ADMIN.password);
+    await adm.goto(`${BASE}/team`);
+    adm.once("dialog", (d) => d.accept());
+    const scheda = adm.locator("li", { hasText: COLLAB.email });
+    await scheda.locator('button:has-text("Azzera verifica in due passaggi")').click();
+    check(await adm.waitForSelector("text=azzerata: ora si accede con la sola password", { timeout: 10000 }).then(() => true).catch(() => false), "l'amministratore vede la conferma dell'azzeramento");
+    const azzerato = await prisma.user.findUniqueOrThrow({ where: { id: collabId } });
+    check(!azzerato.totpAttivo && !azzerato.totpSecret, "verifica azzerata nel database");
+    check(!!(await prisma.notification.findFirst({ where: { userId: collabId, titolo: "Verifica in due passaggi azzerata" } })), "la persona riceve l'avviso dell'azzeramento");
+    const rInv = await inv.goto(`${BASE}/dashboard`);
+    check(!!rInv && rInv.url().includes("/login"), "dopo l'azzeramento le sessioni della persona sono chiuse", rInv?.url());
+    const d = await apri();
+    await accedi(d, BASE, COLLAB.email, COLLAB.password, "");
+    check(d.url().includes("/dashboard"), "dopo l'azzeramento basta la password");
+    check(!!(await prisma.auditLog.findFirst({ where: { azione: "TOTP_AZZERATA_DA_ADMIN", entitaId: collabId } })), "azzeramento nel registro delle operazioni");
+
+    // troppi codici errati: blocco e avviso alla persona
+    const segreto2 = generaSegreto();
+    await prisma.user.update({ where: { id: collabId }, data: { ...attiva, totpSecret: segreto2 } });
+    const e = await apri();
+    await soloPassword(e, COLLAB.email, COLLAB.password);
+    let testo = "";
+    for (let i = 0; i < 6; i++) testo = await inviaCodice(e, codiceSbagliato(segreto2));
+    check(testo.includes("Troppi codici errati"), "dopo cinque codici errati i tentativi si bloccano");
+    check(!!(await prisma.notification.findFirst({ where: { userId: collabId, titolo: "Codici di accesso errati" } })), "la persona viene avvisata dei codici errati");
+    check((await inviaCodice(e, codiceAdesso(segreto2))).includes("Troppi codici errati"), "durante il blocco anche il codice giusto attende");
+  } finally {
+    // stato iniziale: verifica spenta, password e invito come prima
+    await prisma.user.update({
+      where: { id: collabId },
+      data: { totpAttivo: false, totpSecret: null, totpRecupero: null, totpConfermato: null, totpUltimoPasso: null, inviteToken: null, inviteExpires: null },
+    });
+    await prisma.user.update({ where: { id: collabId }, data: { passwordHash: (await import("bcryptjs")).default.hashSync(COLLAB.password, 10) } });
+    await Promise.all(contesti.map((c) => c.close()));
+  }
 }
 
 async function main() {
@@ -121,6 +296,9 @@ async function main() {
     }
     fs.unlinkSync(tmp);
     await Promise.all([ctxA.close(), ctxB.close(), ctxC.close(), ctxD.close()]);
+
+    // 4. verifica in due passaggi
+    await verificaDuePassaggi(browser, collab.id);
   } finally {
     await browser.close();
     await prisma.$disconnect();

@@ -564,6 +564,22 @@ L'operazione avviene a caldo, senza interrompere il servizio.
 cd /opt/studio-emvas && docker compose restart
 ```
 
+### Telefono perso con la verifica in due passaggi attiva
+
+Chi ha perso il telefono entra con uno dei **codici di recupero** salvati all'attivazione (nella pagina
+del codice: «Non hai il telefono? Usa un codice di recupero»), poi da Impostazioni disattiva e riattiva
+la verifica con il telefono nuovo.
+
+Senza codici di recupero, un amministratore la azzera da **Team** («Azzera verifica in due passaggi»).
+Se a non poter entrare è l'unico amministratore, la si azzera dal server:
+
+```bash
+cd /opt/studio-emvas && docker compose exec app npx tsx scripts/azzera-2fa.ts nome@studio.it
+```
+
+L'account viene disconnesso ovunque e al prossimo accesso basta la password: riattiva subito la
+verifica da Impostazioni. L'operazione resta nel registro delle operazioni.
+
 ---
 
 ## Riepilogo dei percorsi

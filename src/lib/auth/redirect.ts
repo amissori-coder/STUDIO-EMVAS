@@ -24,3 +24,13 @@ export function isSafeInternalPath(next: string | null | undefined): next is str
 export function safeInternalPath(next: string | null | undefined, fallback: string) {
   return isSafeInternalPath(next) ? next : fallback;
 }
+
+/** Dove andare dopo l'accesso: `next` se sicuro e adatto al ruolo, altrimenti la pagina iniziale. */
+export function destinazioneDopoAccesso(next: string | null | undefined, ruolo: string) {
+  if (isSafeInternalPath(next)) {
+    if (ruolo === "CLIENTE" && !next.startsWith("/portale")) return "/portale";
+    if (ruolo !== "CLIENTE" && next.startsWith("/portale")) return "/dashboard";
+    return next;
+  }
+  return ruolo === "CLIENTE" ? "/portale" : "/dashboard";
+}

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { Bell, ExternalLink, KeyRound, Mail, Server, Smartphone, UserRound } from "lucide-react";
+import { Bell, ExternalLink, KeyRound, Mail, Server, ShieldCheck, Smartphone, UserRound } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/auth/guards";
 import { isGoogleConfigured } from "@/lib/auth/google";
 import { isMailerConfigured } from "@/lib/mailer";
 import { isPushConfigured } from "@/lib/notifications";
-import { formatDateTime, formatRelative } from "@/lib/utils";
+import { formatDate, formatDateTime, formatRelative } from "@/lib/utils";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Alert } from "@/components/ui/Alert";
@@ -16,6 +16,9 @@ import { GmailCard, type GmailStatus } from "@/modules/impostazioni/GmailCard";
 import { SystemCard } from "@/modules/impostazioni/SystemCard";
 import { statoJob } from "@/lib/cron/registro";
 import { pianificatoreInternoAttivo } from "@/lib/cron/stato";
+import { DuePassaggiCard, type StatoDuePassaggi } from "@/modules/sicurezza/DuePassaggiCard";
+import { qrSvg } from "@/modules/sicurezza/qr";
+import { indirizzoOtpauth, leggiImpronte, segretoLeggibile } from "@/lib/auth/totp";
 import pkg from "../../../../package.json";
 
 export const metadata: Metadata = { title: "Impostazioni" };
@@ -45,6 +48,10 @@ export default async function ImpostazioniPage(props: PageProps<"/impostazioni">
     where: { id: user.id },
     select: {
       passwordHash: true,
+      totpAttivo: true,
+      totpSecret: true,
+      totpConfermato: true,
+      totpRecupero: true,
       googleAccount: { select: { googleEmail: true, lastSyncAt: true, syncError: true, historyId: true, refreshToken: true, _count: { select: { emails: true } } } },
     },
   });
@@ -59,6 +66,13 @@ export default async function ImpostazioniPage(props: PageProps<"/impostazioni">
         emailCount: db.googleAccount._count.emails,
       }
     : null;
+
+  const duePassaggi: StatoDuePassaggi = db?.totpAttivo
+    ? { stato: "attiva", attivaDal: db.totpConfermato ? formatDate(db.totpConfermato) : null, codiciRimasti: leggiImpronte(db.totpRecupero).length }
+    : db?.totpSecret
+      ? { stato: "configurazione", segreto: segretoLeggibile(db.totpSecret), qrSvg: await qrSvg(indirizzoOtpauth(db.totpSecret, user.email)) }
+      : { stato: "spenta" };
+  const recupero = /^recupero-(\d+)$/.exec(messaggio);
 
   return (
     <>
@@ -76,6 +90,16 @@ export default async function ImpostazioniPage(props: PageProps<"/impostazioni">
           <CardHeader title={<SectionTitle icon={KeyRound}>Password</SectionTitle>} description="Cambia la password di accesso alla piattaforma." />
           <CardBody>
             <PasswordForm hasPassword={!!db?.passwordHash} email={user.email} />
+          </CardBody>
+        </Card>
+
+        <Card id="verifica-due-passaggi" className="scroll-mt-20">
+          <CardHeader
+            title={<SectionTitle icon={ShieldCheck}>Verifica in due passaggi</SectionTitle>}
+            description="Un codice dal telefono, oltre alla password, a ogni accesso."
+          />
+          <CardBody>
+            <DuePassaggiCard dati={duePassaggi} hasPassword={!!db?.passwordHash} avvisoRecupero={recupero ? Number(recupero[1]) : null} />
           </CardBody>
         </Card>
 

@@ -105,6 +105,7 @@ describe("registro delle operazioni: autore e dettagli", () => {
     // un accesso RIUSCITO senza autore è di una persona poi eliminata, non un tentativo
     assert.equal(autoreAssente("LOGIN"), "eliminato");
     assert.equal(autoreAssente("DOCUMENTO_CARICATO_CLIENTE"), "eliminato");
+    assert.equal(autoreAssente("TOTP_AZZERATA_DA_SERVER"), "server");
   });
 
   it("dettagli in JSON: letti come campi", () => {

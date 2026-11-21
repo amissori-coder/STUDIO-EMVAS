@@ -34,6 +34,17 @@ export const AZIONI: Record<string, DescrizioneAzione> = {
   PREFERENZE_NOTIFICHE: { label: "Preferenze di avviso modificate", gruppo: "accessi", colore: "slate" },
   PROFILO_MODIFICATO: { label: "Profilo modificato", gruppo: "accessi", colore: "blue" },
   INVITO_ACCETTATO: { label: "Invito accettato", gruppo: "accessi", colore: "green" },
+  LOGIN_ATTESA_CODICE: { label: "Password corretta, in attesa del codice", gruppo: "accessi", colore: "slate" },
+  LOGIN_CON_CODICE: { label: "Accesso effettuato con il codice", gruppo: "accessi", colore: "slate" },
+  LOGIN_CON_CODICE_RECUPERO: { label: "Accesso con un codice di recupero", gruppo: "accessi", colore: "orange" },
+  CODICE_FALLITO: { label: "Codice di verifica errato", gruppo: "accessi", colore: "yellow" },
+  CODICE_RECUPERO_FALLITO: { label: "Codice di recupero errato", gruppo: "accessi", colore: "yellow" },
+  CODICE_BLOCCATO: { label: "Codice bloccato per troppi tentativi", gruppo: "accessi", colore: "red" },
+  TOTP_ATTIVATA: { label: "Verifica in due passaggi attivata", gruppo: "accessi", colore: "green" },
+  TOTP_DISATTIVATA: { label: "Verifica in due passaggi disattivata", gruppo: "accessi", colore: "orange" },
+  TOTP_CODICI_RIGENERATI: { label: "Nuovi codici di recupero generati", gruppo: "accessi", colore: "blue" },
+  TOTP_AZZERATA_DA_ADMIN: { label: "Verifica in due passaggi azzerata da un amministratore", gruppo: "accessi", colore: "red" },
+  TOTP_AZZERATA_DA_SERVER: { label: "Verifica in due passaggi azzerata dal server", gruppo: "accessi", colore: "red" },
 
   // Clienti, contatti e portale
   CLIENTE_CREATO: { label: "Cliente inserito", gruppo: "clienti", colore: "green" },
@@ -148,9 +159,12 @@ export const ENTITA: Record<string, string> = {
  * verifica che nel codice nessun'altra chiamata ad audit() ometta l'autore.
  */
 export const AZIONI_SENZA_AUTORE = new Set(["LOGIN_FALLITO", "LOGIN_BLOCCATO"]);
+/** Operazioni eseguite sul server da riga di comando (scripts/), dove non c'è nessun utente collegato. */
+export const AZIONI_DAL_SERVER = new Set(["TOTP_AZZERATA_DA_SERVER"]);
 
-export function autoreAssente(azione: string): "tentativo" | "eliminato" {
-  return AZIONI_SENZA_AUTORE.has(azione) ? "tentativo" : "eliminato";
+export function autoreAssente(azione: string): "tentativo" | "server" | "eliminato" {
+  if (AZIONI_SENZA_AUTORE.has(azione)) return "tentativo";
+  return AZIONI_DAL_SERVER.has(azione) ? "server" : "eliminato";
 }
 
 /** Dettagli registrati: audit() li tronca a 4000 caratteri, e un JSON troncato non si può leggere. */
@@ -220,6 +234,9 @@ export const CAMPI: Record<string, string> = {
   authorId: "Autore",
   clientId: "Cliente",
   precedenteClientId: "Cliente precedente",
+  metodo: "Con",
+  rimasti: "Codici di recupero rimasti",
+  con: "Con",
 };
 
 /** Campi che contengono l'identificativo di una persona o di un cliente: a schermo va il nome. */

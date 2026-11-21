@@ -38,6 +38,7 @@ import {
   updateStaffAction,
   type TeamActionState,
 } from "./actions";
+import { azzeraDuePassaggiAction } from "@/modules/sicurezza/actions";
 
 // ---------------------------------------------------------------------------
 // Componenti di supporto
@@ -250,6 +251,7 @@ function StaffCard({
   onResend,
   onRole,
   onActive,
+  onAzzera,
 }: {
   u: StaffRow;
   isAdmin: boolean;
@@ -260,6 +262,7 @@ function StaffCard({
   onResend: () => void;
   onRole: (r: string) => void;
   onActive: (attivo: boolean) => void;
+  onAzzera: () => void;
 }) {
   const isSelf = u.id === currentUserId;
   const invitoPendente = !!u.inviteExpires;
@@ -303,6 +306,11 @@ function StaffCard({
             ) : (
               <Badge color="slate">Gmail non collegata</Badge>
             )}
+            {u.duePassaggi && (
+              <Badge color="green">
+                <ShieldCheck className="h-3 w-3" /> Verifica in due passaggi
+              </Badge>
+            )}
             {u.attivo && (
               <>
                 <Link
@@ -340,6 +348,24 @@ function StaffCard({
               <Button size="sm" variant="outline" className="h-10 sm:h-8" onClick={onResend} disabled={busy}>
                 <Send className="h-4 w-4" /> {invitoPendente || !u.hasPassword ? "Reinvia invito" : "Invia invito"}
               </Button>
+              {!isSelf && u.duePassaggi && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-10 sm:h-8"
+                  disabled={busy}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Azzerare la verifica in due passaggi di ${u.nome}?\n\nFallo solo se ha perso il telefono e i codici di recupero e hai verificato che la richiesta venga davvero da questa persona. Le sue sessioni verranno chiuse su tutti i dispositivi: potrà entrare con la sola password e poi riattivarla.`,
+                      )
+                    )
+                      onAzzera();
+                  }}
+                >
+                  <ShieldOff className="h-4 w-4" /> Azzera verifica in due passaggi
+                </Button>
+              )}
               {!isSelf && (
                 <label className="inline-flex h-10 items-center gap-1.5 text-xs text-slate-600 sm:h-8">
                   <span className="sr-only sm:not-sr-only">Ruolo</span>
@@ -445,9 +471,10 @@ export function StaffList({ staff, isAdmin, currentUserId }: { staff: StaffRow[]
   const [esito, setEsito] = useState<Esito | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [avviso, setAvviso] = useState<string | null>(null);
   const close = () => setModal({ kind: "none" });
 
-  const run = async (fn: () => Promise<TeamActionState>) => {
+  const run = async <T extends { error?: string }>(fn: () => Promise<T>) => {
     setError(null);
     setBusy(true);
     try {
@@ -483,6 +510,7 @@ export function StaffList({ staff, isAdmin, currentUserId }: { staff: StaffRow[]
       )}
       {esito && <EsitoBox esito={esito} onDismiss={() => setEsito(null)} />}
       {error && <Alert kind="error">{error}</Alert>}
+      {avviso && <Alert kind="success">{avviso}</Alert>}
 
       {staff.length === 0 ? (
         <EmptyState icon={<Users />} title="Nessun collaboratore" description="Aggiungi i collaboratori dello studio per assegnare loro le attività." />
@@ -504,6 +532,11 @@ export function StaffList({ staff, isAdmin, currentUserId }: { staff: StaffRow[]
                 }}
                 onRole={(ruolo) => run(() => changeRoleAction(u.id, ruolo))}
                 onActive={() => setModal({ kind: "disattiva", utente: u })}
+                onAzzera={async () => {
+                  setAvviso(null);
+                  const r = await run(() => azzeraDuePassaggiAction(u.id));
+                  if (r.message) setAvviso(r.message);
+                }}
               />
             ))}
           </ul>
@@ -525,6 +558,7 @@ export function StaffList({ staff, isAdmin, currentUserId }: { staff: StaffRow[]
                     onResend={() => run(() => resendInviteAction(u.id))}
                     onRole={(ruolo) => run(() => changeRoleAction(u.id, ruolo))}
                     onActive={(attivo) => run(() => setStaffActiveAction(u.id, attivo))}
+                    onAzzera={() => run(() => azzeraDuePassaggiAction(u.id))}
                   />
                 ))}
               </ul>

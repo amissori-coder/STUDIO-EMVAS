@@ -6,11 +6,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { AuthError, requireAdminAction, requireStaffAction, type CurrentUser } from "@/lib/auth/guards";
 import { hashPassword, validatePasswordStrength } from "@/lib/auth/password";
-import { createSession } from "@/lib/auth/session";
+import { apriSessione, richiedeCodice } from "@/lib/auth/accesso";
+import { avviaSecondoPasso } from "@/lib/auth/secondo-passo";
 import { audit } from "@/lib/audit";
 import { isMailerConfigured, sendEmail } from "@/lib/mailer";
 import { appUrl, notify, notifyAdmins } from "@/lib/notifications";
-import { COLORI_UTENTE, RUOLI_STAFF, STATI_ASSENZA, STATI_TASK_APERTI, TIPI_ASSENZA, TIPI_NOTIFICA, type Ruolo } from "@/lib/constants";
+import { COLORI_UTENTE, RUOLI_STAFF, STATI_ASSENZA, STATI_TASK_APERTI, TIPI_ASSENZA, TIPI_NOTIFICA } from "@/lib/constants";
 import { formatDate, normalizeEmail, parseDateInput } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -342,13 +343,20 @@ export async function acceptInviteAction(token: string, _prev: InviteState, form
   if (!user || !user.attivo || !user.inviteExpires || user.inviteExpires < new Date()) {
     return { error: "Invito non valido o scaduto. Chiedi allo studio di inviartene uno nuovo." };
   }
-  await prisma.user.update({
+  const aggiornato = await prisma.user.update({
     where: { id: user.id },
-    data: { passwordHash: await hashPassword(parsed.data.password), inviteToken: null, inviteExpires: null, lastLoginAt: new Date(), sessionVersion: { increment: 1 } },
+    data: { passwordHash: await hashPassword(parsed.data.password), inviteToken: null, inviteExpires: null, sessionVersion: { increment: 1 } },
+    select: { sessionVersion: true },
   });
-  const aggiornato = await prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { sessionVersion: true } });
-  await createSession({ sub: user.id, email: user.email, nome: user.nome, ruolo: user.ruolo as Ruolo, sv: aggiornato.sessionVersion });
   await audit({ userId: user.id, azione: "INVITO_ACCETTATO", entita: "User", entitaId: user.id });
+  // un invito rimandato a chi ha la verifica in due passaggi reimposta la password, non salta il codice:
+  // chi ha solo il link ricevuto per email non deve poter entrare
+  if (richiedeCodice(user)) {
+    await avviaSecondoPasso({ sub: user.id, sv: aggiornato.sessionVersion, metodo: "invito", next: "" });
+    await audit({ userId: user.id, azione: "LOGIN_ATTESA_CODICE", entita: "User", entitaId: user.id, dettagli: { metodo: "invito" } });
+    redirect("/login/codice");
+  }
+  await apriSessione(user);
   redirect(user.ruolo === "CLIENTE" ? "/portale" : "/dashboard");
 }
 

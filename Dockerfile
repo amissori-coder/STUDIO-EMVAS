@@ -35,6 +35,8 @@ COPY --from=build /app/public ./public
 COPY --from=build /app/next.config.ts ./next.config.ts
 COPY --from=build /app/src ./src
 COPY --from=build /app/tsconfig.json ./tsconfig.json
+# script di manutenzione, da lanciare con «docker compose exec app npx tsx scripts/<nome>.ts» (es. azzera-2fa.ts)
+COPY --from=build /app/scripts ./scripts
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh && mkdir -p /app/data
 VOLUME ["/app/data"]
