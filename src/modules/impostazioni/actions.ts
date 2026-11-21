@@ -7,7 +7,7 @@ import { hashPassword, validatePasswordStrength, verifyPassword } from "@/lib/au
 import { audit } from "@/lib/audit";
 import { createSession } from "@/lib/auth/session";
 import { syncGoogleAccount } from "@/lib/gmail";
-import { eseguiJobGiornalieri } from "@/lib/cron/jobs";
+import { giornalieriRegistrati, type eseguiJobGiornalieri as eseguiJobGiornalieriTipo } from "@/lib/cron/jobs";
 import { isPushConfigured, notify, sendPushToUser } from "@/lib/notifications";
 import { COLORI_UTENTE } from "@/lib/constants";
 
@@ -162,14 +162,29 @@ export async function disconnectGmailAction(): Promise<ImpostazioniState> {
 // ---------------------------------------------------------------------------
 // Amministrazione
 // ---------------------------------------------------------------------------
+/** Esito dei promemoria e delle allerte detto in italiano, invece del dato tecnico. */
+function riepilogoGiornalieri(r: Awaited<ReturnType<typeof eseguiJobGiornalieriTipo>>) {
+  const parti: string[] = [];
+  if ("error" in r.promemoria) parti.push(`Promemoria non riusciti: ${r.promemoria.error}`);
+  else {
+    const { inviate, controllate } = r.promemoria;
+    parti.push(`${inviate === 1 ? "1 promemoria inviato" : `${inviate} promemoria inviati`} su ${controllate === 1 ? "1 attività controllata" : `${controllate} attività controllate`}`);
+  }
+  if ("error" in r.assenze) parti.push(`Allerte assenze non riuscite: ${r.assenze.error}`);
+  else parti.push(r.assenze.allerte === 1 ? "1 allerta per assenze" : `${r.assenze.allerte} allerte per assenze`);
+  return parti.join(" · ") + ".";
+}
+
 export async function runDailyJobsAction(): Promise<ImpostazioniState> {
   try {
     const admin = await requireAdminAction();
-    const r = await eseguiJobGiornalieri();
-    await audit({ userId: admin.id, azione: "JOB_GIORNALIERI_MANUALI", entita: "Sistema", dettagli: r });
+    const r = await giornalieriRegistrati("MANUALE");
+    if (!r.eseguito) return { error: r.motivo };
+    await audit({ userId: admin.id, azione: "JOB_GIORNALIERI_MANUALI", entita: "Sistema", dettagli: { esito: r.esito } });
     revalidatePath("/notifiche");
     revalidatePath("/dashboard");
-    return { ok: true, message: "Job giornalieri eseguiti.", result: r, nonce: Date.now() };
+    revalidatePath("/impostazioni");
+    return { ok: true, message: riepilogoGiornalieri(r.risultato), nonce: Date.now() };
   } catch (e) {
     return { error: errorMessage(e, "Errore durante l'esecuzione dei job.") };
   }

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { syncAllGoogleAccounts } from "@/lib/gmail";
+import { postaRegistrata } from "@/lib/cron/jobs";
 import { authorizeCron } from "@/lib/cron/auth";
 
 /**
@@ -8,7 +8,9 @@ import { authorizeCron } from "@/lib/cron/auth";
  */
 async function handler(request: NextRequest) {
   if (!(await authorizeCron(request, "gmail"))) return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
-  return NextResponse.json(await syncAllGoogleAccounts());
+  const r = await postaRegistrata("HTTP");
+  if (!r.eseguito) return NextResponse.json({ error: r.motivo }, { status: 409 });
+  return NextResponse.json({ esito: r.esito, caselle: r.risultato });
 }
 
 export const GET = handler;

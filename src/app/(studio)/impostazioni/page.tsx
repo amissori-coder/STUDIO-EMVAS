@@ -14,6 +14,8 @@ import { PasswordForm } from "@/modules/impostazioni/PasswordForm";
 import { NotificationPrefsForm } from "@/modules/impostazioni/NotificationPrefsForm";
 import { GmailCard, type GmailStatus } from "@/modules/impostazioni/GmailCard";
 import { SystemCard } from "@/modules/impostazioni/SystemCard";
+import { statoJob } from "@/lib/cron/registro";
+import { pianificatoreInternoAttivo } from "@/lib/cron/stato";
 import pkg from "../../../../package.json";
 
 export const metadata: Metadata = { title: "Impostazioni" };
@@ -36,6 +38,7 @@ export default async function ImpostazioniPage(props: PageProps<"/impostazioni">
   const messaggio = str(sp.messaggio);
   const errore = str(sp.errore);
   const isAdmin = user.ruolo === "ADMIN";
+  const elaborazioni = isAdmin ? await statoJob() : [];
   const googleConfigured = isGoogleConfigured();
 
   const db = await prisma.user.findUnique({
@@ -148,7 +151,15 @@ export default async function ImpostazioniPage(props: PageProps<"/impostazioni">
                   googleConfigured,
                   pushConfigured: isPushConfigured(),
                   mailerConfigured: isMailerConfigured(),
-                  cronEnabled: process.env.ENABLE_CRON !== "false" && process.env.ENABLE_CRON !== "0",
+                  cronEnabled: pianificatoreInternoAttivo(),
+                  elaborazioni: elaborazioni.map((e) => ({
+                    nome: e.nome,
+                    etichetta: e.etichetta,
+                    cadenza: e.cadenza,
+                    stato: e.stato,
+                    ultimaRiuscitaLabel: e.ultimaRiuscita ? formatRelative(e.ultimaRiuscita) : null,
+                    dettaglio: e.ultimoDettaglio ? e.ultimoDettaglio.slice(0, 300) : null,
+                  })),
                   appUrl: process.env.APP_URL ?? "http://localhost:3000",
                   version: pkg.version,
                   nodeEnv: process.env.NODE_ENV ?? "development",

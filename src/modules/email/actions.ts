@@ -6,7 +6,8 @@ import { emailVisibile } from "./visibilita";
 import { AuthError, requireStaffAction } from "@/lib/auth/guards";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notifications";
-import { fetchGmailAttachment, syncAllGoogleAccounts, syncGoogleAccount, type SyncResult } from "@/lib/gmail";
+import { fetchGmailAttachment, syncGoogleAccount, type SyncResult } from "@/lib/gmail";
+import { postaRegistrata } from "@/lib/cron/jobs";
 import { deleteUpload, getMaxUploadBytes, isAllowedFilename, saveUpload } from "@/lib/storage";
 import { cartellaDiSalvataggio } from "./cartella-allegati";
 import { formatBytes, truncate } from "@/lib/utils";
@@ -38,7 +39,9 @@ export async function syncNowAction(): Promise<ActionResult> {
     const user = await requireStaffAction();
     let results: SyncResult[] = [];
     if (user.ruolo === "ADMIN") {
-      results = Object.values(await syncAllGoogleAccounts());
+      const r = await postaRegistrata("MANUALE");
+      if (!r.eseguito) return { error: r.motivo };
+      results = Object.values(r.risultato);
     } else {
       const account = await prisma.googleAccount.findUnique({ where: { userId: user.id }, select: { id: true } });
       if (!account) return { error: "Non hai una casella Gmail collegata: collegala dalle Impostazioni." };

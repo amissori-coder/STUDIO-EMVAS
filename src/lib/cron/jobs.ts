@@ -4,6 +4,8 @@ import { notify, notifyAdmins, notifyMany } from "@/lib/notifications";
 import { syncAllGoogleAccounts } from "@/lib/gmail";
 import { RUOLI_STAFF, STATI_TASK_APERTI } from "@/lib/constants";
 import { addDays, daysUntil, endOfDayLocal, formatDate, startOfDayLocal } from "@/lib/utils";
+import { eseguiRegistrato } from "@/lib/cron/registro";
+import { esitoGiornalieri, esitoPosta, type OrigineJob } from "@/lib/cron/stato";
 import { destinatarioPromemoria, livelloPromemoria, orizzontePromemoria, testoPromemoria } from "@/lib/cron/promemoria";
 
 /**
@@ -141,4 +143,14 @@ export async function eseguiJobGiornalieri() {
   const promemoria = await jobPromemoriaScadenze().catch((e) => ({ error: String(e) }));
   const assenze = await jobAllertaAssenze().catch((e) => ({ error: String(e) }));
   return { promemoria, assenze, eseguitoAlle: new Date().toISOString() };
+}
+
+/** Job giornalieri passando dal registro delle esecuzioni (con lucchetto): è la via da usare sempre. */
+export function giornalieriRegistrati(origine: OrigineJob) {
+  return eseguiRegistrato("daily", origine, eseguiJobGiornalieri, esitoGiornalieri);
+}
+
+/** Importazione della posta di tutte le caselle passando dal registro delle esecuzioni (con lucchetto). */
+export function postaRegistrata(origine: OrigineJob) {
+  return eseguiRegistrato("gmail", origine, syncAllGoogleAccounts, esitoPosta);
 }

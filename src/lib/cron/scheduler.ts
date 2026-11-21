@@ -1,6 +1,6 @@
 import "server-only";
 import cron from "node-cron";
-import { eseguiJobGiornalieri, jobSincronizzaGmail } from "@/lib/cron/jobs";
+import { giornalieriRegistrati, postaRegistrata } from "@/lib/cron/jobs";
 
 const g = globalThis as unknown as { __emvasSchedulerStarted?: boolean };
 
@@ -15,8 +15,8 @@ export function startScheduler() {
     "30 7 * * *",
     async () => {
       try {
-        const r = await eseguiJobGiornalieri();
-        console.log("[cron] job giornalieri:", JSON.stringify(r));
+        const r = await giornalieriRegistrati("CRON");
+        console.log("[cron] job giornalieri:", r.eseguito ? r.esito : r.motivo);
       } catch (e) {
         console.error("[cron] errore job giornalieri:", e);
       }
@@ -29,7 +29,8 @@ export function startScheduler() {
     "*/10 * * * *",
     async () => {
       try {
-        await jobSincronizzaGmail();
+        const r = await postaRegistrata("CRON");
+        if (r.eseguito && r.esito !== "OK") console.warn("[cron] sync Gmail:", r.esito);
       } catch (e) {
         console.error("[cron] errore sync Gmail:", e);
       }
