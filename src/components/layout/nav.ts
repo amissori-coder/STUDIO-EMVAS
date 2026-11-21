@@ -3,6 +3,7 @@ import {
   Briefcase,
   CalendarDays,
   ClipboardList,
+  History,
   LayoutDashboard,
   ListChecks,
   Mail,
@@ -30,6 +31,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/team", label: "Team e assenze", icon: Users },
   { href: "/adempimenti", label: "Adempimenti", icon: ClipboardList },
   { href: "/notifiche", label: "Notifiche", icon: Bell },
+  { href: "/registro", label: "Registro operazioni", icon: History, adminOnly: true },
   { href: "/impostazioni", label: "Impostazioni", icon: Settings },
 ];
 

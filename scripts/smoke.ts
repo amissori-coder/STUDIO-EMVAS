@@ -18,7 +18,7 @@ const CLIENTE = { email: "cliente@rossi-impianti.it", password: "Cliente123!" };
 const OUT = process.env.SCREENSHOT_DIR ?? "screenshots";
 const exePath = process.env.CHROMIUM_PATH ?? (fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined);
 
-const STAFF_PAGES = ["/dashboard", "/clienti", "/clienti/nuovo", "/attivita", "/attivita/nuova", "/scadenzario", "/scadenzario?mese=2026-10", "/email", "/chat", "/team", "/team/assenze", "/adempimenti", "/notifiche", "/notifiche?vista=tutte", "/impostazioni"];
+const STAFF_PAGES = ["/dashboard", "/clienti", "/clienti/nuovo", "/attivita", "/attivita/nuova", "/scadenzario", "/scadenzario?mese=2026-10", "/email", "/chat", "/team", "/team/assenze", "/adempimenti", "/notifiche", "/notifiche?vista=tutte", "/registro", "/registro?gruppo=accessi", "/impostazioni"];
 const PORTAL_PAGES = ["/portale"];
 
 let failures = 0;

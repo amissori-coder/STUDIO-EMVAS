@@ -129,7 +129,10 @@ Le notifiche create dai job usano questi link (`/attivita/[id]`, `/email/[id]`, 
 - Mobile-first: layout responsive (tabelle → card su schermi piccoli o `overflow-x-auto`), target touch ≥ 40px.
 - Server Component di default; `"use client"` solo dove serve interattività.
 - Le date "solo giorno" (scadenze, assenze) si salvano a mezzogiorno locale (`parseDateInput`) per evitare slittamenti di fuso.
-- Ogni mutazione rilevante registra un `audit(...)`.
+- Ogni mutazione rilevante registra un `audit(...)` con l'autore (`userId`): solo i tentativi di accesso
+  (`AZIONI_SENZA_AUTORE`) si registrano senza. Ogni nuova `azione` va aggiunta con la sua etichetta
+  italiana in `src/modules/registro/etichette.ts` (il test `tests/unit/registro.test.ts` lo verifica
+  leggendo il codice). Gli amministratori consultano il registro in `/registro`.
 - Notifiche: alla creazione/assegnazione di un'attività notifica l'assegnatario (`ATTIVITA_ASSEGNATA`);
   nuovo messaggio chat → referente cliente + utenti menzionati (`@Nome`); documento caricato dal cliente → referente;
   richiesta assenza → admin; esito assenza → richiedente.
