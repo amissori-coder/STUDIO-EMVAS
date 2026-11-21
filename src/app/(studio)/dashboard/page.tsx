@@ -128,7 +128,17 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
         <Kpi label="Prossimi 7 giorni" value={d.kpi.settimanaMie} sub={`${d.kpi.settimanaTotali} in tutto lo studio`} href="/attivita?assegnatario=me&stato=aperte&periodo=settimana&ordina=scadenza" icon={CalendarRange} tone="blue" />
         <Kpi label="Email da associare" value={d.kpi.emailDaAssociare} href="/email?vista=da-associare" icon={Inbox} tone="teal" />
         <Kpi label="Chat con messaggi nuovi" value={d.kpi.chatNonLette} href="/chat" icon={MessageSquare} tone="purple" />
-        <Kpi label="Documenti dai clienti" value={d.kpi.documentiClienti7g} sub="ultimi 7 giorni" href="/clienti" icon={FileUp} tone="teal" />
+        <Kpi label="Documenti dai clienti" value={d.kpi.documentiClienti7g} sub="ultimi 7 giorni" href="#documenti-clienti" icon={FileUp} tone="teal" />
+        {d.kpi.senzaAssegnatario > 0 && (
+          <Kpi
+            label="Senza assegnatario"
+            value={d.kpi.senzaAssegnatario}
+            sub="attività aperte da assegnare"
+            href="/attivita?assegnatario=nessuno&stato=aperte&ordina=scadenza"
+            icon={UserRoundX}
+            tone="red"
+          />
+        )}
         {isAdmin && <Kpi label="Assenze da approvare" value={d.kpi.assenzeInAttesa} href="/team/assenze?stato=RICHIESTA" icon={CalendarClock} tone="yellow" />}
         {isAdmin && (
           <Link href="/adempimenti" className="flex items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-3 text-sm text-slate-600 transition-colors hover:border-blue-300 hover:text-blue-700 sm:p-4">
@@ -311,8 +321,8 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
             )}
           </Card>
 
-          <Card>
-            <CardHeader title="Ultimi documenti dai clienti" />
+          <Card id="documenti-clienti" className="scroll-mt-20">
+            <CardHeader title="Ultimi documenti dai clienti" description="I cinque caricati più di recente dal portale" />
             {d.ultimiDocumenti.length === 0 ? (
               <CardBody>
                 <p className="flex items-center gap-2 text-sm text-slate-500">

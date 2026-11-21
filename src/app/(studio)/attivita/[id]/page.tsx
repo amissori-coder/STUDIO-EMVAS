@@ -14,6 +14,7 @@ import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { TaskEditModal } from "@/modules/attivita/TaskEditModal";
 import { NoteForm, RiassegnaForm, StatoButtons } from "@/modules/attivita/TaskDetailForms";
 import { eliminaTask } from "@/modules/attivita/actions";
+import { descriviDestinatario, giorni } from "@/lib/cron/promemoria";
 import { caricaOpzioniForm } from "@/modules/attivita/opzioni";
 import { capitalize, isTaskAperta, isTaskScaduta } from "@/modules/attivita/lib";
 
@@ -27,8 +28,8 @@ export default async function DettaglioAttivitaPage(props: PageProps<"/attivita/
   const task = await prisma.task.findUnique({
     where: { id },
     include: {
-      client: { select: { id: true, denominazione: true, attivo: true } },
-      assignee: { select: { id: true, nome: true, colore: true } },
+      client: { select: { id: true, denominazione: true, attivo: true, referente: { select: { id: true, nome: true, attivo: true } } } },
+      assignee: { select: { id: true, nome: true, colore: true, attivo: true } },
       createdBy: { select: { id: true, nome: true } },
       template: { select: { id: true, nome: true, categoria: true, ricorrenza: true } },
       emails: { select: { id: true, subject: true, fromAddr: true, fromName: true, receivedAt: true }, orderBy: { receivedAt: "desc" } },
@@ -89,7 +90,11 @@ export default async function DettaglioAttivitaPage(props: PageProps<"/attivita/
                   </p>
                   <p className={cn("text-xs", scaduta ? "text-red-600" : "text-slate-500")}>
                     {aperta ? capitalize(describeDeadline(task.scadenza)) : task.completatoAt ? `Completata il ${formatDate(task.completatoAt)}` : "Chiusa"}
-                    {aperta && ` · promemoria ${task.giorniPreavviso} giorni prima`}
+                    {aperta &&
+                      ` · promemoria ${giorni(task.giorniPreavviso)} prima, ${descriviDestinatario({
+                        assegnatario: task.assignee,
+                        cliente: task.client ? { attivo: task.client.attivo, referente: task.client.referente } : null,
+                      })}`}
                   </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
@@ -213,7 +218,7 @@ export default async function DettaglioAttivitaPage(props: PageProps<"/attivita/
                 {task.template && <Riga label="Categoria">{CATEGORIE_ADEMPIMENTO[task.template.categoria as keyof typeof CATEGORIE_ADEMPIMENTO] ?? task.template.categoria}</Riga>}
                 {task.periodo && <Riga label="Periodo">{task.periodo}</Riga>}
                 {task.anno && <Riga label="Anno">{task.anno}</Riga>}
-                <Riga label="Preavviso">{task.giorniPreavviso} giorni</Riga>
+                <Riga label="Preavviso">{giorni(task.giorniPreavviso)}</Riga>
                 <Riga label="Creata da">{task.createdBy?.nome ?? "—"}</Riga>
                 <Riga label="Creata il">{formatDateTime(task.createdAt)}</Riga>
                 <Riga label="Ultima modifica">{formatDateTime(task.updatedAt)}</Riga>

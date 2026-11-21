@@ -1,51 +1,75 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import { notify, notifyMany } from "@/lib/notifications";
+import { notify, notifyAdmins, notifyMany } from "@/lib/notifications";
 import { syncAllGoogleAccounts } from "@/lib/gmail";
 import { RUOLI_STAFF, STATI_TASK_APERTI } from "@/lib/constants";
 import { addDays, daysUntil, endOfDayLocal, formatDate, startOfDayLocal } from "@/lib/utils";
+import { destinatarioPromemoria, livelloPromemoria, orizzontePromemoria, testoPromemoria } from "@/lib/cron/promemoria";
 
 /**
- * Promemoria scadenze: per ogni attività aperta assegnata invia al massimo una notifica
- * per "livello" (preavviso, domani, oggi, scaduta). Con giorniPreavviso = 0 (o 1) non c'è preavviso.
+ * Promemoria scadenze: per ogni attività aperta invia al massimo una notifica per "livello"
+ * (preavviso, domani, oggi, scaduta). Con giorniPreavviso = 0 (o 1) non c'è preavviso.
+ *
+ * Il destinatario è l'assegnatario; se manca o non è più attivo l'avviso ricade sul referente del
+ * cliente e poi sugli amministratori (destinatarioPromemoria). Il livello viene segnato come inviato
+ * SOLO se qualcuno è stato davvero raggiunto: altrimenti si riprova il giorno dopo, invece di
+ * consumarlo in silenzio.
  */
 export async function jobPromemoriaScadenze() {
   const oggi = startOfDayLocal(new Date());
-  const orizzonte = addDays(oggi, 60);
+  const max = await prisma.task.aggregate({ where: { stato: { in: STATI_TASK_APERTI } }, _max: { giorniPreavviso: true } });
+  const orizzonte = addDays(oggi, orizzontePromemoria(max._max.giorniPreavviso));
+  const persona = { select: { id: true, nome: true, attivo: true } } as const;
   const tasks = await prisma.task.findMany({
-    where: { stato: { in: STATI_TASK_APERTI }, assigneeId: { not: null }, scadenza: { lte: endOfDayLocal(orizzonte) } },
-    include: { client: { select: { denominazione: true } } },
+    where: { stato: { in: STATI_TASK_APERTI }, scadenza: { lte: endOfDayLocal(orizzonte) } },
+    include: {
+      assignee: persona,
+      client: { select: { denominazione: true, attivo: true, referente: persona } },
+    },
   });
   let inviate = 0;
+  let senzaDestinatario = 0;
   for (const t of tasks) {
     const diff = daysUntil(t.scadenza);
-    const preavviso = t.giorniPreavviso ?? 7;
-    let kind: "PREAVVISO" | "DOMANI" | "OGGI" | "SCADUTA" | null = null;
-    if (diff < 0) kind = "SCADUTA";
-    else if (diff === 0) kind = "OGGI";
-    else if (diff === 1) kind = "DOMANI";
-    else if (preavviso >= 2 && diff <= preavviso) kind = "PREAVVISO";
-    if (!kind || kind === t.lastReminderKind) continue;
+    const livello = livelloPromemoria(diff, t.giorniPreavviso);
+    if (!livello || livello === t.lastReminderKind) continue;
 
-    const cliente = t.client ? ` · ${t.client.denominazione}` : "";
-    const testo: Record<typeof kind, { tipo: "SCADENZA_VICINA" | "SCADENZA_OGGI" | "SCADUTA"; titolo: string }> = {
-      PREAVVISO: { tipo: "SCADENZA_VICINA", titolo: `Scade tra ${diff} giorni: ${t.titolo}` },
-      DOMANI: { tipo: "SCADENZA_VICINA", titolo: `Scade domani: ${t.titolo}` },
-      OGGI: { tipo: "SCADENZA_OGGI", titolo: `Scade oggi: ${t.titolo}` },
-      SCADUTA: { tipo: "SCADUTA", titolo: `Scaduta da ${-diff} giorni: ${t.titolo}` },
-    };
-    await notify({
-      userId: t.assigneeId!,
-      tipo: testo[kind].tipo,
-      titolo: testo[kind].titolo,
-      corpo: `Scadenza ${formatDate(t.scadenza)}${cliente}`,
-      link: `/attivita/${t.id}`,
-      email: kind !== "PREAVVISO",
+    const destinatario = destinatarioPromemoria({
+      assegnatario: t.assignee,
+      cliente: t.client ? { attivo: t.client.attivo, referente: t.client.referente } : null,
     });
-    await prisma.task.update({ where: { id: t.id }, data: { lastReminderKind: kind, lastReminderAt: new Date() } });
+    if (destinatario.tipo === "NESSUNO") {
+      senzaDestinatario++;
+      continue;
+    }
+
+    const testo = testoPromemoria(livello, diff, t.titolo);
+    const cliente = t.client ? ` · ${t.client.denominazione}` : "";
+    const avviso = {
+      tipo: testo.tipo,
+      titolo: destinatario.tipo === "ASSEGNATARIO" ? testo.titolo : `${destinatario.prefisso} · ${testo.titolo}`,
+      corpo: `Scadenza ${formatDate(t.scadenza)}${cliente}` + (destinatario.tipo === "ASSEGNATARIO" ? "" : `\n${destinatario.motivo}`),
+      link: `/attivita/${t.id}`,
+      email: livello !== "PREAVVISO",
+    };
+
+    let raggiunti = 0;
+    if (destinatario.tipo === "AMMINISTRATORI") {
+      raggiunti = await notifyAdmins(avviso);
+    } else {
+      raggiunti = (await notify({ userId: destinatario.userId, ...avviso })) ? 1 : 0;
+      // l'utente può essere stato disattivato fra la lettura e l'invio: si ricade sugli amministratori
+      if (!raggiunti) raggiunti = await notifyAdmins(avviso);
+    }
+
+    if (!raggiunti) {
+      senzaDestinatario++; // il livello non si consuma: domani si riprova
+      continue;
+    }
+    await prisma.task.update({ where: { id: t.id }, data: { lastReminderKind: livello, lastReminderAt: new Date() } });
     inviate++;
   }
-  return { controllate: tasks.length, inviate };
+  return { controllate: tasks.length, inviate, senzaDestinatario };
 }
 
 /**
@@ -80,12 +104,16 @@ export async function jobAllertaAssenze(giorniOrizzonte = 3) {
       .slice(0, 5)
       .map((t) => `• ${formatDate(t.scadenza)} ${t.titolo}${t.client ? ` (${t.client.denominazione})` : ""}`)
       .join("\n");
-    const extra = tasks.length > 5 ? `\n…e altre ${tasks.length - 5}` : "";
+    const resto = tasks.length - 5;
+    const extra = resto > 1 ? `\n…e altre ${resto}` : resto === 1 ? "\n…e un'altra" : "";
     let destinatari = staff.filter((x) => x.ruolo === "ADMIN" && x.id !== a.userId).map((x) => x.id);
     if (!destinatari.length) destinatari = staff.filter((x) => x.id !== a.userId).map((x) => x.id);
     if (!destinatari.length) continue;
 
-    const titolo = `${a.user.nome} è assente e ha ${tasks.length} attività in scadenza`;
+    const titolo =
+      tasks.length === 1
+        ? `${a.user.nome} è assente e ha un'attività in scadenza`
+        : `${a.user.nome} è assente e ha ${tasks.length} attività in scadenza`;
     const corpo = `Assenza dal ${formatDate(a.dataInizio)} al ${formatDate(a.dataFine)}.\n${elenco}${extra}`;
     const link = `/attivita?assegnatario=${a.userId}&stato=aperte&ordina=scadenza`;
 

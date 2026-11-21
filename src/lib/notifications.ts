@@ -67,6 +67,8 @@ export async function sendPushToUser(userId: string, payload: { title: string; b
 /**
  * Crea una notifica in-app e la recapita via push (e opzionalmente email).
  * Non lancia mai: gli errori di consegna vengono solo registrati.
+ * Restituisce null se l'utente non esiste o non è attivo: in quel caso NON è stato avvisato nessuno,
+ * e chi segna un avviso come "già inviato" deve controllarlo (vedi jobPromemoriaScadenze).
  */
 export async function notify(input: NotifyInput) {
   const user = await prisma.user.findUnique({
@@ -97,15 +99,17 @@ export async function notify(input: NotifyInput) {
   return n;
 }
 
+/** Notifica più utenti; restituisce quante notifiche sono state davvero create. */
 export async function notifyMany(userIds: string[], input: Omit<NotifyInput, "userId">) {
   const unique = Array.from(new Set(userIds));
-  await Promise.allSettled(unique.map((userId) => notify({ ...input, userId })));
+  const esiti = await Promise.allSettled(unique.map((userId) => notify({ ...input, userId })));
+  return esiti.filter((e) => e.status === "fulfilled" && e.value !== null).length;
 }
 
-/** Notifica tutti gli amministratori attivi (escludendo opzionalmente un utente). */
+/** Notifica tutti gli amministratori attivi (escludendo opzionalmente un utente); restituisce quanti ne ha raggiunti. */
 export async function notifyAdmins(input: Omit<NotifyInput, "userId">, excludeUserId?: string) {
   const admins = await prisma.user.findMany({ where: { ruolo: "ADMIN", attivo: true }, select: { id: true } });
-  await notifyMany(admins.map((a) => a.id).filter((id) => id !== excludeUserId), input);
+  return notifyMany(admins.map((a) => a.id).filter((id) => id !== excludeUserId), input);
 }
 
 export async function countUnreadNotifications(userId: string) {

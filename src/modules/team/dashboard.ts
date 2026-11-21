@@ -32,6 +32,8 @@ export interface DashboardData {
     chatNonLette: number;
     documentiClienti7g: number;
     assenzeInAttesa: number;
+    /** attività aperte senza assegnatario: ricevono il promemoria tramite referente o amministratori, ma vanno assegnate */
+    senzaAssegnatario: number;
   };
   mieAttivita: DashTask[];
   allerte: AllertaAssenza[];
@@ -95,6 +97,7 @@ export async function loadDashboard(user: CurrentUser): Promise<DashboardData> {
     prossimeScadenze,
     prossimeScadenzeTotale,
     taskGenerateAnno,
+    senzaAssegnatario,
   ] = await Promise.all([
     prisma.task.count({ where: { ...aperte, assigneeId: user.id, scadenza: { lt: oggi } } }),
     prisma.task.count({ where: { ...aperte, scadenza: { lt: oggi } } }),
@@ -146,6 +149,7 @@ export async function loadDashboard(user: CurrentUser): Promise<DashboardData> {
       .then((t) => ordinaPerScadenzaEPriorita(t, 10)),
     prisma.task.count({ where: { ...aperte, scadenza: { gte: oggi, lte: fineSettimana } } }),
     isAdmin ? prisma.task.count({ where: { templateId: { not: null }, anno } }) : Promise.resolve(1),
+    prisma.task.count({ where: { ...aperte, assigneeId: null } }),
   ]);
 
   // Allerta assenze: per ogni assente (oggi..+3 giorni) le attività aperte in scadenza nella finestra o già scadute
@@ -177,6 +181,7 @@ export async function loadDashboard(user: CurrentUser): Promise<DashboardData> {
       chatNonLette: chat,
       documentiClienti7g,
       assenzeInAttesa,
+      senzaAssegnatario,
     },
     mieAttivita,
     allerte,
